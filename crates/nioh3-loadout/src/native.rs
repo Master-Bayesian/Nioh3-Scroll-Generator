@@ -8,10 +8,10 @@
 
 #![cfg(windows)]
 
+use crate::oracle_contract::{OracleEnvironment, SnapshotKnowledge};
 use std::arch::global_asm;
 use std::ffi::c_void;
 use std::path::Path;
-use crate::oracle_contract::{OracleEnvironment, SnapshotKnowledge};
 
 #[repr(C)]
 struct Ctx {
@@ -231,7 +231,9 @@ extern "system" {
 unsafe extern "system" fn on_fault(info: *mut [*mut u8; 2]) -> i32 {
     // Vectored handlers run process-wide; a foreign thread's exception must
     // never resume on this evaluator's saved host stack.
-    if GetCurrentThreadId() != OWNER_THREAD { return 0; }
+    if GetCurrentThreadId() != OWNER_THREAD {
+        return 0;
+    }
     if promote((*info)[0]) {
         return -1;
     }
@@ -349,8 +351,11 @@ pub struct Native {
 }
 
 fn hex_bytes(s: &str) -> Result<Vec<u8>, String> {
-    if !s.is_ascii() || !s.len().is_multiple_of(2) { return Err("invalid hex bytes".into()); }
-    (0..s.len()).step_by(2)
+    if !s.is_ascii() || !s.len().is_multiple_of(2) {
+        return Err("invalid hex bytes".into());
+    }
+    (0..s.len())
+        .step_by(2)
         .map(|i| u8::from_str_radix(&s[i..i + 2], 16).map_err(|_| "invalid hex bytes".into()))
         .collect()
 }
@@ -372,9 +377,17 @@ impl Native {
         ];
         for line in scene.lines() {
             let w: Vec<&str> = line.trim().splitn(3, ' ').collect();
-            if line.trim().is_empty() || line.trim_start().starts_with('#') { continue; }
-            let needed = if matches!(w[0], "section" | "domain" | "reg" | "xmm") { 3 } else { 2 };
-            if w.len() < needed { return Err(format!("incomplete scene directive: {}", w[0])); }
+            if line.trim().is_empty() || line.trim_start().starts_with('#') {
+                continue;
+            }
+            let needed = if matches!(w[0], "section" | "domain" | "reg" | "xmm") {
+                3
+            } else {
+                2
+            };
+            if w.len() < needed {
+                return Err(format!("incomplete scene directive: {}", w[0]));
+            }
             let h = |s: &str| u64::from_str_radix(s, 16).map_err(|e| e.to_string());
             match w[0] {
                 "module" => module = h(w[1])?,
@@ -389,12 +402,18 @@ impl Native {
                         .iter()
                         .position(|n| *n == w[1])
                         .ok_or("unknown register")?;
-                    gp[i] = u64::from_le_bytes(b.as_slice().try_into().map_err(|_| "register must contain eight bytes")?);
+                    gp[i] = u64::from_le_bytes(
+                        b.as_slice()
+                            .try_into()
+                            .map_err(|_| "register must contain eight bytes")?,
+                    );
                 }
                 "xmm" => {
                     let i: usize = w[1].parse().map_err(|_| "bad xmm")?;
                     let b = hex_bytes(w[2])?;
-                    if i >= 16 || b.len() != 16 { return Err("invalid XMM register".into()); }
+                    if i >= 16 || b.len() != 16 {
+                        return Err("invalid XMM register".into());
+                    }
                     xmm[i].copy_from_slice(&b);
                 }
                 _ => {}
@@ -404,7 +423,9 @@ impl Native {
         let mut regions: Vec<(u64, Vec<u8>, Vec<u8>)> = Vec::new();
         let mut o = 0;
         while o < raw.len() {
-            if raw.len() - o < 13 { return Err("truncated memory header".into()); }
+            if raw.len() - o < 13 {
+                return Err("truncated memory header".into());
+            }
             let start = u64::from_le_bytes(raw[o..o + 8].try_into().unwrap());
             let n = u32::from_le_bytes(raw[o + 8..o + 12].try_into().unwrap()) as usize;
             o += 13;
@@ -422,22 +443,40 @@ impl Native {
             .iter()
             .map(|(rva, f)| {
                 let address = module.checked_add(*rva).ok_or("section address overflow")?;
-                let path = if Path::new(f).is_absolute() { Path::new(f).to_path_buf() } else { dir.join(f) };
+                let path = if Path::new(f).is_absolute() {
+                    Path::new(f).to_path_buf()
+                } else {
+                    dir.join(f)
+                };
                 std::fs::read(path)
-                    .and_then(|d| if address.checked_add(d.len() as u64).is_some() { Ok((address, d)) }
-                        else { Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "section extent overflow")) })
+                    .and_then(|d| {
+                        if address.checked_add(d.len() as u64).is_some() {
+                            Ok((address, d))
+                        } else {
+                            Err(std::io::Error::new(
+                                std::io::ErrorKind::InvalidData,
+                                "section extent overflow",
+                            ))
+                        }
+                    })
                     .map_err(|e| e.to_string())
             })
             .collect::<Result<_, _>>()?;
         let chunks_of = |start: u64, len: u64| {
             let mut out = Vec::new();
-            if len == 0 { return out; }
-            let Some(last) = start.checked_add(len - 1) else { return out; };
+            if len == 0 {
+                return out;
+            }
+            let Some(last) = start.checked_add(len - 1) else {
+                return out;
+            };
             let last = last & !(CHUNK - 1);
             let mut c = start & !(CHUNK - 1);
             loop {
                 out.push(c);
-                if c == last { break; }
+                if c == last {
+                    break;
+                }
                 c += CHUNK;
             }
             out
@@ -459,8 +498,10 @@ impl Native {
             return Err("a native scene cannot map the null chunk".into());
         }
         let mapped = |start: u64, len: u64| -> bool {
-            start.checked_add(len).is_some() && chunks_of(start, len).iter()
-                .all(|c| code.binary_search(c).is_ok() || watched.binary_search(c).is_ok())
+            start.checked_add(len).is_some()
+                && chunks_of(start, len)
+                    .iter()
+                    .all(|c| code.binary_search(c).is_ok() || watched.binary_search(c).is_ok())
         };
         for (rva, len) in [(0x62451E, 8), (0x9F7CA2, 30)] {
             if !module.checked_add(rva).is_some_and(|a| mapped(a, len)) {
@@ -470,7 +511,8 @@ impl Native {
         if !module.checked_add(entry).is_some_and(|a| mapped(a, 1))
             || !main.checked_add(0x218).is_some_and(|a| mapped(a, 4))
             || !mapped(rsp.saturating_sub(8), 0x30)
-            || domain.iter().any(|&(s, e)| e <= s || !mapped(s, e - s)) {
+            || domain.iter().any(|&(s, e)| e <= s || !mapped(s, e - s))
+        {
             return Err("invalid native entry, stack, score or candidate-domain mapping".into());
         }
         if OPENED.swap(true, std::sync::atomic::Ordering::SeqCst) {
@@ -545,13 +587,13 @@ impl Native {
         // there is no synthetic POP and no jump into an unrelated caller.
         let cut_rva = 0x9F7CA2;
         let mut row: Vec<u8> = vec![
-            0x41,0x80,0x79,0x01,0x00,0x75,0x00,
-            0x41,0x80,0x79,0x03,0x00,0x75,0x00,
-            0x41,0x80,0x79,0x05,0x00,0x75,0x00,
-            0x31,0xD2,0xE9,0,0,0,0,0x0F,0x0B,
+            0x41, 0x80, 0x79, 0x01, 0x00, 0x75, 0x00, 0x41, 0x80, 0x79, 0x03, 0x00, 0x75, 0x00,
+            0x41, 0x80, 0x79, 0x05, 0x00, 0x75, 0x00, 0x31, 0xD2, 0xE9, 0, 0, 0, 0, 0x0F, 0x0B,
         ];
         let fail_at = row.len() - 2;
-        for jne in [5usize, 12, 19] { row[jne + 1] = (fail_at - (jne + 2)) as u8; }
+        for jne in [5usize, 12, 19] {
+            row[jne + 1] = (fail_at - (jne + 2)) as u8;
+        }
         row[fail_at - 4..fail_at].copy_from_slice(&rel(cut_rva + fail_at as u64, 0x9F7CCC));
         // Retain both implementations. A helper call cannot use MAIN's continuation.
         let row_lookup = RowLookupCode {
@@ -671,12 +713,16 @@ impl Native {
 
     /// Put every page written since the last reset back to the template.
     pub fn reset(&mut self) {
-        if let Err(error) = self.try_reset() { self.reset_error = Some(error); }
+        if let Err(error) = self.try_reset() {
+            self.reset_error = Some(error);
+        }
     }
 
     /// Fallible reset; a failure poisons execution even for legacy void-reset callers.
     pub fn try_reset(&mut self) -> Result<(), String> {
-        if let Some(error) = &self.reset_error { return Err(error.clone()); }
+        if let Some(error) = &self.reset_error {
+            return Err(error.clone());
+        }
         if unsafe { GetCurrentThreadId() } != self.owner_thread {
             return Err("native reset attempted on a different thread".into());
         }
@@ -746,13 +792,19 @@ impl Native {
             }
         }
         let result = self.row_lookup.select(mode);
-        if let Err(error) = &result { self.reset_error = Some(error.clone()); }
+        if let Err(error) = &result {
+            self.reset_error = Some(error.clone());
+        }
         result?;
         // Watched allocations are executable. A helper can dirty code outside
         // the wrapper cut; restoring those pages must synchronize that code too.
         if self.restored != restored_before
-            && unsafe { FlushInstructionCache(GetCurrentProcess(), std::ptr::null(), 0) } == 0 {
-            let error = format!("native reset code synchronization failed: {}", std::io::Error::last_os_error());
+            && unsafe { FlushInstructionCache(GetCurrentProcess(), std::ptr::null(), 0) } == 0
+        {
+            let error = format!(
+                "native reset code synchronization failed: {}",
+                std::io::Error::last_os_error()
+            );
             self.row_lookup.state = LookupCodeState::Unsynchronized(mode);
             self.reset_error = Some(error.clone());
             return Err(error);
@@ -822,12 +874,18 @@ impl Native {
         std::fs::write(path, out)?;
         // Exact-byte knownness accompanies every newly exported image. Padding
         // and absent TLS state remain unknown despite readable native pages.
-        std::fs::write(path.with_file_name("image_known.bin"), self.knowledge.encode(&chunks))
+        std::fs::write(
+            path.with_file_name("image_known.bin"),
+            self.knowledge.encode(&chunks),
+        )
     }
 
     pub fn oracle_environment(&self) -> OracleEnvironment {
         OracleEnvironment {
-            tls_guard_captured: self.knowledge.require_range(self.module + 0x4BA66A0, 4).is_ok(),
+            tls_guard_captured: self
+                .knowledge
+                .require_range(self.module + 0x4BA66A0, 4)
+                .is_ok(),
             tls_epoch_captured: false, // The scene format carries no captured TEB/TLS binding.
             native_reads_checked: false, // Hardware page validity is not per-byte provenance.
             source_admission_derived: false, // The runtime does not certify its input producer.
@@ -949,18 +1007,29 @@ impl Native {
         result
     }
     /// Run the original instructions and read their independent final channels.
-    pub fn run_components(&mut self) -> Result<crate::damage::DamageWords,String> {
-        let start=self.score.checked_add(0xC).ok_or("component address overflow")?;
-        let end=start.checked_add(7).ok_or("component address overflow")?;
-        if [start & !0xFFFFu64,end & !0xFFFFu64].iter().any(|chunk|
-            !self.code.contains(chunk) && !self.template.contains_key(chunk)) {
+    pub fn run_components(&mut self) -> Result<crate::damage::DamageWords, String> {
+        let start = self
+            .score
+            .checked_add(0xC)
+            .ok_or("component address overflow")?;
+        let end = start.checked_add(7).ok_or("component address overflow")?;
+        if [start & !0xFFFFu64, end & !0xFFFFu64]
+            .iter()
+            .any(|chunk| !self.code.contains(chunk) && !self.template.contains_key(chunk))
+        {
             return Err("native component outputs are outside the mapped image".into());
         }
         self.execute()?;
         // SAFETY: score was validated by open; both component words were checked
         // against owned mapped chunks above. The executed game writes them.
-        Ok(unsafe { crate::damage::DamageWords { total:*(self.score as *const u32),
-            physical:*(start as *const u32),elemental:*((start+4) as *const u32),reserved:0 } })
+        Ok(unsafe {
+            crate::damage::DamageWords {
+                total: *(self.score as *const u32),
+                physical: *(start as *const u32),
+                elemental: *((start + 4) as *const u32),
+                reserved: 0,
+            }
+        })
     }
 
     /// Run MAIN on the current memory and return its score bits at MAIN+0x218.
@@ -974,7 +1043,9 @@ impl Native {
         if unsafe { GetCurrentThreadId() } != self.owner_thread {
             return Err("native execution attempted on a different thread".into());
         }
-        if let Some(error) = &self.reset_error { return Err(error.clone()); }
+        if let Some(error) = &self.reset_error {
+            return Err(error.clone());
+        }
         if matches!(self.row_lookup.state, LookupCodeState::Unsynchronized(_)) {
             return Err("Native code is not synchronized after an adapter write failure".into());
         }

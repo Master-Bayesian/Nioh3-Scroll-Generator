@@ -590,7 +590,12 @@ fn run() -> Result<(), String> {
             let plan = host
                 .load_plan_untrusted(&plan_id)
                 .map_err(|error| error.to_string())?;
-            println!("{}", host.discard(plan).outcome);
+            println!(
+                "{}",
+                host.discard(&plan)
+                    .map_err(|error| error.to_string())?
+                    .outcome
+            );
             Ok(())
         }
         "restore" => {

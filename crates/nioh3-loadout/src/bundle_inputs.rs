@@ -19,22 +19,54 @@ impl BundleInputs {
         Self::load_named(dir, legacy_image, false)
     }
 
-    fn load_named(dir: &Path, legacy_image: bool, sample_character: bool) -> Result<Self, LoadError> {
+    fn load_named(
+        dir: &Path,
+        legacy_image: bool,
+        sample_character: bool,
+    ) -> Result<Self, LoadError> {
         let mut files = BTreeMap::new();
-        for name in ["programs.txt", "arena.bin", "tables.bin", "frame.bin",
-            "characters.bin", "gpu_setup.txt", "hits.txt", "live_groups.txt", "survival_groups.txt"] {
-            if name == "characters.bin" && !sample_character { continue; }
+        for name in [
+            "programs.txt",
+            "arena.bin",
+            "tables.bin",
+            "frame.bin",
+            "characters.bin",
+            "gpu_setup.txt",
+            "hits.txt",
+            "live_groups.txt",
+            "survival_groups.txt",
+        ] {
+            if name == "characters.bin" && !sample_character {
+                continue;
+            }
             let file = dir.join(name);
-            let bytes = std::fs::read(&file).map_err(|e| LoadError { file, reason: e.to_string() })?;
+            let bytes = std::fs::read(&file).map_err(|e| LoadError {
+                file,
+                reason: e.to_string(),
+            })?;
             files.insert(name, Arc::from(bytes));
         }
-        for name in ["mapped.bin", "image.bin", "event_plan.json", "source_numeric.bin"] {
-            if name == "image.bin" && !legacy_image { continue; }
+        for name in [
+            "mapped.bin",
+            "image.bin",
+            "event_plan.json",
+            "source_numeric.bin",
+        ] {
+            if name == "image.bin" && !legacy_image {
+                continue;
+            }
             let file = dir.join(name);
             match std::fs::read(&file) {
-                Ok(bytes) => { files.insert(name, Arc::from(bytes)); }
+                Ok(bytes) => {
+                    files.insert(name, Arc::from(bytes));
+                }
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                Err(e) => return Err(LoadError { file, reason: e.to_string() }),
+                Err(e) => {
+                    return Err(LoadError {
+                        file,
+                        reason: e.to_string(),
+                    })
+                }
             }
         }
         Ok(Self(files))
@@ -45,7 +77,8 @@ impl BundleInputs {
     }
 
     pub(crate) fn required(&self, name: &str) -> &[u8] {
-        self.file(name).expect("BundleInputs::load checked required file")
+        self.file(name)
+            .expect("BundleInputs::load checked required file")
     }
 
     pub(crate) fn digest(&self) -> String {
@@ -66,13 +99,29 @@ mod tests {
     use super::*;
     #[test]
     fn lazy_consumers_keep_owned_bytes_after_the_file_changes() {
-        let root = std::env::var_os("NIOH3_BUILD_ROOT").map(std::path::PathBuf::from)
+        let root = std::env::var_os("NIOH3_BUILD_ROOT")
+            .map(std::path::PathBuf::from)
             .unwrap_or_else(std::env::temp_dir);
-        let dir = root.join(format!("bundle-input-test-{}-{}", std::process::id(),
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let dir = root.join(format!(
+            "bundle-input-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
-        for name in ["programs.txt", "arena.bin", "tables.bin", "frame.bin",
-            "characters.bin", "gpu_setup.txt", "hits.txt", "live_groups.txt", "survival_groups.txt"] {
+        for name in [
+            "programs.txt",
+            "arena.bin",
+            "tables.bin",
+            "frame.bin",
+            "characters.bin",
+            "gpu_setup.txt",
+            "hits.txt",
+            "live_groups.txt",
+            "survival_groups.txt",
+        ] {
             std::fs::write(dir.join(name), b"old").unwrap();
         }
         let owner = BundleInputs::load(&dir, true).unwrap();

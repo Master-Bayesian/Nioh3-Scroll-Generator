@@ -18,16 +18,21 @@ pub(crate) fn kind(at: usize) -> StatWord {
         return StatWord::Rebuilt;
     }
     match at {
-        0x18 | 0x1C | 0x164 | 0x168 | 0x16C | 0x174 | 0x178 | 0x1BC | 0x1C0
-        | 0x1C4 | 0x1C8 | 0x218 => StatWord::Add32,
+        0x18 | 0x1C | 0x164 | 0x168 | 0x16C | 0x174 | 0x178 | 0x1BC | 0x1C0 | 0x1C4 | 0x1C8
+        | 0x218 => StatWord::Add32,
         0x21C => StatWord::AddLow16,
-        0x1A8 | 0x1AC | 0x4DC | 0x4FC | 0x51C | 0x53C | 0x55C | 0x57C
-        | 0x77C | 0x780 | 0x784 | 0x788 | 0x78C | 0x790 => StatWord::FloatResidual,
+        0x1A8 | 0x1AC | 0x4DC | 0x4FC | 0x51C | 0x53C | 0x55C | 0x57C | 0x77C | 0x780 | 0x784
+        | 0x788 | 0x78C | 0x790 => StatWord::FloatResidual,
         _ => StatWord::Unchanged,
     }
 }
 
-pub(crate) fn merge(at: usize, baseline: u32, candidate: u32, captured: u32) -> Result<u32, &'static str> {
+pub(crate) fn merge(
+    at: usize,
+    baseline: u32,
+    candidate: u32,
+    captured: u32,
+) -> Result<u32, &'static str> {
     if kind(at) == StatWord::Rebuilt {
         return Ok(candidate);
     }
@@ -41,11 +46,17 @@ pub(crate) fn merge(at: usize, baseline: u32, candidate: u32, captured: u32) -> 
             if (baseline ^ candidate) & 0xFFFF_0000 != 0 {
                 return Err("unclassified write to STAT+21E");
             }
-            let low = (captured as u16).wrapping_add(candidate as u16).wrapping_sub(baseline as u16);
+            let low = (captured as u16)
+                .wrapping_add(candidate as u16)
+                .wrapping_sub(baseline as u16);
             Ok((captured & 0xFFFF_0000) | u32::from(low))
         }
         StatWord::FloatResidual => {
-            let (a, b, c) = (f32::from_bits(baseline), f32::from_bits(candidate), f32::from_bits(captured));
+            let (a, b, c) = (
+                f32::from_bits(baseline),
+                f32::from_bits(candidate),
+                f32::from_bits(captured),
+            );
             if !a.is_finite() || !b.is_finite() || !c.is_finite() {
                 return Err("nonfinite STAT float residual input");
             }
@@ -81,7 +92,10 @@ mod tests {
 
     #[test]
     fn packed_add16_does_not_borrow_from_its_neighbor() {
-        assert_eq!(merge(0x21C, 0x0007_FFFE, 0x0007_0001, 0x0007_000A), Ok(0x0007_000D));
+        assert_eq!(
+            merge(0x21C, 0x0007_FFFE, 0x0007_0001, 0x0007_000A),
+            Ok(0x0007_000D)
+        );
         assert!(merge(0x21C, 0x0007_0000, 0x0008_0000, 0).is_err());
     }
 
@@ -89,6 +103,9 @@ mod tests {
     fn unknown_writers_and_nonfinite_residuals_are_explicit_failures() {
         assert!(merge(0x220, 0, 1, 0).is_err());
         assert!(merge(0x77C, 0, f32::NAN.to_bits(), 0).is_err());
-        assert_eq!(merge(0x77C, 5.0f32.to_bits(), 7.0f32.to_bits(), 10.0f32.to_bits()), Ok(12.0f32.to_bits()));
+        assert_eq!(
+            merge(0x77C, 5.0f32.to_bits(), 7.0f32.to_bits(), 10.0f32.to_bits()),
+            Ok(12.0f32.to_bits())
+        );
     }
 }

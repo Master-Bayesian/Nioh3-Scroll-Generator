@@ -129,10 +129,7 @@ impl Parameters {
                 .filter(|row| u32_at(*row, 0x24) != 1)
             {
                 Some(row) => {
-                    let rank = self.rank[8..]
-                        .as_chunks::<64>()
-                        .0
-                        .get(usize::from(level));
+                    let rank = self.rank[8..].as_chunks::<64>().0.get(usize::from(level));
                     let value = |base, slope, column| {
                         let base = u32_at(row, base);
                         match rank {

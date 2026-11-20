@@ -357,8 +357,15 @@ type MainRunFn = unsafe extern "C" fn(
 ) -> i32;
 
 type MainComponentsFn = unsafe extern "C" fn(
-    *mut c_void, *const NkWord, u32, *mut u32, *mut u32, *mut u32,
-    *mut c_char, u32, *mut crate::damage::DamageWords,
+    *mut c_void,
+    *const NkWord,
+    u32,
+    *mut u32,
+    *mut u32,
+    *mut u32,
+    *mut c_char,
+    u32,
+    *mut crate::damage::DamageWords,
 ) -> i32;
 
 type MainTraceFn = unsafe extern "C" fn(
@@ -411,12 +418,14 @@ fn require_context_abi(
     let frame = crate::pipeline::Frame::load(bytes).map_err(str::to_owned)?;
     // CPU MAIN receives the already composed, ordered packet words from the
     // pipeline. Only the device search ABI consumes packet policies itself.
-    if device_packets && frame.hit_packets.iter().any(|packet| {
-        matches!(
-            packet,
-            crate::pipeline::HitPacket::UnimbuedOwnerProjectile { .. }
-        )
-    }) {
+    if device_packets
+        && frame.hit_packets.iter().any(|packet| {
+            matches!(
+                packet,
+                crate::pipeline::HitPacket::UnimbuedOwnerProjectile { .. }
+            )
+        })
+    {
         let symbol = lib
             .symbol(b"nk_hit_packet_abi\0")
             .ok_or("kernel does not apply per-hit packet inputs")?;
@@ -436,7 +445,9 @@ fn validate_product_contract(features: &[&str], version: Option<u32>) -> Result<
     if features.is_empty() || version == Some(PRODUCT_CONTRACT_VERSION) {
         return Ok(());
     }
-    let actual = version.map(|version| version.to_string()).unwrap_or_else(|| "missing".into());
+    let actual = version
+        .map(|version| version.to_string())
+        .unwrap_or_else(|| "missing".into());
     Err(format!(
         "graphics-card kernel product contract {actual} does not support frame sections {}; revision {PRODUCT_CONTRACT_VERSION} is required; use the full-MAIN CPU fallback or rebuild this kernel",
         features.join(", ")
@@ -631,23 +642,39 @@ impl PreparedPacking {
     ) -> Result<Vec<PreparedDamage>, String> {
         let packing = Instant::now();
         let count = u32::try_from(contacts.len()).map_err(|_| "too many CUDA MAIN contacts")?;
-        let word_count = contacts.iter().try_fold(0usize, |total, contact| total.checked_add(contact.len()))
+        let word_count = contacts
+            .iter()
+            .try_fold(0usize, |total, contact| total.checked_add(contact.len()))
             .and_then(|total| u32::try_from(total).ok())
             .ok_or("too many CUDA MAIN words")?;
         self.words.clear();
         self.spans.clear();
         self.scores.clear();
-        self.words.try_reserve(word_count as usize).map_err(|_| "CUDA MAIN word buffer allocation failed")?;
-        self.spans.try_reserve(contacts.len()).map_err(|_| "CUDA MAIN contact buffer allocation failed")?;
-        self.scores.try_reserve(contacts.len()).map_err(|_| "CUDA MAIN result buffer allocation failed")?;
+        self.words
+            .try_reserve(word_count as usize)
+            .map_err(|_| "CUDA MAIN word buffer allocation failed")?;
+        self.spans
+            .try_reserve(contacts.len())
+            .map_err(|_| "CUDA MAIN contact buffer allocation failed")?;
+        self.scores
+            .try_reserve(contacts.len())
+            .map_err(|_| "CUDA MAIN result buffer allocation failed")?;
         for contact in contacts {
             let start = self.words.len() as u32;
             let count = contact.len() as u32;
             self.spans.push(NkPreparedContact { start, count });
-            self.words.extend(contact.iter().map(|&(address, value)| NkWord { address, value, reserved: 0 }));
+            self.words
+                .extend(contact.iter().map(|&(address, value)| NkWord {
+                    address,
+                    value,
+                    reserved: 0,
+                }));
         }
         let unwritten = PreparedDamage {
-            damage: crate::damage::DamageWords { reserved: u32::MAX, ..Default::default() },
+            damage: crate::damage::DamageWords {
+                reserved: u32::MAX,
+                ..Default::default()
+            },
             ..Default::default()
         };
         self.scores.resize(contacts.len(), unwritten);
@@ -657,8 +684,16 @@ impl PreparedPacking {
         // SAFETY: the owner exclusively borrows its native handle. Every buffer
         // remains alive until the synchronous component ABI returns.
         let fine = unsafe {
-            run(handle, self.words.as_ptr(), word_count, self.spans.as_ptr(), count,
-                self.scores.as_mut_ptr(), err.as_mut_ptr().cast(), ERROR_LEN as u32)
+            run(
+                handle,
+                self.words.as_ptr(),
+                word_count,
+                self.spans.as_ptr(),
+                count,
+                self.scores.as_mut_ptr(),
+                err.as_mut_ptr().cast(),
+                ERROR_LEN as u32,
+            )
         };
         self.native_call_ms += native.elapsed().as_secs_f64() * 1000.0;
         if let Some(api) = profile {
@@ -697,7 +732,11 @@ impl MainDevice {
         if !context.is_captured_scene() {
             return Err("prepared CUDA MAIN requires a captured scene".into());
         }
-        let path = dir.join(if cfg!(windows) { "main_device.dll" } else { "main_device.so" });
+        let path = dir.join(if cfg!(windows) {
+            "main_device.dll"
+        } else {
+            "main_device.so"
+        });
         let lib = os::Library::open(&path).ok_or("prepared CUDA MAIN library is unavailable")?;
         require_context_abi(&lib, context, false)?;
         let abi = lib
@@ -707,11 +746,15 @@ impl MainDevice {
         if unsafe { std::mem::transmute::<*mut c_void, AbiFn>(abi)() } != 1 {
             return Err("unsupported prepared CUDA MAIN component ABI".into());
         }
-        let open = lib.symbol(b"nk_main_device_open\0").ok_or("missing CUDA MAIN open")?;
+        let open = lib
+            .symbol(b"nk_main_device_open\0")
+            .ok_or("missing CUDA MAIN open")?;
         let run = lib
             .symbol(b"nk_main_device_run_components\0")
             .ok_or("missing CUDA MAIN run")?;
-        let close = lib.symbol(b"nk_main_device_close\0").ok_or("missing CUDA MAIN close")?;
+        let close = lib
+            .symbol(b"nk_main_device_close\0")
+            .ok_or("missing CUDA MAIN close")?;
         let files = captured_main_files(context)?;
         let mut err = [0u8; ERROR_LEN];
         // SAFETY: ABI 1 fixes these signatures. The captured files remain live
@@ -733,7 +776,9 @@ impl MainDevice {
         }
         let profile = PreparedProfileApi::load(&lib);
         Ok(Self {
-            handle, run, close,
+            handle,
+            run,
+            close,
             // Reuse remains opt-in for workloads with repeated packet bytes.
             reuse: prepared_reuse::PreparedReuse::new(false),
             packing: PreparedPacking::default(),
@@ -758,7 +803,9 @@ impl MainDevice {
 
     /// False means the loaded older DLL has no optional timing capability.
     pub(crate) fn enable_profiling(&mut self, enabled: bool) -> Result<bool, String> {
-        let Some(api) = self.profile else { return Ok(false); };
+        let Some(api) = self.profile else {
+            return Ok(false);
+        };
         // SAFETY: optional timing changes only this exclusively owned handle.
         if unsafe { (api.enable)(self.handle, u32::from(enabled)) } != 1 {
             return Err("prepared CUDA MAIN could not configure profiling".into());
@@ -782,9 +829,19 @@ impl MainDevice {
         &mut self,
         contacts: &[Vec<(u64, u32)>],
     ) -> Result<Vec<PreparedDamage>, String> {
-        let Self { handle, run, reuse, packing, profile, profiling_enabled, .. } = self;
+        let Self {
+            handle,
+            run,
+            reuse,
+            packing,
+            profile,
+            profiling_enabled,
+            ..
+        } = self;
         let active_profile = if *profiling_enabled { *profile } else { None };
-        reuse.execute(contacts, |unique| packing.submit(*handle, *run, unique, active_profile))
+        reuse.execute(contacts, |unique| {
+            packing.submit(*handle, *run, unique, active_profile)
+        })
     }
 }
 
@@ -819,7 +876,9 @@ impl MainCpu {
         #[cfg(windows)]
         let path = if dir.join("main_cpu.dll").is_file() {
             dir.join("main_cpu.dll")
-        } else { dir.join("kernel.dll") };
+        } else {
+            dir.join("kernel.dll")
+        };
         #[cfg(target_os = "linux")]
         let path = dir.join("main_cpu.so");
         #[cfg(not(any(windows, target_os = "linux")))]
@@ -864,14 +923,19 @@ impl MainCpu {
         let trace = lib
             .symbol(b"nk_main_cpu_run_trace\0")
             .map(|symbol| unsafe { std::mem::transmute::<*mut c_void, MainTraceFn>(symbol) });
-        let components = lib.symbol(b"nk_main_cpu_components_abi\0").and_then(|query| {
-            // SAFETY: optional ABI query has the same argument-less C layout.
-            let version=unsafe { std::mem::transmute::<*mut c_void, AbiFn>(query)() };
-            (version==1).then(|| lib.symbol(b"nk_main_cpu_run_components\0")).flatten()
-        }).map(|symbol| {
-            // SAFETY: component ABI1 appends one aligned16-byte output buffer.
-            unsafe { std::mem::transmute::<*mut c_void,MainComponentsFn>(symbol) }
-        });
+        let components = lib
+            .symbol(b"nk_main_cpu_components_abi\0")
+            .and_then(|query| {
+                // SAFETY: optional ABI query has the same argument-less C layout.
+                let version = unsafe { std::mem::transmute::<*mut c_void, AbiFn>(query)() };
+                (version == 1)
+                    .then(|| lib.symbol(b"nk_main_cpu_run_components\0"))
+                    .flatten()
+            })
+            .map(|symbol| {
+                // SAFETY: component ABI1 appends one aligned16-byte output buffer.
+                unsafe { std::mem::transmute::<*mut c_void, MainComponentsFn>(symbol) }
+            });
         Ok(Self {
             handle,
             run,
@@ -886,20 +950,56 @@ impl MainCpu {
         self.run_with_reads(words, None).map(|(bits, _)| bits)
     }
 
-    pub fn has_components(&self) -> bool { self.components.is_some() }
+    pub fn has_components(&self) -> bool {
+        self.components.is_some()
+    }
 
-    pub fn run_components(&mut self, words: &[(u64,u32)]) -> Result<crate::damage::DamageWords,MainCpuFailure> {
-        let run=self.components.ok_or_else(|| MainCpuFailure { message:"MAIN component ABI1 is unavailable".into(),bail:0,bail_rva:0 })?;
-        let n=u32::try_from(words.len()).map_err(|_| MainCpuFailure { message:"too many MAIN words".into(),bail:0,bail_rva:0 })?;
-        let words:Vec<NkWord>=words.iter().map(|&(address,value)| NkWord { address,value,reserved:0 }).collect();
-        let (mut bits,mut bail,mut bail_rva)=(0,0,0);
-        let mut output=crate::damage::DamageWords::default();let mut err=[0u8;ERROR_LEN];
+    pub fn run_components(
+        &mut self,
+        words: &[(u64, u32)],
+    ) -> Result<crate::damage::DamageWords, MainCpuFailure> {
+        let run = self.components.ok_or_else(|| MainCpuFailure {
+            message: "MAIN component ABI1 is unavailable".into(),
+            bail: 0,
+            bail_rva: 0,
+        })?;
+        let n = u32::try_from(words.len()).map_err(|_| MainCpuFailure {
+            message: "too many MAIN words".into(),
+            bail: 0,
+            bail_rva: 0,
+        })?;
+        let words: Vec<NkWord> = words
+            .iter()
+            .map(|&(address, value)| NkWord {
+                address,
+                value,
+                reserved: 0,
+            })
+            .collect();
+        let (mut bits, mut bail, mut bail_rva) = (0, 0, 0);
+        let mut output = crate::damage::DamageWords::default();
+        let mut err = [0u8; ERROR_LEN];
         // SAFETY: live exclusive handle, checked C word layout and correctly sized
         // output/error buffers; no device allocation or game process is involved.
-        let fine=unsafe { run(self.handle,words.as_ptr(),n,&mut bits,&mut bail,&mut bail_rva,
-            err.as_mut_ptr().cast(),ERROR_LEN as u32,&mut output) };
-        if fine!=1 || bail!=0 || output.reserved!=0 || output.total!=bits {
-            return Err(MainCpuFailure { message:message(&err),bail,bail_rva });
+        let fine = unsafe {
+            run(
+                self.handle,
+                words.as_ptr(),
+                n,
+                &mut bits,
+                &mut bail,
+                &mut bail_rva,
+                err.as_mut_ptr().cast(),
+                ERROR_LEN as u32,
+                &mut output,
+            )
+        };
+        if fine != 1 || bail != 0 || output.reserved != 0 || output.total != bits {
+            return Err(MainCpuFailure {
+                message: message(&err),
+                bail,
+                bail_rva,
+            });
         }
         Ok(output)
     }
@@ -1129,7 +1229,10 @@ impl Gpu {
     }
 
     pub(crate) fn open_with_inputs(
-        dir: &Path, dom_base: &[u8], dom_known: &[u8], context: Option<&EncodedContext>,
+        dir: &Path,
+        dom_base: &[u8],
+        dom_known: &[u8],
+        context: Option<&EncodedContext>,
         inputs: &crate::bundle_inputs::BundleInputs,
     ) -> Result<Gpu, String> {
         Self::open_inputs(dir, dom_base, dom_known, context, Some(inputs))
@@ -1206,16 +1309,22 @@ impl Gpu {
         ] {
             let bytes = match context.and_then(|c| c.file(file)) {
                 Some(bytes) => Cow::Borrowed(bytes),
-                None if inputs.is_some() => Cow::Borrowed(inputs.and_then(|i| i.file(file))
-                    .ok_or_else(|| format!("immutable bundle snapshot lacks {file}"))?),
+                None if inputs.is_some() => Cow::Borrowed(
+                    inputs
+                        .and_then(|i| i.file(file))
+                        .ok_or_else(|| format!("immutable bundle snapshot lacks {file}"))?,
+                ),
                 None => {
                     Cow::Owned(std::fs::read(dir.join(file)).map_err(|e| format!("{file}: {e}"))?)
                 }
             };
             named.push((name, bytes));
         }
-        let actual_frame = named.iter().find(|(name, _)| *name == b"frame.bin\0")
-            .map(|(_, bytes)| bytes.as_ref()).ok_or("GPU frame missing")?;
+        let actual_frame = named
+            .iter()
+            .find(|(name, _)| *name == b"frame.bin\0")
+            .map(|(_, bytes)| bytes.as_ref())
+            .ok_or("GPU frame missing")?;
         require_product_contract(&lib, actual_frame)?;
         // CapturedScene always supplies its immutable image and entry together.
         // RecordedScenario retains the old optional bundle-image behavior.
@@ -1675,7 +1784,12 @@ mod product_kernel_contract_tests {
     fn product_contract_requires_exact_revision_for_new_frame_inputs() {
         let features = ["owner_resource", "native_sources", "actor_agility"];
         assert!(validate_product_contract(&features, Some(PRODUCT_CONTRACT_VERSION)).is_ok());
-        for revision in [0, 1, PRODUCT_CONTRACT_VERSION - 1, PRODUCT_CONTRACT_VERSION + 1] {
+        for revision in [
+            0,
+            1,
+            PRODUCT_CONTRACT_VERSION - 1,
+            PRODUCT_CONTRACT_VERSION + 1,
+        ] {
             assert!(validate_product_contract(&features, Some(revision)).is_err());
         }
     }

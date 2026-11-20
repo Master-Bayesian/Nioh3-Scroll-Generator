@@ -84,6 +84,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo fmt --check --manifest-path crates/nioh3-runtime/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fetch --locked --manifest-path crates/nioh3-loadout/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:NIOH3_LOADOUT_TEST_BUNDLE = Join-Path $env:NIOH3_BUILD_ROOT 'fixtures/katana-light'
+          Expand-Archive -LiteralPath crates/nioh3-loadout/tests/fixtures/katana-light.zip -DestinationPath $env:NIOH3_LOADOUT_TEST_BUNDLE -Force
+          cargo test --locked --offline --manifest-path crates/nioh3-loadout/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --locked --offline --all-targets --manifest-path crates/nioh3-loadout/Cargo.toml -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fmt --check --manifest-path crates/nioh3-loadout/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo fetch --locked --manifest-path crates/nioh3-protected/Cargo.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --offline --manifest-path crates/nioh3-protected/Cargo.toml

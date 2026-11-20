@@ -131,7 +131,12 @@ fn parse_sets(
     let mut selected = Vec::new();
     let mut pruning = SetPruning::Proven;
     let mut diagnostics = Diagnostics {
-        profile: false, reuse: true, cuda_reuse: false, batch: 2048, audit: false, cancel_file: None,
+        profile: false,
+        reuse: true,
+        cuda_reuse: false,
+        batch: 2048,
+        audit: false,
+        cancel_file: None,
         cancel_after_checks: None,
     };
     while !flags.is_empty() {
@@ -151,29 +156,39 @@ fn parse_sets(
                 flags = rest;
             }
             [flag, rest @ ..] if flag == "--profile" => {
-                diagnostics.profile = true; flags = rest;
+                diagnostics.profile = true;
+                flags = rest;
             }
             [flag, rest @ ..] if flag == "--no-reuse" => {
-                diagnostics.reuse = false; flags = rest;
+                diagnostics.reuse = false;
+                flags = rest;
             }
             [flag, rest @ ..] if flag == "--cuda-reuse" => {
-                diagnostics.cuda_reuse = true; flags = rest;
+                diagnostics.cuda_reuse = true;
+                flags = rest;
             }
             [flag, rest @ ..] if flag == "--audit" => {
-                diagnostics.audit = true; flags = rest;
+                diagnostics.audit = true;
+                flags = rest;
             }
             [flag, batch, rest @ ..] if flag == "--batch" => {
                 diagnostics.batch = batch.to_str().ok_or(USAGE)?.parse()?;
-                if !(1..=4096).contains(&diagnostics.batch) { return Err(USAGE.into()); }
+                if !(1..=4096).contains(&diagnostics.batch) {
+                    return Err(USAGE.into());
+                }
                 flags = rest;
             }
             [flag, path, rest @ ..] if flag == "--cancel-file" => {
-                diagnostics.cancel_file = Some(PathBuf::from(path)); flags = rest;
+                diagnostics.cancel_file = Some(PathBuf::from(path));
+                flags = rest;
             }
             [flag, count, rest @ ..] if flag == "--cancel-after-checks" => {
                 let count = count.to_str().ok_or(USAGE)?.parse()?;
-                if count == 0 { return Err(USAGE.into()); }
-                diagnostics.cancel_after_checks = Some(count); flags = rest;
+                if count == 0 {
+                    return Err(USAGE.into());
+                }
+                diagnostics.cancel_after_checks = Some(count);
+                flags = rest;
             }
             _ => return Err(USAGE.into()),
         }
@@ -270,8 +285,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         threads: 1,
     };
     let mut sweep = ExactSweep::open(&engine, &pack, request, kind, order, &swaps, pruning)?;
-    let device_reuse = matches!(kind, ScorerKind::Cuda) && diagnostics.reuse && diagnostics.cuda_reuse;
-    let score_reuse = if matches!(kind, ScorerKind::Cpu) { diagnostics.reuse } else { device_reuse };
+    let device_reuse =
+        matches!(kind, ScorerKind::Cuda) && diagnostics.reuse && diagnostics.cuda_reuse;
+    let score_reuse = if matches!(kind, ScorerKind::Cpu) {
+        diagnostics.reuse
+    } else {
+        device_reuse
+    };
     sweep.set_reuse_enabled(score_reuse);
     sweep.enable_profiling(diagnostics.profile)?;
     let required_sets: Vec<_> = selected
@@ -310,22 +330,30 @@ fn main() -> Result<(), Box<dyn Error>> {
         let cancel_checks = std::cell::Cell::new(0u64);
         while state.progress.completed < end {
             let batch = (end - state.progress.completed).min(diagnostics.batch as u64) as usize;
-            let before = (diagnostics.cancel_after_checks.is_some() || diagnostics.cancel_file.is_some())
-                .then(|| state.progress.clone());
+            let before = (diagnostics.cancel_after_checks.is_some()
+                || diagnostics.cancel_file.is_some())
+            .then(|| state.progress.clone());
             if let Err(error) = sweep.advance_controlled(&mut state.progress, batch, &|| {
                 let injected = diagnostics.cancel_after_checks.is_some_and(|limit| {
                     cancel_checks.set(cancel_checks.get() + 1);
                     cancel_checks.get() >= limit
                 });
-                injected || diagnostics.cancel_file.as_ref().is_some_and(|path| path.exists())
+                injected
+                    || diagnostics
+                        .cancel_file
+                        .as_ref()
+                        .is_some_and(|path| path.exists())
             }) {
-                write_atomic(&output.join("ABORTED.json"), &json!({
-                    "schema":"nioh3-standalone-aborted/v1", "accepted":false,
-                    "error":error, "ranking_published_this_invocation":false,
-                    "progress":state.progress, "cancel_checks_observed":cancel_checks.get(),
-                    "cancelled_batch_left_checkpoint_unchanged":before.as_ref().map(|saved| *saved == state.progress),
-                    "performance":sweep.performance(),
-                }))?;
+                write_atomic(
+                    &output.join("ABORTED.json"),
+                    &json!({
+                        "schema":"nioh3-standalone-aborted/v1", "accepted":false,
+                        "error":error, "ranking_published_this_invocation":false,
+                        "progress":state.progress, "cancel_checks_observed":cancel_checks.get(),
+                        "cancelled_batch_left_checkpoint_unchanged":before.as_ref().map(|saved| *saved == state.progress),
+                        "performance":sweep.performance(),
+                    }),
+                )?;
                 return Err(error.into());
             }
             if last_saved.elapsed() >= Duration::from_secs(3) {
@@ -416,9 +444,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut outside_limits = 0;
             let mut unanswered = 0;
             while compared < state.progress.completed {
-                let batch = audit.batch(compared,
-                    (state.progress.completed - compared).min(diagnostics.batch as u64) as usize)?;
-                if batch.compared == 0 { return Err("audit made no progress".into()); }
+                let batch = audit.batch(
+                    compared,
+                    (state.progress.completed - compared).min(diagnostics.batch as u64) as usize,
+                )?;
+                if batch.compared == 0 {
+                    return Err("audit made no progress".into());
+                }
                 compared += batch.compared;
                 answered += batch.answered;
                 outside_limits += batch.outside_limits;
@@ -430,7 +462,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
             writer.flush()?;
             drop(writer);
-            if compared != state.progress.completed || answered != state.progress.answered
+            if compared != state.progress.completed
+                || answered != state.progress.answered
                 || outside_limits != state.progress.outside_limits
                 || unanswered != state.progress.refused + state.progress.no_path
             {
@@ -463,11 +496,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         // No ranking accompanies a cancelled/failed invocation. Periodically
         // saved checkpoints describe only earlier fully committed batches.
         if !output.join("ABORTED.json").exists() {
-            let _ = write_atomic(&output.join("ABORTED.json"), &json!({
-            "schema":"nioh3-standalone-aborted/v1", "accepted":false,
-            "error":error.to_string(), "ranking_published_this_invocation":false,
-            "checkpoint_policy":"last fully committed periodically saved prefix",
-            }));
+            let _ = write_atomic(
+                &output.join("ABORTED.json"),
+                &json!({
+                "schema":"nioh3-standalone-aborted/v1", "accepted":false,
+                "error":error.to_string(), "ranking_published_this_invocation":false,
+                "checkpoint_policy":"last fully committed periodically saved prefix",
+                }),
+            );
         }
     }
     drop(run_owner);

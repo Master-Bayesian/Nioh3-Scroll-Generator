@@ -48,43 +48,88 @@ mod portable_tests {
     }
 
     struct NumericChange {
-        memory:FixtureMemory,source:u64,offset:usize,reads:Cell<usize>,
+        memory: FixtureMemory,
+        source: u64,
+        offset: usize,
+        reads: Cell<usize>,
     }
     impl InventoryMemory for NumericChange {
-        fn process(&self)->InventoryProcess {self.memory.process()}
-        fn module_base(&self)->u64 {self.memory.module_base()}
-        fn recheck_creation_filetime(&self)->Result<u64,RuntimeError> {self.memory.recheck_creation_filetime()}
-        fn read(&self,address:u64,size:usize)->Result<Vec<u8>,RuntimeError> {
-            let mut raw=self.memory.read(address,size)?;
-            if address==self.source && size==SOURCE_BYTES {
-                let n=self.reads.get();self.reads.set(n+1);
-                if n>0 {raw[self.offset]^=1;}
+        fn process(&self) -> InventoryProcess {
+            self.memory.process()
+        }
+        fn module_base(&self) -> u64 {
+            self.memory.module_base()
+        }
+        fn recheck_creation_filetime(&self) -> Result<u64, RuntimeError> {
+            self.memory.recheck_creation_filetime()
+        }
+        fn read(&self, address: u64, size: usize) -> Result<Vec<u8>, RuntimeError> {
+            let mut raw = self.memory.read(address, size)?;
+            if address == self.source && size == SOURCE_BYTES {
+                let n = self.reads.get();
+                self.reads.set(n + 1);
+                if n > 0 {
+                    raw[self.offset] ^= 1;
+                }
             }
             Ok(raw)
         }
     }
     #[test]
-    #[ignore="Requires explicit retained memory evidence; no game process"]
+    #[ignore = "Requires explicit retained memory evidence; no game process"]
     fn numeric_only_drift_cannot_become_a_ready_snapshot() {
-        let root=PathBuf::from(std::env::var_os("NIOH3_REFRESH_EVIDENCE_ROOT").expect("retained fixture root"));
-        let fixture:Value=serde_json::from_slice(&fs::read(root.join("reaper-after-memory.json")).unwrap()).unwrap();
-        let historical:CombatSnapshot=serde_json::from_slice(&fs::read(root.join("reaper-after-snapshot.json")).unwrap()).unwrap();
-        assert!(historical.inputs.source_numeric_inputs.is_none(),"old capsule omission must remain explicit");
+        let root = PathBuf::from(
+            std::env::var_os("NIOH3_REFRESH_EVIDENCE_ROOT").expect("retained fixture root"),
+        );
+        let fixture: Value =
+            serde_json::from_slice(&fs::read(root.join("reaper-after-memory.json")).unwrap())
+                .unwrap();
+        let historical: CombatSnapshot =
+            serde_json::from_slice(&fs::read(root.join("reaper-after-snapshot.json")).unwrap())
+                .unwrap();
+        assert!(
+            historical.inputs.source_numeric_inputs.is_none(),
+            "old capsule omission must remain explicit"
+        );
         historical.validate().unwrap();
-        let memory=FixtureMemory::from_json(&fixture).unwrap();
-        let SnapshotOutcome::Ready(fresh)=read_combat_snapshot(&memory).unwrap() else {panic!("stable retained decoder refused")};
+        let memory = FixtureMemory::from_json(&fixture).unwrap();
+        let SnapshotOutcome::Ready(fresh) = read_combat_snapshot(&memory).unwrap() else {
+            panic!("stable retained decoder refused")
+        };
         fresh.validate().unwrap();
-        assert_eq!(fresh.inputs.source_numeric_inputs,Some(SourceNumericInputs::from_source(&fresh.source_raw).unwrap()));
-        let mut forged=(*fresh).clone();forged.inputs.source_numeric_inputs.as_mut().unwrap().core_records[6]^=1;
-        assert!(forged.validate().is_err(),"logical input must bind to retained raw bytes");
-        let mut rows=Vec::new();
-        for offset in [0x58usize,0x5c,0x70,0x71,0x72,0x80,0x86,0xb8,0x67a,0x58c0] {
-            let drift=NumericChange {memory:FixtureMemory::from_json(&fixture).unwrap(),source:historical.roots.source,offset,reads:Cell::new(0)};
-            let outcome=read_combat_snapshot(&drift).unwrap();
-            assert!(matches!(outcome,SnapshotOutcome::Changed(_)),"numeric-only drift at{offset:x} became Ready");
+        assert_eq!(
+            fresh.inputs.source_numeric_inputs,
+            Some(SourceNumericInputs::from_source(&fresh.source_raw).unwrap())
+        );
+        let mut forged = (*fresh).clone();
+        forged
+            .inputs
+            .source_numeric_inputs
+            .as_mut()
+            .unwrap()
+            .core_records[6] ^= 1;
+        assert!(
+            forged.validate().is_err(),
+            "logical input must bind to retained raw bytes"
+        );
+        let mut rows = Vec::new();
+        for offset in [
+            0x58usize, 0x5c, 0x70, 0x71, 0x72, 0x80, 0x86, 0xb8, 0x67a, 0x58c0,
+        ] {
+            let drift = NumericChange {
+                memory: FixtureMemory::from_json(&fixture).unwrap(),
+                source: historical.roots.source,
+                offset,
+                reads: Cell::new(0),
+            };
+            let outcome = read_combat_snapshot(&drift).unwrap();
+            assert!(
+                matches!(outcome, SnapshotOutcome::Changed(_)),
+                "numeric-only drift at{offset:x} became Ready"
+            );
             rows.push(json!({"offset":offset,"reads":drift.reads.get(),"outcome":"changed"}));
         }
-        if let Some(path)=std::env::var_os("NIOH3_NUMERIC_RUNTIME_RESULT") {
+        if let Some(path) = std::env::var_os("NIOH3_NUMERIC_RUNTIME_RESULT") {
             fs::write(path,serde_json::to_vec_pretty(&json!({"passed":true,"game_access":false,"ce_access":false,"old_omission_preserved":true,"new_logical_fields_known":true,"forged_raw_binding_rejected":true,"cases":rows})).unwrap()).unwrap();
         }
     }
@@ -96,8 +141,12 @@ mod portable_tests {
         reads: Cell<usize>,
     }
     impl InventoryMemory for ObjectChange {
-        fn process(&self) -> InventoryProcess { self.memory.process() }
-        fn module_base(&self) -> u64 { self.memory.module_base() }
+        fn process(&self) -> InventoryProcess {
+            self.memory.process()
+        }
+        fn module_base(&self) -> u64 {
+            self.memory.module_base()
+        }
         fn recheck_creation_filetime(&self) -> Result<u64, RuntimeError> {
             self.memory.recheck_creation_filetime()
         }
@@ -106,7 +155,9 @@ mod portable_tests {
             if address == self.address && size == 0xC0 {
                 let n = self.reads.get();
                 self.reads.set(n + 1);
-                if n > 0 { bytes[self.offset] ^= 1; }
+                if n > 0 {
+                    bytes[self.offset] ^= 1;
+                }
             }
             Ok(bytes)
         }
@@ -115,14 +166,24 @@ mod portable_tests {
     #[test]
     #[ignore = "Requires the supplied portable Nov15 evidence, not a process or full game image"]
     fn packaged_decoder_retains_raw_graphs_and_rejects_same_key_object_drift() {
-        let root = PathBuf::from(std::env::var_os("NIOH3_REFRESH_EVIDENCE_ROOT").expect("evidence root"));
+        let root =
+            PathBuf::from(std::env::var_os("NIOH3_REFRESH_EVIDENCE_ROOT").expect("evidence root"));
         let mut cases = Vec::new();
         for stem in ["reaper", "reaper-after"] {
-            let fixture: Value = serde_json::from_slice(&fs::read(root.join(format!("{stem}-memory.json"))).unwrap()).unwrap();
-            let historical: Value = serde_json::from_slice(&fs::read(root.join(format!("{stem}-snapshot.json"))).unwrap()).unwrap();
+            let fixture: Value = serde_json::from_slice(
+                &fs::read(root.join(format!("{stem}-memory.json"))).unwrap(),
+            )
+            .unwrap();
+            let historical: Value = serde_json::from_slice(
+                &fs::read(root.join(format!("{stem}-snapshot.json"))).unwrap(),
+            )
+            .unwrap();
             let mut expected: CombatSnapshot = serde_json::from_value(historical.clone()).unwrap();
-            assert_eq!(serde_json::to_value(&expected).unwrap(), historical,
-                "optional evidence fields must not fabricate historical raw bytes");
+            assert_eq!(
+                serde_json::to_value(&expected).unwrap(),
+                historical,
+                "optional evidence fields must not fabricate historical raw bytes"
+            );
             let memory = FixtureMemory::from_json(&fixture).unwrap();
             let SnapshotOutcome::Ready(snapshot) = read_combat_snapshot(&memory).unwrap() else {
                 panic!("retained portable decoder refused {stem}")
@@ -133,9 +194,14 @@ mod portable_tests {
             assert_eq!(owner_word as u8, 65);
             assert_eq!(snapshot.inputs.owner_flags_188, Some(owner_word));
             expected.inputs.owner_flags_188 = Some(owner_word);
-            expected.inputs.source_numeric_inputs=Some(SourceNumericInputs::from_source(&expected.source_raw).unwrap());
+            expected.inputs.source_numeric_inputs =
+                Some(SourceNumericInputs::from_source(&expected.source_raw).unwrap());
             expected.inputs.compiled_source_observation = Some(
-                CompiledSourceObservation::from_sources(&expected.core_source_raw, &expected.source_raw).unwrap(),
+                CompiledSourceObservation::from_sources(
+                    &expected.core_source_raw,
+                    &expected.source_raw,
+                )
+                .unwrap(),
             );
             expected.inputs.owner_resource_bits = Some([
                 u(&memory, snapshot.roots.owner + 0x15C).unwrap(),
@@ -151,12 +217,17 @@ mod portable_tests {
             assert_eq!(snapshot.core_source_raw, expected.core_source_raw);
             let raw = snapshot.status_tree_raw.as_ref().unwrap();
             assert_eq!(raw.nodes.len(), snapshot.inputs.status_keys.len());
-            assert_eq!(snapshot.configured_skills_raw.as_ref().unwrap().nodes.len(),
-                snapshot.inputs.configured_skills.len());
+            assert_eq!(
+                snapshot.configured_skills_raw.as_ref().unwrap().nodes.len(),
+                snapshot.inputs.configured_skills.len()
+            );
             snapshot.validate().unwrap();
             let mut contradictory = snapshot.as_ref().clone();
             contradictory.source_raw[0x14] ^= 1;
-            assert!(contradictory.validate().is_err(), "raw source contradiction was accepted");
+            assert!(
+                contradictory.validate().is_err(),
+                "raw source contradiction was accepted"
+            );
             let mut malformed = snapshot.inputs.clone();
             malformed.profile.truncate(1);
             assert!(malformed.validate_layout().is_err());
@@ -165,17 +236,31 @@ mod portable_tests {
             assert!(malformed.validate_layout().is_err());
             if stem == "reaper" {
                 assert_eq!(raw.objects.len(), 1);
-                assert!(raw.objects[0].bytes.is_some(), "the retained type54 object must be collected");
+                assert!(
+                    raw.objects[0].bytes.is_some(),
+                    "the retained type54 object must be collected"
+                );
                 for (name, offset) in [("magnitude", 0xA8), ("expiry", 0x20), ("class", 0)] {
-                    let memory = ObjectChange { memory: FixtureMemory::from_json(&fixture).unwrap(),
-                        address: raw.objects[0].address, offset, reads: Cell::new(0) };
-                    assert!(matches!(read_combat_snapshot(&memory).unwrap(),
-                        SnapshotOutcome::Changed(ChangeReason::StatusTree)),
-                        "same logical key with changed {name} was accepted");
+                    let memory = ObjectChange {
+                        memory: FixtureMemory::from_json(&fixture).unwrap(),
+                        address: raw.objects[0].address,
+                        offset,
+                        reads: Cell::new(0),
+                    };
+                    assert!(
+                        matches!(
+                            read_combat_snapshot(&memory).unwrap(),
+                            SnapshotOutcome::Changed(ChangeReason::StatusTree)
+                        ),
+                        "same logical key with changed {name} was accepted"
+                    );
                 }
                 let mut graph = snapshot.as_ref().clone();
                 graph.status_tree_raw.as_mut().unwrap().nodes[0].bytes[0x20] ^= 1;
-                assert!(graph.validate().is_err(), "raw status key contradiction was accepted");
+                assert!(
+                    graph.validate().is_err(),
+                    "raw status key contradiction was accepted"
+                );
             }
             cases.push(json!({"capture":stem,"status_nodes":raw.nodes.len(),
                 "configured_nodes":snapshot.configured_skills_raw.as_ref().unwrap().nodes.len(),
@@ -196,8 +281,13 @@ mod portable_tests {
             "same_key_object_drift_controls":3,"live_process_accessed":false,
             "scope":"Actual read-only production decoder over packaged retained memory plus controlled byte mutations; no numerical full-MAIN acceptance."});
         if let Some(output) = std::env::var_os("NIOH3_LIVE_REFRESH_RESULTS") {
-            let output = PathBuf::from(output); fs::create_dir_all(&output).unwrap();
-            fs::write(output.join("runtime_decoder.json"), serde_json::to_vec_pretty(&report).unwrap()).unwrap();
+            let output = PathBuf::from(output);
+            fs::create_dir_all(&output).unwrap();
+            fs::write(
+                output.join("runtime_decoder.json"),
+                serde_json::to_vec_pretty(&report).unwrap(),
+            )
+            .unwrap();
         }
         println!("{report}");
     }
@@ -248,16 +338,22 @@ pub struct CombatRoots {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SourceNumericInputs {
-    pub guardian_records:Vec<u8>,
-    pub active_guardian:u8,
-    pub guardian_numbers_disabled:u8,
-    pub core_records:Vec<u8>,
+    pub guardian_records: Vec<u8>,
+    pub active_guardian: u8,
+    pub guardian_numbers_disabled: u8,
+    pub core_records: Vec<u8>,
 }
 impl SourceNumericInputs {
-    pub fn from_source(source:&[u8])->Result<Self,RuntimeError> {
-        if source.len()!=SOURCE_BYTES {return Err(layout("source numeric input extent differs"));}
-        Ok(Self { guardian_records:source[0x58..0x68].to_vec(),active_guardian:source[0x70],
-            guardian_numbers_disabled:source[0x71],core_records:source[0x80..0x250].to_vec() })
+    pub fn from_source(source: &[u8]) -> Result<Self, RuntimeError> {
+        if source.len() != SOURCE_BYTES {
+            return Err(layout("source numeric input extent differs"));
+        }
+        Ok(Self {
+            guardian_records: source[0x58..0x68].to_vec(),
+            active_guardian: source[0x70],
+            guardian_numbers_disabled: source[0x71],
+            core_records: source[0x80..0x250].to_vec(),
+        })
     }
 }
 
@@ -313,10 +409,13 @@ impl CompiledSourceObservation {
     }
 
     fn validate_layout(&self) -> Result<(), RuntimeError> {
-        if [&self.core, &self.selected].iter()
+        if [&self.core, &self.selected]
+            .iter()
             .any(|stage| stage.core_records.len() != SourceSelections::CORE_RECORD_BYTES)
         {
-            return Err(layout("compiled source observation has truncated core records"));
+            return Err(layout(
+                "compiled source observation has truncated core records",
+            ));
         }
         Ok(())
     }
@@ -344,7 +443,7 @@ pub struct CombatInputs {
     /// additions. New reads compare these in both logical observations; old
     /// capsules retain omission instead of inventing that stability evidence.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub source_numeric_inputs:Option<SourceNumericInputs>,
+    pub source_numeric_inputs: Option<SourceNumericInputs>,
     /// Included in both logical observations and bound to both raw SOURCE
     /// objects. Older snapshots retain the missing evidence as None.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -560,26 +659,39 @@ impl CombatInputs {
     /// This validates shape and uniqueness, not source causality or game origin.
     pub fn validate_layout(&self) -> Result<(), RuntimeError> {
         if self.profile.len() != PROFILE_BYTES || self.inventory.len() != INVENTORY_BYTES {
-            return Err(layout("logical buffer lengths differ from the recorded layout"));
+            return Err(layout(
+                "logical buffer lengths differ from the recorded layout",
+            ));
         }
         if !matches!(self.mode, 0 | 1) || self.active_bank > 1 || self.held_weapon_slot > 1 {
-            return Err(layout("logical form, bank or held slot is outside the recorded layout"));
+            return Err(layout(
+                "logical form, bank or held slot is outside the recorded layout",
+            ));
         }
         for entries in self.groups.iter().chain(&self.core_groups) {
             if entries.len() > 256
-                || entries.iter().map(|entry| entry.key).collect::<BTreeSet<_>>().len()
+                || entries
+                    .iter()
+                    .map(|entry| entry.key)
+                    .collect::<BTreeSet<_>>()
+                    .len()
                     != entries.len()
             {
-                return Err(layout("logical source aggregate is oversized or has repeated keys"));
+                return Err(layout(
+                    "logical source aggregate is oversized or has repeated keys",
+                ));
             }
         }
-        if self.status_keys.len() > 64
-            || self.status_keys.windows(2).any(|keys| keys[0] >= keys[1])
+        if self.status_keys.len() > 64 || self.status_keys.windows(2).any(|keys| keys[0] >= keys[1])
         {
-            return Err(layout("logical status membership is oversized or not unique and sorted"));
+            return Err(layout(
+                "logical status membership is oversized or not unique and sorted",
+            ));
         }
         if self.configured_skills.len() > 4096 {
-            return Err(layout("logical configured skills exceed the collector bound"));
+            return Err(layout(
+                "logical configured skills exceed the collector bound",
+            ));
         }
         if let Some(observation) = &self.compiled_source_observation {
             observation.validate_layout()?;
@@ -599,20 +711,28 @@ fn retained_status_keys(raw: &RawStatusTree) -> Result<Vec<u16>, RuntimeError> {
     }
     let mut nodes = BTreeMap::new();
     for node in &raw.nodes {
-        if node.address == 0 || node.address == sentinel || node.bytes.len() != 0x30
+        if node.address == 0
+            || node.address == sentinel
+            || node.bytes.len() != 0x30
             || nodes.insert(node.address, node.bytes.as_slice()).is_some()
         {
-            return Err(layout("retained status tree has an invalid or repeated node"));
+            return Err(layout(
+                "retained status tree has an invalid or repeated node",
+            ));
         }
     }
     let mut object_nodes = BTreeSet::new();
     for object in &raw.objects {
-        let node = nodes.get(&object.node_address)
+        let node = nodes
+            .get(&object.node_address)
             .ok_or_else(|| layout("retained status object has no recorded node"))?;
-        if !object_nodes.insert(object.node_address) || object.address == 0
+        if !object_nodes.insert(object.node_address)
+            || object.address == 0
             || u64_at(node, 0x28)? != object.address
         {
-            return Err(layout("retained status object differs from its node binding"));
+            return Err(layout(
+                "retained status object differs from its node binding",
+            ));
         }
         if let Some(bytes) = &object.bytes {
             if bytes.len() != 0xC0 || u64_at(bytes, 0)? != object.vtable {
@@ -630,7 +750,8 @@ fn retained_status_keys(raw: &RawStatusTree) -> Result<Vec<u16>, RuntimeError> {
         if !seen.insert(address) {
             return Err(layout("retained status tree repeats a traversal node"));
         }
-        let bytes = nodes.get(&address)
+        let bytes = nodes
+            .get(&address)
             .ok_or_else(|| layout("retained status tree references an unrecorded node"))?;
         keys.push(u16_at(bytes, 0x20)?);
         stack.push(u64_at(bytes, 0)?);
@@ -646,21 +767,30 @@ fn retained_status_keys(raw: &RawStatusTree) -> Result<Vec<u16>, RuntimeError> {
     Ok(keys)
 }
 
-fn retained_configured_skills(raw: &RawConfiguredSkills) -> Result<Vec<ConfiguredSkill>, RuntimeError> {
+fn retained_configured_skills(
+    raw: &RawConfiguredSkills,
+) -> Result<Vec<ConfiguredSkill>, RuntimeError> {
     if raw.header.len() != 0x18 || raw.nodes.len() > 4096 {
-        return Err(layout("retained configured skills have an invalid buffer length"));
+        return Err(layout(
+            "retained configured skills have an invalid buffer length",
+        ));
     }
     let sentinel = u64_at(&raw.header, 8)?;
     if sentinel == 0 || u64_at(&raw.header, 0x10)? != raw.nodes.len() as u64 {
-        return Err(layout("retained configured skills identity or count differs"));
+        return Err(layout(
+            "retained configured skills identity or count differs",
+        ));
     }
     let mut current = raw.sentinel_next;
     let mut previous = sentinel;
     let mut seen = BTreeSet::new();
     let mut output = Vec::new();
     for node in &raw.nodes {
-        if current == 0 || current == sentinel || node.address != current
-            || node.bytes.len() != 0x20 || !seen.insert(current)
+        if current == 0
+            || current == sentinel
+            || node.address != current
+            || node.bytes.len() != 0x20
+            || !seen.insert(current)
             || u64_at(&node.bytes, 8)? != previous
         {
             return Err(layout("retained configured skill link or node differs"));
@@ -674,7 +804,9 @@ fn retained_configured_skills(raw: &RawConfiguredSkills) -> Result<Vec<Configure
         current = u64_at(&node.bytes, 0)?;
     }
     if current != sentinel {
-        return Err(layout("retained configured skill list does not end at its sentinel"));
+        return Err(layout(
+            "retained configured skill list does not end at its sentinel",
+        ));
     }
     Ok(output)
 }
@@ -685,39 +817,71 @@ impl CombatSnapshot {
     /// synthetic process bytes. This does not authenticate an external capsule.
     pub fn validate(&self) -> Result<(), RuntimeError> {
         self.inputs.validate_layout()?;
-        for (raw, expected_attrs, expected_sync, expected_level, expected_scalars, expected_groups)
-            in [
-                (&self.source_raw, self.inputs.raw_attrs, self.inputs.synchronized_attrs,
-                 self.inputs.level, self.inputs.source_scalars, &self.inputs.groups),
-                (&self.core_source_raw, self.inputs.core_raw_attrs, self.inputs.core_synchronized_attrs,
-                 self.inputs.core_level, self.inputs.core_source_scalars, &self.inputs.core_groups),
-            ]
-        {
-            if raw.len() != SOURCE_BYTES || u64_at(raw, 8)? != self.roots.owner
-                || attrs(raw, 0x14)? != expected_attrs || attrs(raw, 0x34)? != expected_sync
-                || u32_at(raw, 0x30)? != expected_level || scalar_words(raw)? != expected_scalars
+        for (
+            raw,
+            expected_attrs,
+            expected_sync,
+            expected_level,
+            expected_scalars,
+            expected_groups,
+        ) in [
+            (
+                &self.source_raw,
+                self.inputs.raw_attrs,
+                self.inputs.synchronized_attrs,
+                self.inputs.level,
+                self.inputs.source_scalars,
+                &self.inputs.groups,
+            ),
+            (
+                &self.core_source_raw,
+                self.inputs.core_raw_attrs,
+                self.inputs.core_synchronized_attrs,
+                self.inputs.core_level,
+                self.inputs.core_source_scalars,
+                &self.inputs.core_groups,
+            ),
+        ] {
+            if raw.len() != SOURCE_BYTES
+                || u64_at(raw, 8)? != self.roots.owner
+                || attrs(raw, 0x14)? != expected_attrs
+                || attrs(raw, 0x34)? != expected_sync
+                || u32_at(raw, 0x30)? != expected_level
+                || scalar_words(raw)? != expected_scalars
                 || groups(raw)? != *expected_groups
             {
-                return Err(layout("retained raw source differs from its logical inputs"));
+                return Err(layout(
+                    "retained raw source differs from its logical inputs",
+                ));
             }
         }
-        if let Some(numeric)=&self.inputs.source_numeric_inputs {
-            if *numeric!=SourceNumericInputs::from_source(&self.source_raw)? {
-                return Err(layout("retained source numeric fields differ from logical inputs"));
+        if let Some(numeric) = &self.inputs.source_numeric_inputs {
+            if *numeric != SourceNumericInputs::from_source(&self.source_raw)? {
+                return Err(layout(
+                    "retained source numeric fields differ from logical inputs",
+                ));
             }
         }
         if let Some(observation) = &self.inputs.compiled_source_observation {
-            if *observation != CompiledSourceObservation::from_sources(&self.core_source_raw, &self.source_raw)? {
-                return Err(layout("retained compiled source choices differ from logical inputs"));
+            if *observation
+                != CompiledSourceObservation::from_sources(&self.core_source_raw, &self.source_raw)?
+            {
+                return Err(layout(
+                    "retained compiled source choices differ from logical inputs",
+                ));
             }
         }
         if let Some(raw) = &self.status_tree_raw {
             if retained_status_keys(raw)? != self.inputs.status_keys {
-                return Err(layout("retained status tree differs from logical membership"));
+                return Err(layout(
+                    "retained status tree differs from logical membership",
+                ));
             }
             for object in &raw.objects {
                 if object.bytes.is_some() && object.vtable != add(self.module_base, 0x3AA55D0)? {
-                    return Err(layout("retained status object is not the versioned type54 layout"));
+                    return Err(layout(
+                        "retained status object is not the versioned type54 layout",
+                    ));
                 }
                 if let Some(bytes) = &object.bytes {
                     if u64_at(bytes, 8)? != self.roots.player {
@@ -728,7 +892,9 @@ impl CombatSnapshot {
         }
         if let Some(raw) = &self.configured_skills_raw {
             if retained_configured_skills(raw)? != self.inputs.configured_skills {
-                return Err(layout("retained configured skill bytes differ from logical entries"));
+                return Err(layout(
+                    "retained configured skill bytes differ from logical entries",
+                ));
             }
         }
         Ok(())
@@ -877,8 +1043,16 @@ fn status_keys(
                 return Ok(Observation::Changed(ChangeReason::StatusTree));
             }
         }
-        objects.push(RawStatusObject { node_address: node, address: object, vtable, bytes: object_bytes });
-        nodes.push(RawCombatNode { address: node, bytes });
+        objects.push(RawStatusObject {
+            node_address: node,
+            address: object,
+            vtable,
+            bytes: object_bytes,
+        });
+        nodes.push(RawCombatNode {
+            address: node,
+            bytes,
+        });
     }
     if read(memory, address, 16)? != header || read(memory, sentinel, 0x18)? != head[..0x18] {
         return Ok(Observation::Changed(ChangeReason::StatusTree));
@@ -887,9 +1061,16 @@ fn status_keys(
         return Err(layout("status tree count differs from its traversed nodes"));
     }
     keys.sort_unstable();
-    let raw = RawStatusTree { header, sentinel: head, nodes, objects };
+    let raw = RawStatusTree {
+        header,
+        sentinel: head,
+        nodes,
+        objects,
+    };
     if retained_status_keys(&raw)? != keys {
-        return Err(layout("collected status tree differs from its logical membership"));
+        return Err(layout(
+            "collected status tree differs from its logical membership",
+        ));
     }
     Ok(Observation::Value((keys, raw)))
 }
@@ -935,7 +1116,10 @@ fn configured_skills(
         });
         previous = node;
         node = u64_at(&bytes, 0)?;
-        nodes.push(RawCombatNode { address: previous, bytes });
+        nodes.push(RawCombatNode {
+            address: previous,
+            bytes,
+        });
     }
     if read(memory, address, 0x18)? != header || q(memory, sentinel)? != first {
         return Ok(Observation::Changed(ChangeReason::ConfiguredSkills));
@@ -945,9 +1129,15 @@ fn configured_skills(
             "configured skill count differs from its traversed nodes",
         ));
     }
-    let raw = RawConfiguredSkills { header, sentinel_next: first, nodes };
+    let raw = RawConfiguredSkills {
+        header,
+        sentinel_next: first,
+        nodes,
+    };
     if retained_configured_skills(&raw)? != output {
-        return Err(layout("collected configured skills differ from their logical entries"));
+        return Err(layout(
+            "collected configured skills differ from their logical entries",
+        ));
     }
     Ok(Observation::Value((output, raw)))
 }
@@ -980,11 +1170,12 @@ fn once(
         Observation::Changed(r) => return Ok(Observation::Changed(r)),
         Observation::NotLoaded(r) => return Ok(Observation::NotLoaded(r)),
     };
-    let (configured_skills, configured_skills_raw) = match configured_skills(memory, roots.progress)? {
-        Observation::Value(v) => v,
-        Observation::Changed(r) => return Ok(Observation::Changed(r)),
-        Observation::NotLoaded(r) => return Ok(Observation::NotLoaded(r)),
-    };
+    let (configured_skills, configured_skills_raw) =
+        match configured_skills(memory, roots.progress)? {
+            Observation::Value(v) => v,
+            Observation::Changed(r) => return Ok(Observation::Changed(r)),
+            Observation::NotLoaded(r) => return Ok(Observation::NotLoaded(r)),
+        };
     let inputs = CombatInputs {
         mode,
         active_bank,
@@ -1003,9 +1194,10 @@ fn once(
         core_synchronized_attrs: attrs(&core_source_raw, 0x34)?,
         core_level: u32_at(&core_source_raw, 0x30)?,
         source_scalars: scalar_words(&source_raw)?,
-        source_numeric_inputs:Some(SourceNumericInputs::from_source(&source_raw)?),
+        source_numeric_inputs: Some(SourceNumericInputs::from_source(&source_raw)?),
         compiled_source_observation: Some(CompiledSourceObservation::from_sources(
-            &core_source_raw, &source_raw,
+            &core_source_raw,
+            &source_raw,
         )?),
         core_source_scalars: scalar_words(&core_source_raw)?,
         profile: read(memory, roots.profile, PROFILE_BYTES)?,

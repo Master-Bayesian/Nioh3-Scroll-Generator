@@ -12,7 +12,11 @@ use nioh3_runtime::combat_context::SnapshotOutcome;
 use nioh3_save::character::{equipment_record, equipment_slot_is_empty, EQUIPMENT_SLOT_COUNT};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, path::{Path, PathBuf}, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 #[derive(Clone, Copy)]
 pub(crate) enum SearchAuthority {
@@ -80,11 +84,22 @@ impl Contexts {
         #[cfg(debug_assertions)]
         if crate::offline_e2e::enabled() {
             if std::env::var_os("NIOH3_E2E_SOURCE_EPOCH").is_some() {
-                return self.read_replayed_epoch(data_root, plain, params, crate::offline_e2e::epoch_receipt);
+                return self.read_replayed_epoch(
+                    data_root,
+                    plain,
+                    params,
+                    crate::offline_e2e::epoch_receipt,
+                );
             }
-            return self.read_with_snapshot_source(state_root,data_root,plain,params,
+            return self.read_with_snapshot_source(
+                state_root,
+                data_root,
+                plain,
+                params,
                 crate::offline_e2e::origin(),
-                crate::loadout_live::SnapshotUse::CurrentProcess,crate::offline_e2e::snapshot);
+                crate::loadout_live::SnapshotUse::CurrentProcess,
+                crate::offline_e2e::snapshot,
+            );
         }
         self.read_with_snapshot_source(
             state_root,
@@ -125,27 +140,47 @@ impl Contexts {
         let snapshot = match snapshot_source()? {
             Some(SnapshotOutcome::Ready(snapshot)) => Some(snapshot),
             Some(SnapshotOutcome::NotLoaded(_)) => {
-                return Ok(json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_CHARACTER_NOT_LOADED"}));
+                return Ok(
+                    json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_CHARACTER_NOT_LOADED"}),
+                );
             }
             Some(SnapshotOutcome::Changed(_)) => {
                 return Ok(json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_CHANGED"}));
             }
             None if usage == crate::loadout_live::SnapshotUse::CurrentProcess => {
-                return Ok(json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_CHARACTER_NOT_LOADED"}));
+                return Ok(
+                    json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_CHARACTER_NOT_LOADED"}),
+                );
             }
             None => None,
         };
         if let Some(current) = &snapshot {
-            if matches!(origin, crate::loadout_observation::ObservationOrigin::VerifiedProcessRead)
-                && usage == crate::loadout_live::SnapshotUse::CurrentProcess
+            if matches!(
+                origin,
+                crate::loadout_observation::ObservationOrigin::VerifiedProcessRead
+            ) && usage == crate::loadout_live::SnapshotUse::CurrentProcess
                 && matches!(bundle.buff_scene(), crate::loadout::BuffScene::Current)
             {
-                if let Some(epoch) = crate::loadout_epoch::BoundLiveEpoch::acquire(state_root, bundle_id, current)? {
+                if let Some(epoch) =
+                    crate::loadout_epoch::BoundLiveEpoch::acquire(state_root, bundle_id, current)?
+                {
                     return self.publish(
-                        BindingOwner {save_id, source_sha256, bundle_id, bundle_path: &epoch.bundle_path, school: &bundle.school, plain},
-                        PendingBinding {context: epoch.context, metadata: epoch.profile, source: "live",
+                        BindingOwner {
+                            save_id,
+                            source_sha256,
+                            bundle_id,
+                            bundle_path: &epoch.bundle_path,
+                            school: &bundle.school,
+                            plain,
+                        },
+                        PendingBinding {
+                            context: epoch.context,
+                            metadata: epoch.profile,
+                            source: "live",
                             authority: SearchAuthority::VerifiedNativeEpoch,
-                            recording: None, expected_bundle_digest: None},
+                            recording: None,
+                            expected_bundle_digest: None,
+                        },
                         |engine| epoch.verification.verify(engine),
                     );
                 }
@@ -173,7 +208,9 @@ impl Contexts {
                 let input = &snapshot.inputs;
                 let school = if input.mode == 1 { "ninja" } else { "samurai" };
                 if bundle.school != school {
-                    return Ok(json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_SCHOOL_MISMATCH"}));
+                    return Ok(
+                        json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_SCHOOL_MISMATCH"}),
+                    );
                 }
                 let offset =
                     input.active_bank as usize * 0xF70 + input.held_weapon_slot as usize * 0xE8;
@@ -191,7 +228,12 @@ impl Contexts {
                     &template_profile,
                 )?;
                 let refreshed = crate::loadout_live::refresh_snapshot_for_scene(
-                    &context, &bundle_path, &mut metadata, &snapshot, usage, bundle.buff_scene(),
+                    &context,
+                    &bundle_path,
+                    &mut metadata,
+                    &snapshot,
+                    usage,
+                    bundle.buff_scene(),
                 );
                 let recording = crate::loadout_observation::record(
                     crate::loadout_observation::RecordingRequest {
@@ -214,21 +256,41 @@ impl Contexts {
                         HostError::rejected(format!("LOADOUT_CONTEXT_INVALID: {error}"))
                     })?;
                 let refreshed = refreshed?;
-                let source=match origin {
-                    crate::loadout_observation::ObservationOrigin::VerifiedProcessRead=>"live",
-                    crate::loadout_observation::ObservationOrigin::RetainedCaptureReplay |
-                    crate::loadout_observation::ObservationOrigin::ControlledRetainedInput=>"captured",
+                let source = match origin {
+                    crate::loadout_observation::ObservationOrigin::VerifiedProcessRead => "live",
+                    crate::loadout_observation::ObservationOrigin::RetainedCaptureReplay
+                    | crate::loadout_observation::ObservationOrigin::ControlledRetainedInput => {
+                        "captured"
+                    }
                 };
-                (refreshed.context, source, Some(recording), refreshed.bundle_input_sha256)
+                (
+                    refreshed.context,
+                    source,
+                    Some(recording),
+                    refreshed.bundle_input_sha256,
+                )
             }
             // Only the explicitly diagnostic test/replay seam may evaluate a
             // retained role. This cannot be reached by a normal app read.
             None => (context, "captured", None, None),
         };
         self.publish(
-            BindingOwner {save_id, source_sha256, bundle_id, bundle_path: &bundle_path, school: &bundle.school, plain},
-            PendingBinding {context, metadata, source, recording, expected_bundle_digest,
-                authority: SearchAuthority::BundleDefault},
+            BindingOwner {
+                save_id,
+                source_sha256,
+                bundle_id,
+                bundle_path: &bundle_path,
+                school: &bundle.school,
+                plain,
+            },
+            PendingBinding {
+                context,
+                metadata,
+                source,
+                recording,
+                expected_bundle_digest,
+                authority: SearchAuthority::BundleDefault,
+            },
             |_| Ok(()),
         )
     }
@@ -245,20 +307,37 @@ impl Contexts {
         let save_id = text(params, "save_id")?;
         let source_sha256 = text(params, "source_sha256")?;
         let bundle_id = text(params, "bundle")?;
-        self.current.remove(&(save_id.to_owned(), bundle_id.to_owned()));
+        self.current
+            .remove(&(save_id.to_owned(), bundle_id.to_owned()));
         let bundle = find_bundle(data_root, params)?;
         if !matches!(bundle.buff_scene(), crate::loadout::BuffScene::Current) {
-            return Err(HostError::rejected("LOADOUT_SOURCE_EPOCH_CURRENT_SCENE_REQUIRED"));
+            return Err(HostError::rejected(
+                "LOADOUT_SOURCE_EPOCH_CURRENT_SCENE_REQUIRED",
+            ));
         }
         let bundle_path = bundle.directory(data_root);
         let prepared = crate::loadout_epoch::PreparedReplayEpoch::load(
-            bundle_id, &bundle_path, &receipt_source()?,
+            bundle_id,
+            &bundle_path,
+            &receipt_source()?,
         )?;
         self.publish(
-            BindingOwner {save_id, source_sha256, bundle_id, bundle_path: &bundle_path, school: &bundle.school, plain},
-            PendingBinding {context: prepared.context, metadata: prepared.profile, source: "captured",
+            BindingOwner {
+                save_id,
+                source_sha256,
+                bundle_id,
+                bundle_path: &bundle_path,
+                school: &bundle.school,
+                plain,
+            },
+            PendingBinding {
+                context: prepared.context,
+                metadata: prepared.profile,
+                source: "captured",
                 authority: SearchAuthority::BundleDefault,
-                recording: None, expected_bundle_digest: None},
+                recording: None,
+                expected_bundle_digest: None,
+            },
             |engine| prepared.receipt.verify_engine(engine),
         )
     }
@@ -269,8 +348,22 @@ impl Contexts {
         pending: PendingBinding,
         verify_engine: impl FnOnce(&Engine) -> Result<(), HostError>,
     ) -> Result<Value, HostError> {
-        let BindingOwner { save_id, source_sha256, bundle_id, bundle_path, school: expected_school, plain } = owner;
-        let PendingBinding {context, metadata, source, recording, expected_bundle_digest, authority} = pending;
+        let BindingOwner {
+            save_id,
+            source_sha256,
+            bundle_id,
+            bundle_path,
+            school: expected_school,
+            plain,
+        } = owner;
+        let PendingBinding {
+            context,
+            metadata,
+            source,
+            recording,
+            expected_bundle_digest,
+            authority,
+        } = pending;
         let manifest = context.manifest();
         let school = if manifest.character.mode == 1 {
             "ninja"
@@ -325,7 +418,13 @@ impl Contexts {
             return Err(HostError::rejected("LOADOUT_CONTEXT_BUNDLE_CHANGED"));
         }
         verify_engine(&engine)?;
-        let identity = json!([bundle_id, context.digest(), save_id, source_sha256, bundle_input_digest]);
+        let identity = json!([
+            bundle_id,
+            context.digest(),
+            save_id,
+            source_sha256,
+            bundle_input_digest
+        ]);
         let id = format!("{:x}", Sha256::digest(identity.to_string().as_bytes()));
         let mut result = json!({
             "state":"ready", "context_id":id, "save_id":save_id, "source_sha256":source_sha256,
@@ -357,7 +456,10 @@ impl Contexts {
         Ok(self.search_binding(params)?.0)
     }
 
-    pub(crate) fn search_binding(&self, params: &Value) -> Result<(Arc<Engine>, SearchAuthority), HostError> {
+    pub(crate) fn search_binding(
+        &self,
+        params: &Value,
+    ) -> Result<(Arc<Engine>, SearchAuthority), HostError> {
         let save_id = text(params, "save_id")?;
         let source_sha256 = text(params, "source_sha256")?;
         let context_id = text(params, "context_id")?;
@@ -389,16 +491,19 @@ mod product_e2e;
 #[path = "loadout_epoch_e2e.rs"]
 mod epoch_e2e;
 
-
 /// Compose a live-generation binding after checking the actual prepared frame
 /// and independently replayed epoch. Used by the current capture finalizer.
 #[doc(hidden)]
 pub fn prepare_live_epoch_binding(
-    id: &str, bundle: &Path, receipt: &Path, snapshot: &Path,
+    id: &str,
+    bundle: &Path,
+    receipt: &Path,
+    snapshot: &Path,
 ) -> Result<Vec<u8>, HostError> {
     let source: nioh3_runtime::combat_context::CombatSnapshot = serde_json::from_slice(
-        &std::fs::read(snapshot).map_err(|e| HostError::rejected(e.to_string()))?
-    ).map_err(|e| HostError::rejected(e.to_string()))?;
+        &std::fs::read(snapshot).map_err(|e| HostError::rejected(e.to_string()))?,
+    )
+    .map_err(|e| HostError::rejected(e.to_string()))?;
     let prepared = crate::loadout_epoch::PreparedReplayEpoch::load(id, bundle, receipt)?;
     let binding = prepared.binding_bytes(&source)?;
     let engine = Engine::open_with_context(bundle, &prepared.context)

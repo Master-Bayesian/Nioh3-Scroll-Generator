@@ -68,3 +68,38 @@ test("a closed view cannot start execution", async () => {
   await owner.close();
   assert.throws(() => owner.beginExecution(batch.batch_id), /OWNED_PREPARED_BATCH_REQUIRED/);
 });
+
+test("concurrent discards join one attempt and a rejected attempt can be retried", async () => {
+  let calls = 0;
+  let fail!: (error: Error) => void;
+  const first = new Promise<LiveBatch>((_, reject) => { fail = reject; });
+  const cleared: string[] = [];
+  const owner = new PreparedLiveBatchOwner(async value => {
+    if (++calls === 1) return first;
+    return { ...value, state: "cancelled" };
+  }, value => cleared.push(value.batch_id));
+  await owner.adopt(batch);
+  const a = owner.discard(), b = owner.discard();
+  assert.throws(() => owner.beginExecution(batch.batch_id), /OWNED_PREPARED/);
+  fail(new Error("transport interrupted"));
+  const results = await Promise.allSettled([a, b]);
+  assert.deepEqual(results.map(result => result.status), ["rejected", "rejected"]);
+  assert.equal(calls, 1);
+  assert.deepEqual(cleared, []);
+  assert.throws(() => owner.beginExecution(batch.batch_id), /OWNED_PREPARED/);
+  await assert.rejects(owner.adopt(batch), /ADOPTION_CONFLICT/);
+  await owner.discard();
+  assert.equal(calls, 2);
+  assert.deepEqual(cleared, [batch.batch_id]);
+  assert.equal(await owner.adopt(batch), true);
+});
+
+test("a failed execution marker write leaves the preparation owned", async () => {
+  let cleared = false;
+  const owner = new PreparedLiveBatchOwner(async value => ({ ...value, state: "cancelled" }),
+    () => { cleared = true; });
+  await owner.adopt(batch);
+  assert.throws(() => owner.beginExecution(batch.batch_id, () => { throw Error("storage failed"); }), /storage failed/);
+  await owner.close();
+  assert.equal(cleared, true);
+});

@@ -7,7 +7,9 @@ use nioh3_loadout::{
     },
     engine::{Backpack, Candidate, Engine, SLOTS},
 };
-use nioh3_runtime::combat_context::{AggregateEntry, CombatInputs, CombatSnapshot, SnapshotOutcome};
+use nioh3_runtime::combat_context::{
+    AggregateEntry, CombatInputs, CombatSnapshot, SnapshotOutcome,
+};
 use serde_json::{json, Value};
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 
@@ -18,7 +20,9 @@ fn invalid(detail: impl std::fmt::Display) -> HostError {
 #[cfg(windows)]
 pub fn read() -> Result<Option<SnapshotOutcome>, HostError> {
     #[cfg(debug_assertions)]
-    if crate::offline_e2e::enabled() { return Err(HostError::rejected("OFFLINE_E2E_GAME_ACCESS_FORBIDDEN")); }
+    if crate::offline_e2e::enabled() {
+        return Err(HostError::rejected("OFFLINE_E2E_GAME_ACCESS_FORBIDDEN"));
+    }
     use nioh3_runtime::{
         file_sha256, process_creation_filetime, single_process_id, verify_game_executable,
         FileVersion, ProcessInventoryMemory, ReadOnlyProcess, RuntimeError, GAME_IMAGE_NAME,
@@ -87,8 +91,11 @@ fn observations(
 
 fn composed_groups(gear: &[CoreEntry], layers: &[SourceLayer]) -> BTreeMap<u16, u32> {
     let mut entries = gear.to_vec();
-    for op in layers.iter().filter(|layer| !is_native_source(layer))
-        .flat_map(|layer| &layer.operations) {
+    for op in layers
+        .iter()
+        .filter(|layer| !is_native_source(layer))
+        .flat_map(|layer| &layer.operations)
+    {
         if let Some(index) = entries.iter().position(|entry| entry.key == op.group) {
             let entry = &mut entries[index];
             entry.base = entry.base.wrapping_add(op.value as u32);
@@ -110,7 +117,10 @@ fn composed_groups(gear: &[CoreEntry], layers: &[SourceLayer]) -> BTreeMap<u16, 
 }
 
 fn is_native_source(layer: &SourceLayer) -> bool {
-    matches!(layer.kind, SourceKind::NativeBeforeEquipment | SourceKind::NativeAfterSets)
+    matches!(
+        layer.kind,
+        SourceKind::NativeBeforeEquipment | SourceKind::NativeAfterSets
+    )
 }
 
 /// Inputs that own a compiled native source program. Equipped record changes
@@ -137,10 +147,11 @@ pub(crate) fn native_source_input_digest(input: &CombatInputs) -> Result<String,
 
 fn matches_native_source_binding(binding: &Value, input: &CombatInputs) -> Result<bool, HostError> {
     let observed = native_source_input_digest(input)?;
-    Ok(binding["membership_scope"].as_str() == Some("same_type_equipment")
-        && binding["inputs_sha256"].as_str() == Some(observed.as_str()))
+    Ok(
+        binding["membership_scope"].as_str() == Some("same_type_equipment")
+            && binding["inputs_sha256"].as_str() == Some(observed.as_str()),
+    )
 }
-
 
 /// Whether the stored non-equipment record still explains the live character under the outfit now worn. The stored
 /// layers and gains were observed under some earlier outfit, so a difference means the equipment model's groups are
@@ -234,10 +245,16 @@ pub(crate) fn scene_word(image: &[u8], known: &[u8], address: u64) -> Result<u32
     ))
 }
 
-pub(crate) fn scene_bytes(image: &[u8], known: &[u8], address: u64, length: usize) -> Result<Vec<u8>, HostError> {
+pub(crate) fn scene_bytes(
+    image: &[u8],
+    known: &[u8],
+    address: u64,
+    length: usize,
+) -> Result<Vec<u8>, HostError> {
     let mut result = Vec::with_capacity(length);
     for offset in (0..length).step_by(4) {
-        let at = address.checked_add(offset as u64)
+        let at = address
+            .checked_add(offset as u64)
             .ok_or_else(|| invalid("canonical scene address overflows"))?;
         result.extend_from_slice(&scene_word(image, known, at)?.to_le_bytes());
     }
@@ -246,32 +263,47 @@ pub(crate) fn scene_bytes(image: &[u8], known: &[u8], address: u64, length: usiz
 }
 
 pub(crate) fn scene_pointer(image: &[u8], known: &[u8], address: u64) -> Result<u64, HostError> {
-    Ok(u64::from_le_bytes(scene_bytes(image, known, address, 8)?.try_into()
-        .map_err(|_| invalid("canonical pointer is not eight bytes"))?))
+    Ok(u64::from_le_bytes(
+        scene_bytes(image, known, address, 8)?
+            .try_into()
+            .map_err(|_| invalid("canonical pointer is not eight bytes"))?,
+    ))
 }
 
 fn captured_status_keys(image: &[u8], known: &[u8], owner: u64) -> Result<Vec<u16>, HostError> {
     let head = scene_pointer(image, known, owner + 0x3108)?;
     let count = scene_pointer(image, known, owner + 0x3110)?;
     if head == 0 || count > 64 {
-        return Err(invalid("captured status tree identity or count is unsupported"));
+        return Err(invalid(
+            "captured status tree identity or count is unsupported",
+        ));
     }
-    let mut stack = vec![scene_pointer(image, known, head.checked_add(8)
-        .ok_or_else(|| invalid("captured status head overflows"))?)?];
+    let mut stack = vec![scene_pointer(
+        image,
+        known,
+        head.checked_add(8)
+            .ok_or_else(|| invalid("captured status head overflows"))?,
+    )?];
     let mut seen = std::collections::BTreeSet::new();
     let mut keys = Vec::new();
     while let Some(node) = stack.pop() {
-        if node == head { continue; }
+        if node == head {
+            continue;
+        }
         if node == 0 || !seen.insert(node) || seen.len() > 64 {
             return Err(invalid("captured status tree has an invalid traversal"));
         }
         let bytes = scene_bytes(image, known, node, 0x30)?;
         let pointer = |offset: usize| -> Result<u64, HostError> {
-            Ok(u64::from_le_bytes(bytes[offset..offset+8].try_into().map_err(invalid)?))
+            Ok(u64::from_le_bytes(
+                bytes[offset..offset + 8].try_into().map_err(invalid)?,
+            ))
         };
         stack.push(pointer(0)?);
         stack.push(pointer(0x10)?);
-        keys.push(u16::from_le_bytes(bytes[0x20..0x22].try_into().map_err(invalid)?));
+        keys.push(u16::from_le_bytes(
+            bytes[0x20..0x22].try_into().map_err(invalid)?,
+        ));
     }
     keys.sort_unstable();
     if keys.len() as u64 != count || keys.windows(2).any(|keys| keys[0] == keys[1]) {
@@ -288,7 +320,9 @@ pub(crate) enum SnapshotUse {
 }
 
 pub(crate) fn validate_status_objects(
-    image: &[u8], known: &[u8], owner: u64,
+    image: &[u8],
+    known: &[u8],
+    owner: u64,
     raw: &nioh3_runtime::combat_context::RawStatusTree,
 ) -> Result<(), HostError> {
     let unsupported = || HostError::rejected("LOADOUT_CONTEXT_STATUS_OBJECT_UNSUPPORTED");
@@ -330,20 +364,39 @@ struct ObservedStatusIdentity {
 }
 
 fn project_type54_status(
-    image: &[u8], known: &[u8], owner: u64, layout: &Value,
-    raw: &nioh3_runtime::combat_context::RawStatusTree, observed: ObservedStatusIdentity,
+    image: &[u8],
+    known: &[u8],
+    owner: u64,
+    layout: &Value,
+    raw: &nioh3_runtime::combat_context::RawStatusTree,
+    observed: ObservedStatusIdentity,
     keys: &[u16],
 ) -> Result<StatusProjection, HostError> {
     let unsupported = || HostError::rejected("LOADOUT_CONTEXT_STATUS_PROJECTION_UNSUPPORTED");
     let q = |bytes: &[u8], at: usize| -> Result<u64, HostError> {
-        Ok(u64::from_le_bytes(bytes.get(at..at + 8).ok_or_else(unsupported)?
-            .try_into().map_err(invalid)?))
+        Ok(u64::from_le_bytes(
+            bytes
+                .get(at..at + 8)
+                .ok_or_else(unsupported)?
+                .try_into()
+                .map_err(invalid)?,
+        ))
     };
-    if layout["recipe"] != "type54_singleton_v1" || keys != [0x16B]
-        || raw.header.len() != 16 || raw.sentinel.len() != 48
-        || raw.nodes.len() != 1 || raw.objects.len() != 1
-    { return Err(unsupported()); }
-    let address = |name: &str| layout[name].as_u64().filter(|v| *v > 0).ok_or_else(unsupported);
+    if layout["recipe"] != "type54_singleton_v1"
+        || keys != [0x16B]
+        || raw.header.len() != 16
+        || raw.sentinel.len() != 48
+        || raw.nodes.len() != 1
+        || raw.objects.len() != 1
+    {
+        return Err(unsupported());
+    }
+    let address = |name: &str| {
+        layout[name]
+            .as_u64()
+            .filter(|v| *v > 0)
+            .ok_or_else(unsupported)
+    };
     let head = address("head")?;
     let node = address("node")?;
     let object = address("object")?;
@@ -356,35 +409,55 @@ fn project_type54_status(
         || scene_pointer(image, known, owner + 0x3118)? != head
         || scene_pointer(image, known, owner)? != player
         || scene_pointer(image, known, player + 0x3A0)? != owner
-    { return Err(unsupported()); }
+    {
+        return Err(unsupported());
+    }
     let old_node = scene_bytes(image, known, node, 48)?;
     let old_object = scene_bytes(image, known, object, 192)?;
     scene_bytes(image, known, head, 48)?;
     if old_node[0x20..0x22] != 0x16Bu16.to_le_bytes()
-        || q(&old_node, 40)? != object || q(&old_object, 0)? != vtable
+        || q(&old_node, 40)? != object
+        || q(&old_object, 0)? != vtable
         || q(&old_object, 8)? != player
-    { return Err(unsupported()); }
+    {
+        return Err(unsupported());
+    }
     let observed_node = &raw.nodes[0];
     let observed_object = &raw.objects[0];
     let payload = observed_object.bytes.as_ref().ok_or_else(unsupported)?;
-    if observed_node.bytes.len() != 48 || payload.len() != 192
+    if observed_node.bytes.len() != 48
+        || payload.len() != 192
         || observed_node.bytes[0x20..0x22] != 0x16Bu16.to_le_bytes()
-        || q(&raw.header, 8)? != 1 || observed_object.node_address != observed_node.address
+        || q(&raw.header, 8)? != 1
+        || observed_object.node_address != observed_node.address
         || q(&observed_node.bytes, 40)? != observed_object.address
-        || q(payload, 0)? != observed.module_base.checked_add(0x3AA55D0).ok_or_else(unsupported)?
+        || q(payload, 0)?
+            != observed
+                .module_base
+                .checked_add(0x3AA55D0)
+                .ok_or_else(unsupported)?
         || q(payload, 8)? != observed.source_player
-    { return Err(unsupported()); }
+    {
+        return Err(unsupported());
+    }
     let old_head = q(&raw.header, 0)?;
-    let mapping = BTreeMap::from([(old_head, head), (observed_node.address, node),
-                                 (observed_object.address, object)]);
-    if old_head == 0 || mapping.len() != 3 { return Err(unsupported()); }
+    let mapping = BTreeMap::from([
+        (old_head, head),
+        (observed_node.address, node),
+        (observed_object.address, object),
+    ]);
+    if old_head == 0 || mapping.len() != 3 {
+        return Err(unsupported());
+    }
     let mut header = raw.header.clone();
     let mut sentinel = raw.sentinel.clone();
     let mut node_bytes = observed_node.bytes.clone();
     let mut object_bytes = payload.clone();
-    for (bytes, offsets) in [(&mut header, &[0usize][..]),
-        (&mut sentinel, &[0, 8, 16][..]), (&mut node_bytes, &[0, 8, 16, 40][..])]
-    {
+    for (bytes, offsets) in [
+        (&mut header, &[0usize][..]),
+        (&mut sentinel, &[0, 8, 16][..]),
+        (&mut node_bytes, &[0, 8, 16, 40][..]),
+    ] {
         for &offset in offsets {
             let replacement = mapping.get(&q(bytes, offset)?).ok_or_else(unsupported)?;
             bytes[offset..offset + 8].copy_from_slice(&replacement.to_le_bytes());
@@ -397,8 +470,15 @@ fn project_type54_status(
         "observed_object":observed_object.address, "canonical_object":object,
         "observed_payload_sha256":sha256(payload), "projected_payload_sha256":sha256(&object_bytes),
         "frozen_owner_3118":head, "general_payload_omission_proven":false});
-    Ok(StatusProjection { writes:vec![(owner + 0x3108, header), (head, sentinel),
-        (node, node_bytes), (object, object_bytes)], evidence })
+    Ok(StatusProjection {
+        writes: vec![
+            (owner + 0x3108, header),
+            (head, sentinel),
+            (node, node_bytes),
+            (object, object_bytes),
+        ],
+        evidence,
+    })
 }
 
 /// Legacy v2 replay remains explicitly diagnostic and never authorizes a new
@@ -411,8 +491,14 @@ pub(crate) fn refresh_snapshot(
     snapshot: &CombatSnapshot,
     usage: SnapshotUse,
 ) -> Result<RefreshedContext, HostError> {
-    refresh_snapshot_for_scene(template, bundle, metadata, snapshot, usage,
-        super::loadout::BuffScene::Current)
+    refresh_snapshot_for_scene(
+        template,
+        bundle,
+        metadata,
+        snapshot,
+        usage,
+        super::loadout::BuffScene::Current,
+    )
 }
 
 /// Acquire character inputs for the selected scenario. Current observations and
@@ -431,7 +517,9 @@ pub(crate) fn refresh_snapshot_for_scene(
     metadata["refresh_policy"] = json!({"buff_scene":scene,"snapshot_use":usage});
     snapshot.validate().map_err(invalid)?;
     if usage == SnapshotUse::CurrentProcess && snapshot.inputs.owner_flags_188.is_none() {
-        return Err(HostError::rejected("LOADOUT_CONTEXT_OWNER_BRANCH_PROVENANCE_MISSING"));
+        return Err(HostError::rejected(
+            "LOADOUT_CONTEXT_OWNER_BRANCH_PROVENANCE_MISSING",
+        ));
     }
     if !matches!(scene, BuffScene::Current) {
         let mut selected = snapshot.inputs.clone();
@@ -445,22 +533,40 @@ pub(crate) fn refresh_snapshot_for_scene(
         if (deflect || arts) && selected.mode != 0 {
             return Err(HostError::rejected("LOADOUT_BUFF_REQUIRES_SAMURAI"));
         }
-        if deflect && !selected.configured_skills.iter().any(|skill|
-            skill.key == 42922 && skill.rank > 0 && skill.enabled != 0)
+        if deflect
+            && !selected
+                .configured_skills
+                .iter()
+                .any(|skill| skill.key == 42922 && skill.rank > 0 && skill.enabled != 0)
         {
-            return Err(HostError::rejected("LOADOUT_BUFF_SOURCE_NOT_ENABLED: Counterattack Deflect"));
+            return Err(HostError::rejected(
+                "LOADOUT_BUFF_SOURCE_NOT_ENABLED: Counterattack Deflect",
+            ));
         }
         let encoded = template.encode(&[]);
-        let image = encoded.file("image.bin").ok_or_else(|| invalid("missing image.bin"))?;
-        let known = encoded.file("image_known.bin").ok_or_else(|| invalid("missing image_known.bin"))?;
-        let owner = metadata["bindings"]["canonical_source_owner"].as_u64()
+        let image = encoded
+            .file("image.bin")
+            .ok_or_else(|| invalid("missing image.bin"))?;
+        let known = encoded
+            .file("image_known.bin")
+            .ok_or_else(|| invalid("missing image_known.bin"))?;
+        let owner = metadata["bindings"]["canonical_source_owner"]
+            .as_u64()
             .ok_or_else(|| invalid("missing scenario source owner"))?;
         if !captured_status_keys(image, known, owner)?.is_empty() {
-            return Err(invalid("declared activation scenario requires an empty source tree"));
+            return Err(invalid(
+                "declared activation scenario requires an empty source tree",
+            ));
         }
-        let expected = if deflect { 1.1f32.to_bits() } else { 1.0f32.to_bits() };
+        let expected = if deflect {
+            1.1f32.to_bits()
+        } else {
+            1.0f32.to_bits()
+        };
         if scene_word(image, known, owner + 0x2E3C)? != expected {
-            return Err(invalid("scenario class0 aggregate differs from its verified condition"));
+            return Err(invalid(
+                "scenario class0 aggregate differs from its verified condition",
+            ));
         }
         selected.status_keys.clear();
         selected.status_single_use_bits = [1.0f32.to_bits(); 2];
@@ -475,7 +581,8 @@ pub(crate) fn refresh_snapshot_for_scene(
             "not_a_peak_over_all_statuses":true,
         });
         if deflect {
-            metadata["buffs"] = json!([{"key":786,"name":"造成伤害增加","condition":"反攻格挡触发"}]);
+            metadata["buffs"] =
+                json!([{"key":786,"name":"造成伤害增加","condition":"反攻格挡触发"}]);
         }
         return Ok(refreshed);
     }
@@ -483,25 +590,42 @@ pub(crate) fn refresh_snapshot_for_scene(
     if !snapshot.inputs.status_keys.is_empty() {
         match &snapshot.status_tree_raw {
             Some(raw) => {
-                let owner = metadata["bindings"]["canonical_source_owner"].as_u64()
+                let owner = metadata["bindings"]["canonical_source_owner"]
+                    .as_u64()
                     .filter(|owner| owner.checked_add(0x10000).is_some())
-                    .ok_or_else(|| invalid("the capture has no bounded canonical player binding"))?;
+                    .ok_or_else(|| {
+                        invalid("the capture has no bounded canonical player binding")
+                    })?;
                 let encoded = template.encode(&[]);
-                let image = encoded.file("image.bin").ok_or_else(|| invalid("missing image.bin"))?;
-                let known = encoded.file("image_known.bin").ok_or_else(|| invalid("missing image_known.bin"))?;
+                let image = encoded
+                    .file("image.bin")
+                    .ok_or_else(|| invalid("missing image.bin"))?;
+                let known = encoded
+                    .file("image_known.bin")
+                    .ok_or_else(|| invalid("missing image_known.bin"))?;
                 if snapshot.inputs.status_keys == [0x16B]
                     && metadata["status_projection_canonical"].is_object()
                 {
-                    projection = Some(project_type54_status(image, known, owner,
-                        &metadata["status_projection_canonical"], raw, ObservedStatusIdentity {
-                            module_base: snapshot.module_base, source_player: snapshot.roots.player,
-                        }, &snapshot.inputs.status_keys)?);
+                    projection = Some(project_type54_status(
+                        image,
+                        known,
+                        owner,
+                        &metadata["status_projection_canonical"],
+                        raw,
+                        ObservedStatusIdentity {
+                            module_base: snapshot.module_base,
+                            source_player: snapshot.roots.player,
+                        },
+                        &snapshot.inputs.status_keys,
+                    )?);
                 } else {
                     validate_status_objects(image, known, owner, raw)?;
                 }
             }
             None if usage == SnapshotUse::CurrentProcess => {
-                return Err(HostError::rejected("LOADOUT_CONTEXT_STATUS_PROVENANCE_MISSING"));
+                return Err(HostError::rejected(
+                    "LOADOUT_CONTEXT_STATUS_PROVENANCE_MISSING",
+                ));
             }
             None => {}
         }
@@ -509,7 +633,13 @@ pub(crate) fn refresh_snapshot_for_scene(
     if let Some(projection) = &projection {
         metadata["status_projection"] = projection.evidence.clone();
     }
-    refresh_with_projection(template, bundle, metadata, &snapshot.inputs, projection.as_ref())
+    refresh_with_projection(
+        template,
+        bundle,
+        metadata,
+        &snapshot.inputs,
+        projection.as_ref(),
+    )
 }
 
 pub(crate) fn replace_scene_word(
@@ -560,12 +690,19 @@ pub struct RefreshedContext {
     pub bundle_input_sha256: Option<String>,
 }
 
-fn checked_secondary_gain(primary_gain: u32, observed: Option<u32>, prepared: u32) -> Result<Option<u32>, HostError> {
-    observed.map(|observed| {
-        observed.checked_sub(prepared)
-            .filter(|gain| *gain == primary_gain)
-            .ok_or_else(|| HostError::rejected("LOADOUT_CONTEXT_SECONDARY_CHANNEL_UNSUPPORTED"))
-    }).transpose()
+fn checked_secondary_gain(
+    primary_gain: u32,
+    observed: Option<u32>,
+    prepared: u32,
+) -> Result<Option<u32>, HostError> {
+    observed
+        .map(|observed| {
+            observed
+                .checked_sub(prepared)
+                .filter(|gain| *gain == primary_gain)
+                .ok_or_else(|| HostError::rejected("LOADOUT_CONTEXT_SECONDARY_CHANNEL_UNSUPPORTED"))
+        })
+        .transpose()
 }
 
 fn actor_branch_matches(observed: u32, captured: u32) -> bool {
@@ -582,17 +719,23 @@ pub fn refresh(
 }
 
 fn refresh_with_projection(
-    template: &LoadoutContext, bundle: &Path, metadata: &mut Value,
-    input: &CombatInputs, projection: Option<&StatusProjection>,
+    template: &LoadoutContext,
+    bundle: &Path,
+    metadata: &mut Value,
+    input: &CombatInputs,
+    projection: Option<&StatusProjection>,
 ) -> Result<RefreshedContext, HostError> {
     input.validate_layout().map_err(invalid)?;
     // A hit-time CombatInputs projection does not carry the complete compiler
     // input digest/epoch. Never silently carry an imported source program into
     // a new live refresh, even when the observed final maps happen to match.
-    if nioh3_loadout::pipeline::Frame::load(template.frame()).map_err(invalid)?
+    if nioh3_loadout::pipeline::Frame::load(template.frame())
+        .map_err(invalid)?
         .has_source_rebuild()
     {
-        return Err(HostError::rejected("LOADOUT_SOURCE_REBUILD_REFRESH_REQUIRED"));
+        return Err(HostError::rejected(
+            "LOADOUT_SOURCE_REBUILD_REFRESH_REQUIRED",
+        ));
     }
     let mut manifest = template.manifest().clone();
     let bindings = &metadata["bindings"];
@@ -613,20 +756,32 @@ fn refresh_with_projection(
     }
     if let Some(flags) = input.owner_flags_188 {
         let encoded = template.encode(&[]);
-        let image = encoded.file("image.bin").ok_or_else(|| invalid("missing image.bin"))?;
-        let known = encoded.file("image_known.bin").ok_or_else(|| invalid("missing image_known.bin"))?;
+        let image = encoded
+            .file("image.bin")
+            .ok_or_else(|| invalid("missing image.bin"))?;
+        let known = encoded
+            .file("image_known.bin")
+            .ok_or_else(|| invalid("missing image_known.bin"))?;
         if !actor_branch_matches(flags, scene_word(image, known, owner + 0x188)?) {
-            return Err(HostError::rejected("LOADOUT_CONTEXT_RESOURCE_BRANCH_UNSUPPORTED"));
+            return Err(HostError::rejected(
+                "LOADOUT_CONTEXT_RESOURCE_BRANCH_UNSUPPORTED",
+            ));
         }
     }
     // A different nonempty membership needs its own object and per-event
     // producer contract. Displaying current keys over a captured tree is unsafe.
     if !input.status_keys.is_empty() && projection.is_none() {
         let encoded = template.encode(&[]);
-        let image = encoded.file("image.bin").ok_or_else(|| invalid("missing image.bin"))?;
-        let known = encoded.file("image_known.bin").ok_or_else(|| invalid("missing image_known.bin"))?;
+        let image = encoded
+            .file("image.bin")
+            .ok_or_else(|| invalid("missing image.bin"))?;
+        let known = encoded
+            .file("image_known.bin")
+            .ok_or_else(|| invalid("missing image_known.bin"))?;
         if captured_status_keys(image, known, owner)? != input.status_keys {
-            return Err(HostError::rejected("LOADOUT_CONTEXT_STATUS_MEMBERSHIP_UNSUPPORTED"));
+            return Err(HostError::rejected(
+                "LOADOUT_CONTEXT_STATUS_MEMBERSHIP_UNSUPPORTED",
+            ));
         }
     }
     manifest.attrs = input.raw_attrs;
@@ -644,11 +799,17 @@ fn refresh_with_projection(
     });
     manifest.inventory_sha256 = sha256(&input.inventory);
     let old_layers = std::mem::take(&mut manifest.non_gear.layers);
-    let native_layers: Vec<_> = old_layers.iter().filter(|layer| is_native_source(layer)).cloned().collect();
+    let native_layers: Vec<_> = old_layers
+        .iter()
+        .filter(|layer| is_native_source(layer))
+        .cloned()
+        .collect();
     if !native_layers.is_empty() {
         let binding = &metadata["native_source_binding"];
         if !matches_native_source_binding(binding, input)? {
-            return Err(HostError::rejected("LOADOUT_NATIVE_SOURCE_RECOMPILE_REQUIRED"));
+            return Err(HostError::rejected(
+                "LOADOUT_NATIVE_SOURCE_RECOMPILE_REQUIRED",
+            ));
         }
         manifest.non_gear.layers = native_layers.clone();
     }
@@ -712,13 +873,20 @@ fn refresh_with_projection(
             .collect::<Vec<_>>()
     ]);
     if let Some(observation) = &input.compiled_source_observation {
-        profile_identity.as_array_mut().ok_or_else(|| invalid("profile identity is not an array"))?
-            .push(json!({"progression_gate": input.progression_gate, "compiled_source": observation}));
+        profile_identity
+            .as_array_mut()
+            .ok_or_else(|| invalid("profile identity is not an array"))?
+            .push(
+                json!({"progression_gate": input.progression_gate, "compiled_source": observation}),
+            );
     }
-    if let Some(numeric)=&input.source_numeric_inputs {
-        profile_identity.as_array_mut().ok_or_else(||invalid("profile identity is not an array"))?.push(serde_json::to_value(numeric).map_err(invalid)?);
+    if let Some(numeric) = &input.source_numeric_inputs {
+        profile_identity
+            .as_array_mut()
+            .ok_or_else(|| invalid("profile identity is not an array"))?
+            .push(serde_json::to_value(numeric).map_err(invalid)?);
     }
-    let profile_bytes=serde_json::to_vec(&profile_identity).map_err(invalid)?;
+    let profile_bytes = serde_json::to_vec(&profile_identity).map_err(invalid)?;
     provenance.source_sha256 = sha256(&profile_bytes);
     provenance.capture_id = format!("live-{}", &provenance.source_sha256[..12]);
     provenance.description =
@@ -740,7 +908,9 @@ fn refresh_with_projection(
     drop(basis);
     let basis = make_basis(&manifest)?;
     if basis.bundle_input_digest() != bundle_input_sha256 {
-        return Err(invalid("attack bundle changed during source reconstruction"));
+        return Err(invalid(
+            "attack bundle changed during source reconstruction",
+        ));
     }
     let stats = basis
         .prepared_stats(&candidate, &pack, &mut basis.work())
@@ -751,7 +921,9 @@ fn refresh_with_projection(
         .checked_sub(stats.primary_attack)
         .ok_or_else(|| invalid("current attack contribution is outside the additive model"))?;
     let observed_secondary_attack_gain = checked_secondary_gain(
-        manifest.non_gear.attack_gain, input.stats.secondary_attack, stats.secondary_attack,
+        manifest.non_gear.attack_gain,
+        input.stats.secondary_attack,
+        stats.secondary_attack,
     )?;
     manifest.non_gear.defense = input
         .stats
@@ -763,7 +935,7 @@ fn refresh_with_projection(
             "current maximum health differs from the equipment model",
         ));
     }
-    crate::loadout_numeric::integrate(&basis,input,&mut manifest,metadata).map_err(invalid)?;
+    crate::loadout_numeric::integrate(&basis, input, &mut manifest, metadata).map_err(invalid)?;
     metadata["source_check"] = SourceCheck::compare(
         &predicted,
         &current,
@@ -791,7 +963,9 @@ fn refresh_with_projection(
     if let Some([tag, active, cancelled]) = input.actor_agility_bits {
         let player = scene_pointer(&image, &known, owner)?;
         if (scene_word(&image, &known, player)? as u8 ^ tag) & 15 != 0 {
-            return Err(HostError::rejected("LOADOUT_CONTEXT_SOURCE_ENTITY_KIND_CHANGED"));
+            return Err(HostError::rejected(
+                "LOADOUT_CONTEXT_SOURCE_ENTITY_KIND_CHANGED",
+            ));
         }
         // The vtable remains the canonical typed module pointer. Only the
         // observed actor flag bytes are replayed; target flags are untouched.
@@ -812,8 +986,7 @@ fn refresh_with_projection(
         // phases retain their independently declared event words.
         for (address, bytes) in &projection.writes {
             for (index, word) in bytes.as_chunks::<4>().0.iter().enumerate() {
-                current_words.insert(address + (index * 4) as u64,
-                    u32::from_le_bytes(*word));
+                current_words.insert(address + (index * 4) as u64, u32::from_le_bytes(*word));
             }
         }
     }
@@ -965,7 +1138,11 @@ fn refresh_with_projection(
         },
     )
     .map_err(invalid)?;
-    Ok(RefreshedContext { context, evidence, bundle_input_sha256 })
+    Ok(RefreshedContext {
+        context,
+        evidence,
+        bundle_input_sha256,
+    })
 }
 
 fn snapshot_time() -> String {
@@ -1074,7 +1251,10 @@ mod tests {
 
     #[test]
     fn secondary_residual_is_observed_or_explicitly_legacy() {
-        assert_eq!(checked_secondary_gain(20, Some(120), 100).unwrap(), Some(20));
+        assert_eq!(
+            checked_secondary_gain(20, Some(120), 100).unwrap(),
+            Some(20)
+        );
         assert!(checked_secondary_gain(20, Some(119), 100).is_err());
         assert!(checked_secondary_gain(20, Some(99), 100).is_err());
         assert_eq!(checked_secondary_gain(20, None, 100).unwrap(), None);
@@ -1096,94 +1276,198 @@ mod tests {
         let head = base + 0x5000;
         let node = base + 0x5040;
         let object = base + 0x5080;
-        let mut image = base.to_le_bytes().to_vec(); image.resize(8 + 65536, 0);
-        let mut known = base.to_le_bytes().to_vec(); known.resize(8 + 8192, 255);
-        let mut header = head.to_le_bytes().to_vec(); header.extend_from_slice(&1u64.to_le_bytes());
+        let mut image = base.to_le_bytes().to_vec();
+        image.resize(8 + 65536, 0);
+        let mut known = base.to_le_bytes().to_vec();
+        known.resize(8 + 8192, 255);
+        let mut header = head.to_le_bytes().to_vec();
+        header.extend_from_slice(&1u64.to_le_bytes());
         let mut sentinel = vec![0; 0x30];
-        for offset in [0, 8, 16] { sentinel[offset..offset+8].copy_from_slice(&node.to_le_bytes()); }
+        for offset in [0, 8, 16] {
+            sentinel[offset..offset + 8].copy_from_slice(&node.to_le_bytes());
+        }
         sentinel[0x19] = 1;
         let mut node_bytes = vec![0; 0x30];
-        for offset in [0, 8, 16] { node_bytes[offset..offset+8].copy_from_slice(&head.to_le_bytes()); }
+        for offset in [0, 8, 16] {
+            node_bytes[offset..offset + 8].copy_from_slice(&head.to_le_bytes());
+        }
         node_bytes[0x20..0x22].copy_from_slice(&0x16Bu16.to_le_bytes());
         node_bytes[0x28..0x30].copy_from_slice(&object.to_le_bytes());
         let mut payload = vec![0; 0xC0];
         payload[..8].copy_from_slice(&0x40000u64.to_le_bytes());
         payload[0xA8..0xAC].copy_from_slice(&1.06f32.to_bits().to_le_bytes());
-        for (address, bytes) in [(owner + 0x3108, &header), (head, &sentinel),
-            (node, &node_bytes), (object, &payload)] {
-            let offset = 8 + (address-base) as usize;
-            image[offset..offset+bytes.len()].copy_from_slice(bytes);
+        for (address, bytes) in [
+            (owner + 0x3108, &header),
+            (head, &sentinel),
+            (node, &node_bytes),
+            (object, &payload),
+        ] {
+            let offset = 8 + (address - base) as usize;
+            image[offset..offset + bytes.len()].copy_from_slice(bytes);
         }
-        let raw = RawStatusTree { header, sentinel, nodes:vec![RawCombatNode { address:node, bytes:node_bytes }],
-            objects:vec![RawStatusObject { node_address:node, address:object, vtable:0x40000, bytes:Some(payload) }] };
-        assert_eq!(captured_status_keys(&image, &known, owner).unwrap(), vec![0x16B]);
+        let raw = RawStatusTree {
+            header,
+            sentinel,
+            nodes: vec![RawCombatNode {
+                address: node,
+                bytes: node_bytes,
+            }],
+            objects: vec![RawStatusObject {
+                node_address: node,
+                address: object,
+                vtable: 0x40000,
+                bytes: Some(payload),
+            }],
+        };
+        assert_eq!(
+            captured_status_keys(&image, &known, owner).unwrap(),
+            vec![0x16B]
+        );
         validate_status_objects(&image, &known, owner, &raw).unwrap();
         for offset in [0, 0x20, 0xA8] {
             let mut changed = raw.clone();
             changed.objects[0].bytes.as_mut().unwrap()[offset] ^= 1;
-            assert!(validate_status_objects(&image, &known, owner, &changed).is_err(),
-                "same-key status object drift at {offset:x} was accepted");
+            assert!(
+                validate_status_objects(&image, &known, owner, &changed).is_err(),
+                "same-key status object drift at {offset:x} was accepted"
+            );
         }
-        let mut unknown = raw.clone(); unknown.objects[0].bytes = None;
+        let mut unknown = raw.clone();
+        unknown.objects[0].bytes = None;
         assert!(validate_status_objects(&image, &known, owner, &unknown).is_err());
         let offset = (object + 0xA8 - base) as usize;
-        known[8 + offset/8] &= !(1 << (offset%8));
-        assert!(validate_status_objects(&image, &known, owner, &raw).is_err(),
-            "readable bytes without known provenance were accepted");
+        known[8 + offset / 8] &= !(1 << (offset % 8));
+        assert!(
+            validate_status_objects(&image, &known, owner, &raw).is_err(),
+            "readable bytes without known provenance were accepted"
+        );
     }
 
     #[test]
     fn type54_projection_preserves_every_payload_byte_and_rejects_foreign_roots() {
         use nioh3_runtime::combat_context::{RawCombatNode, RawStatusObject, RawStatusTree};
         let base = 0x10000u64;
-        let (owner, player, head, node, object) = (base+0x1000, base+0x6000,
-            base+0x5000, base+0x5040, base+0x5080);
-        let (module, observed_module, observed_player) = (0x10000000u64, 0x20000000u64, 0x30000000u64);
+        let (owner, player, head, node, object) = (
+            base + 0x1000,
+            base + 0x6000,
+            base + 0x5000,
+            base + 0x5040,
+            base + 0x5080,
+        );
+        let (module, observed_module, observed_player) =
+            (0x10000000u64, 0x20000000u64, 0x30000000u64);
         let (raw_head, raw_node, raw_object) = (0x40000000u64, 0x40000100u64, 0x40000200u64);
-        let mut image = base.to_le_bytes().to_vec(); image.resize(8+65536, 0);
-        let mut known = base.to_le_bytes().to_vec(); known.resize(8+8192, 255);
+        let mut image = base.to_le_bytes().to_vec();
+        image.resize(8 + 65536, 0);
+        let mut known = base.to_le_bytes().to_vec();
+        known.resize(8 + 8192, 255);
         let put = |image: &mut Vec<u8>, address, bytes: &[u8]| {
-            let offset = 8+(address-base) as usize;
-            image[offset..offset+bytes.len()].copy_from_slice(bytes);
+            let offset = 8 + (address - base) as usize;
+            image[offset..offset + bytes.len()].copy_from_slice(bytes);
         };
-        for (at, value) in [(owner, player), (player+0x3A0, owner), (owner+0x3108, head),
-            (owner+0x3118, head), (object, module+0x3AA55D0), (object+8, player), (node+40, object)]
-        { put(&mut image, at, &value.to_le_bytes()); }
-        put(&mut image, node+32, &0x16Bu16.to_le_bytes());
-        let mut header = raw_head.to_le_bytes().to_vec(); header.extend(1u64.to_le_bytes());
-        let mut sentinel = vec![0u8;48]; let mut node_bytes = vec![0u8;48];
-        for at in [0,8,16] {
-            sentinel[at..at+8].copy_from_slice(&raw_node.to_le_bytes());
-            node_bytes[at..at+8].copy_from_slice(&raw_head.to_le_bytes());
+        for (at, value) in [
+            (owner, player),
+            (player + 0x3A0, owner),
+            (owner + 0x3108, head),
+            (owner + 0x3118, head),
+            (object, module + 0x3AA55D0),
+            (object + 8, player),
+            (node + 40, object),
+        ] {
+            put(&mut image, at, &value.to_le_bytes());
+        }
+        put(&mut image, node + 32, &0x16Bu16.to_le_bytes());
+        let mut header = raw_head.to_le_bytes().to_vec();
+        header.extend(1u64.to_le_bytes());
+        let mut sentinel = vec![0u8; 48];
+        let mut node_bytes = vec![0u8; 48];
+        for at in [0, 8, 16] {
+            sentinel[at..at + 8].copy_from_slice(&raw_node.to_le_bytes());
+            node_bytes[at..at + 8].copy_from_slice(&raw_head.to_le_bytes());
         }
         sentinel[0x19] = 1;
         node_bytes[32..34].copy_from_slice(&0x16Bu16.to_le_bytes());
         node_bytes[40..48].copy_from_slice(&raw_object.to_le_bytes());
-        let mut payload: Vec<_> = (0..192).map(|i| (i*17) as u8).collect();
-        payload[..8].copy_from_slice(&(observed_module+0x3AA55D0).to_le_bytes());
+        let mut payload: Vec<_> = (0..192).map(|i| (i * 17) as u8).collect();
+        payload[..8].copy_from_slice(&(observed_module + 0x3AA55D0).to_le_bytes());
         payload[8..16].copy_from_slice(&observed_player.to_le_bytes());
-        let raw = RawStatusTree { header, sentinel, nodes:vec![RawCombatNode { address:raw_node, bytes:node_bytes }],
-            objects:vec![RawStatusObject { node_address:raw_node, address:raw_object,
-                vtable:observed_module+0x3AA55D0, bytes:Some(payload.clone()) }] };
+        let raw = RawStatusTree {
+            header,
+            sentinel,
+            nodes: vec![RawCombatNode {
+                address: raw_node,
+                bytes: node_bytes,
+            }],
+            objects: vec![RawStatusObject {
+                node_address: raw_node,
+                address: raw_object,
+                vtable: observed_module + 0x3AA55D0,
+                bytes: Some(payload.clone()),
+            }],
+        };
         let recipe = json!({"recipe":"type54_singleton_v1", "head":head,"node":node,
             "object":object,"source_player":player,"vtable":module+0x3AA55D0});
-        let result = project_type54_status(&image, &known, owner, &recipe, &raw,
-            ObservedStatusIdentity { module_base: observed_module, source_player: observed_player }, &[0x16B]).unwrap();
+        let result = project_type54_status(
+            &image,
+            &known,
+            owner,
+            &recipe,
+            &raw,
+            ObservedStatusIdentity {
+                module_base: observed_module,
+                source_player: observed_player,
+            },
+            &[0x16B],
+        )
+        .unwrap();
         let projected = &result.writes[3].1;
         assert_eq!(&projected[16..], &payload[16..]);
         assert_eq!(&projected[8..16], &player.to_le_bytes());
-        assert!(project_type54_status(&image, &known, owner, &recipe, &raw,
-            ObservedStatusIdentity { module_base: observed_module, source_player: observed_player+8 }, &[0x16B]).is_err());
-        let mut missing = raw.clone(); missing.objects[0].bytes = None;
-        assert!(project_type54_status(&image, &known, owner, &recipe, &missing,
-            ObservedStatusIdentity { module_base: observed_module, source_player: observed_player }, &[0x16B]).is_err());
-        let offset = (object+191-base) as usize;
-        known[8+offset/8] &= !(1<<(offset%8));
-        assert!(project_type54_status(&image, &known, owner, &recipe, &raw,
-            ObservedStatusIdentity { module_base: observed_module, source_player: observed_player }, &[0x16B]).is_err());
+        assert!(project_type54_status(
+            &image,
+            &known,
+            owner,
+            &recipe,
+            &raw,
+            ObservedStatusIdentity {
+                module_base: observed_module,
+                source_player: observed_player + 8
+            },
+            &[0x16B]
+        )
+        .is_err());
+        let mut missing = raw.clone();
+        missing.objects[0].bytes = None;
+        assert!(project_type54_status(
+            &image,
+            &known,
+            owner,
+            &recipe,
+            &missing,
+            ObservedStatusIdentity {
+                module_base: observed_module,
+                source_player: observed_player
+            },
+            &[0x16B]
+        )
+        .is_err());
+        let offset = (object + 191 - base) as usize;
+        known[8 + offset / 8] &= !(1 << (offset % 8));
+        assert!(project_type54_status(
+            &image,
+            &known,
+            owner,
+            &recipe,
+            &raw,
+            ObservedStatusIdentity {
+                module_base: observed_module,
+                source_player: observed_player
+            },
+            &[0x16B]
+        )
+        .is_err());
     }
 }
-
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]
@@ -1195,18 +1479,18 @@ mod compiled_source_refresh_e2e {
     #[test]
     #[ignore = "Requires a saved current source epoch for the native refresh replay"]
     fn saved_source_epoch_changes_retire_legacy_source_binding() {
-        let evidence = PathBuf::from(std::env::var_os("NIOH3_SOURCE_REFRESH_EVIDENCE")
-            .expect("current source refresh fixture root"));
-        let input: CombatInputs = serde_json::from_slice(
-            &std::fs::read(evidence.join("input.json")).unwrap(),
-        ).unwrap();
+        let evidence = PathBuf::from(
+            std::env::var_os("NIOH3_SOURCE_REFRESH_EVIDENCE")
+                .expect("current source refresh fixture root"),
+        );
+        let input: CombatInputs =
+            serde_json::from_slice(&std::fs::read(evidence.join("input.json")).unwrap()).unwrap();
         input.validate_layout().unwrap();
         let compiled = std::fs::read(evidence.join("core.bin")).unwrap();
         let selected = std::fs::read(evidence.join("selected.bin")).unwrap();
         let mut input = input;
-        input.compiled_source_observation = Some(
-            CompiledSourceObservation::from_sources(&compiled, &selected).unwrap(),
-        );
+        input.compiled_source_observation =
+            Some(CompiledSourceObservation::from_sources(&compiled, &selected).unwrap());
         let binding = json!({
             "inputs_sha256": native_source_input_digest(&input).unwrap(),
             "membership_scope": "same_type_equipment",
@@ -1224,13 +1508,19 @@ mod compiled_source_refresh_e2e {
             let mut changed = input.clone();
             let mut core = compiled.clone();
             let mut source = selected.clone();
-            if selected_stage { source[offset] ^= 1; } else { core[offset] ^= 1; }
-            changed.compiled_source_observation = Some(
-                CompiledSourceObservation::from_sources(&core, &source).unwrap(),
-            );
+            if selected_stage {
+                source[offset] ^= 1;
+            } else {
+                core[offset] ^= 1;
+            }
+            changed.compiled_source_observation =
+                Some(CompiledSourceObservation::from_sources(&core, &source).unwrap());
             assert_eq!(changed.groups, input.groups);
             assert_eq!(changed.core_groups, input.core_groups);
-            assert!(!matches_native_source_binding(&binding, &changed).unwrap(), "{name}");
+            assert!(
+                !matches_native_source_binding(&binding, &changed).unwrap(),
+                "{name}"
+            );
             cases.push(name);
         }
         let mut changed = input.clone();
@@ -1241,9 +1531,14 @@ mod compiled_source_refresh_e2e {
         changed.compiled_source_observation = None;
         assert!(!matches_native_source_binding(&binding, &changed).unwrap());
         cases.push("missing_compiled_source");
-        std::fs::write(evidence.join("REFRESH_CONTROL.json"), serde_json::to_vec_pretty(&json!({
-            "passed": true, "same_generation_reused": true, "stale_cases": cases,
-            "reference_sha256": binding["inputs_sha256"], "game_access": false,
-        })).unwrap()).unwrap();
+        std::fs::write(
+            evidence.join("REFRESH_CONTROL.json"),
+            serde_json::to_vec_pretty(&json!({
+                "passed": true, "same_generation_reused": true, "stale_cases": cases,
+                "reference_sha256": binding["inputs_sha256"], "game_access": false,
+            }))
+            .unwrap(),
+        )
+        .unwrap();
     }
 }

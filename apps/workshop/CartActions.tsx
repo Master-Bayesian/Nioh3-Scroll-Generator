@@ -1,7 +1,7 @@
 import {collectionKey} from "./collections";
 import { Notice } from "./Notice";
 import { isStaleSnapshotError } from "./public-errors";
-import { PreparedLiveBatchOwner } from "./prepared-live-batch";
+import { PreparedLiveBatchOwner, verifyCancellation } from "./prepared-live-batch";
 import React, { useState, useSyncExternalStore, useEffect, useRef } from "react";
 import {
   saveSession,
@@ -17,6 +17,14 @@ import type {
   ProtectedJob,
   SaveReference,
 } from "../../packages/contracts/protected-responses";
+
+function clearMatchingMarker(batch: LiveBatch) {
+  const marker = JSON.parse(localStorage.getItem("nioh3-review-live-batch") || "null");
+  if (marker?.batch_id === batch.batch_id && marker?.plan_digest === batch.plan_digest) {
+    localStorage.removeItem("nioh3-review-live-batch");
+    window.dispatchEvent(new Event("nioh3-live-batch-cancelled"));
+  }
+}
 
 function saveInstallMessage(receipt: OperationReceipt): string {
   if (receipt.commit_status.startsWith("committed")) return "已添加到存档。";
@@ -243,6 +251,13 @@ export function DesktopCartActions({
   const preparedOwner = useRef<PreparedLiveBatchOwner | null>(null);
   if (!preparedOwner.current) {
     preparedOwner.current = new PreparedLiveBatchOwner(async batch => {
+      // Persist the cancellation owner before the view can disappear.
+      if (!localStorage.getItem("nioh3-review-live-batch")) {
+        localStorage.setItem("nioh3-review-live-batch", JSON.stringify({
+          batch_id: batch.batch_id, plan_digest: batch.plan_digest,
+        }));
+        window.dispatchEvent(new Event("nioh3-live-batch-cancelled"));
+      }
       // Never replace the observer of an executing or interrupted protected operation.
       if (!runtimeObserver!.canStart()) throw Error("LIVE_BATCH_CLEANUP_DEFERRED_BUSY");
       const result = await runtimeObserver!.run(() => window.operations.execute({
@@ -251,13 +266,7 @@ export function DesktopCartActions({
       }));
       if (!result || !("live_batch" in result)) throw Error("LIVE_BATCH_CANCEL_RECEIPT_REQUIRED");
       return result.live_batch;
-    }, batch => {
-      const marker = JSON.parse(localStorage.getItem("nioh3-review-live-batch") || "null");
-      if (marker?.batch_id === batch.batch_id && marker?.plan_digest === batch.plan_digest) {
-        localStorage.removeItem("nioh3-review-live-batch");
-        window.dispatchEvent(new Event("nioh3-live-batch-cancelled"));
-      }
-    });
+    }, clearMatchingMarker);
   }
   useEffect(() => () => {
     void preparedOwner.current!.close().catch(error => {
@@ -268,7 +277,7 @@ export function DesktopCartActions({
   useEffect(() => {
     // A newly opened view may overlap the previous view's cancellation response.
     const cancelled = () => {
-      if (!localStorage.getItem("nioh3-review-live-batch")) setUncertain(false);
+      setUncertain(!!localStorage.getItem("nioh3-review-live-batch"));
     };
     window.addEventListener("nioh3-live-batch-cancelled", cancelled);
     return () => window.removeEventListener("nioh3-live-batch-cancelled", cancelled);
@@ -356,9 +365,7 @@ export function DesktopCartActions({
         const result = prepared;
         if (!result || !("live_batch" in result))
           throw Error("未收到添加计划。");
-        // A prepared batch has dispatched nothing and the backend never treats
-        // it as unresolved, so no recovery marker is written until execution
-        // starts; an abandoned preview must not block later additions.
+        // Persist ownership when execution or cancellation starts.
         if (!await preparedOwner.current!.adopt(result.live_batch)) return;
         setPlan({ signature: preparedSignature, batch: result.live_batch, count: samples.length });
       }
@@ -385,17 +392,15 @@ export function DesktopCartActions({
           await saveSession!.refresh();
         }
       } else if (plan.batch) {
-        preparedOwner.current!.beginExecution(plan.batch.batch_id);
         // From here the outcome must be confirmed from receipts before another
         // addition, even if this view closes mid-way.
-        localStorage.setItem(
-          "nioh3-review-live-batch",
-          JSON.stringify({
-            batch_id: plan.batch.batch_id,
-            plan_digest: plan.batch.plan_digest,
-            keys: samples.map(collectionKey),
-          }),
-        );
+        const batch = plan.batch;
+        preparedOwner.current!.beginExecution(batch.batch_id, () => {
+          if (localStorage.getItem("nioh3-review-live-batch")) throw Error("LIVE_BATCH_RECOVERY_PENDING");
+          localStorage.setItem("nioh3-review-live-batch", JSON.stringify({
+            batch_id: batch.batch_id, plan_digest: batch.plan_digest, keys: samples.map(collectionKey),
+          }));
+        });
         setUncertain(true);
         const result = await runtimeObserver!.run(() =>
           window.operations.execute({
@@ -409,14 +414,15 @@ export function DesktopCartActions({
         if (
           !result ||
           !("live_batch" in result) ||
-          result.live_batch.batch_id !== plan.batch.batch_id
+          result.live_batch.batch_id !== plan.batch.batch_id ||
+          result.live_batch.plan_digest !== plan.batch.plan_digest
         )
           throw Error("添加回执不匹配。");
         setPlan(result.live_batch.state === "complete" ? null : { ...plan, batch: result.live_batch });
-        setUncertain(result.live_batch.state === "uncertain");
         onAdded?.(samples.slice(0, result.live_batch.verified_count).map(collectionKey));
         if (result.live_batch.state !== "uncertain")
-          localStorage.removeItem("nioh3-review-live-batch");
+          clearMatchingMarker(result.live_batch);
+        setUncertain(!!localStorage.getItem("nioh3-review-live-batch"));
         setMessage(
           `已验证添加 ${result.live_batch.verified_count} / ${result.live_batch.count} 张。${result.live_batch.state === "complete" ? "游戏背包里已经能看到；之后在游戏里正常存档（例如在神社休息），它才会写进存档文件。" : "其余操作尚未全部确认，请先核对结果，不要重复添加。"}`,
         );
@@ -448,6 +454,7 @@ export function DesktopCartActions({
       );
       if (!result || !("live_batch" in result)) throw Error("未取得添加回执。");
       let batch = result.live_batch;
+      if (batch.batch_id !== ref.batch_id || batch.plan_digest !== ref.plan_digest) throw Error("LIVE_BATCH_RECOVERY_MISMATCH");
       for (const operationId of batch.child_operation_ids) {
         const child = await runtimeObserver!.run(() =>
           window.operations.execute({
@@ -476,14 +483,18 @@ export function DesktopCartActions({
       if (!refreshed || !("live_batch" in refreshed))
         throw Error("未取得核对后的添加回执。");
       batch = refreshed.live_batch;
+      if (batch.batch_id !== ref.batch_id || batch.plan_digest !== ref.plan_digest) throw Error("LIVE_BATCH_RECOVERY_MISMATCH");
       if(Array.isArray(ref.keys))onAdded?.(ref.keys.slice(0,batch.verified_count));
       if (batch.state === "prepared") {
-        await runtimeObserver!.run(() =>
+        const cancelled = await runtimeObserver!.run(() =>
           window.operations.execute({
             method: "runtime.live_batch_cancel",
             params: { batch_id: batch.batch_id },
           }),
         );
+        if (!cancelled || !("live_batch" in cancelled)) throw Error("LIVE_BATCH_CANCEL_RECEIPT_REQUIRED");
+        verifyCancellation(batch, cancelled.live_batch);
+        batch = cancelled.live_batch;
         setMessage("上次计划尚未执行，已取消，可以重新核对添加。");
       } else
         setMessage(
@@ -493,7 +504,8 @@ export function DesktopCartActions({
       // A check that still cannot settle offers the same way out as a failed one.
       setInspectFailed(batch.state === "uncertain");
       if (batch.state !== "uncertain") {
-        localStorage.removeItem("nioh3-review-live-batch");
+        clearMatchingMarker(batch);
+        setUncertain(!!localStorage.getItem("nioh3-review-live-batch"));
         setPlan(null);
       }
     } catch (error) {

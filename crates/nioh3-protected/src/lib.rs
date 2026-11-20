@@ -38,9 +38,9 @@ mod loadout_epoch;
 mod loadout_live;
 mod loadout_numeric;
 pub mod loadout_observation;
+pub mod maps;
 #[cfg(debug_assertions)]
 mod offline_e2e;
-pub mod maps;
 pub mod oracle;
 pub mod runtime_app;
 pub mod runtime_backup;

@@ -292,12 +292,17 @@ impl Formula {
     pub(crate) fn audit_constant(bits: u32) -> Self {
         Self::parse(&format!(
             "regions 0\ndomain 0\n\n\ntables 0\nmains 1\nprogram 0 0 1 0\n{bits:x}\n0\n\n"
-        )).unwrap()
+        ))
+        .unwrap()
     }
 
     #[cfg(test)]
     pub(crate) fn audit_word(address: u64, bits: u32) -> Self {
-        let bytes = bits.to_le_bytes().iter().map(|b| format!("{b:02x}")).collect::<String>();
+        let bytes = bits
+            .to_le_bytes()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>();
         Self::parse(&format!(
             "regions 0\ndomain 1\n{address:x} {:x}\n{bytes}\nffffffff\ntables 0\nmains 1\nprogram 0 1 0 0\n\n0\n\n0 32 -1 -1 -1 0 0 0 0\n",
             address + 4
@@ -309,16 +314,24 @@ impl Formula {
             file: dir.join(name),
             reason,
         };
-        let text = fs::read(dir.join("programs.txt"))
-            .map_err(|e| fail("programs.txt", e.to_string()))?;
+        let text =
+            fs::read(dir.join("programs.txt")).map_err(|e| fail("programs.txt", e.to_string()))?;
         let arena =
             fs::read(dir.join("arena.bin")).map_err(|e| fail("arena.bin", e.to_string()))?;
         let mapped = fs::read(dir.join("mapped.bin")).ok();
         Self::load_buffers(dir, &text, &arena, mapped.as_deref())
     }
 
-    pub(crate) fn load_buffers(dir: &Path, text: &[u8], arena: &[u8], mapped: Option<&[u8]>) -> Result<Formula, LoadError> {
-        let fail = |name: &str, reason: String| LoadError { file: dir.join(name), reason };
+    pub(crate) fn load_buffers(
+        dir: &Path,
+        text: &[u8],
+        arena: &[u8],
+        mapped: Option<&[u8]>,
+    ) -> Result<Formula, LoadError> {
+        let fail = |name: &str, reason: String| LoadError {
+            file: dir.join(name),
+            reason,
+        };
         let text = std::str::from_utf8(text).map_err(|e| fail("programs.txt", e.to_string()))?;
         let mut formula = Formula::parse(text).map_err(|r| fail("programs.txt", r.to_string()))?;
         formula.arena = arena.to_vec();

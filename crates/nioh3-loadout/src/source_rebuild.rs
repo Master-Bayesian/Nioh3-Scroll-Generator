@@ -7,7 +7,10 @@
 //! Guardian8508 is evaluated after equipment/sets and after each submission.
 //! The three3F9FC0 groups are updated only after materialization.
 
-use super::{i32_at, selected_map, u16_at, u32_at, Character, Entry, Frame, Scratch, Source, Tables, R, BANK, ITEM};
+use super::{
+    i32_at, selected_map, u16_at, u32_at, Character, Entry, Frame, Scratch, Source, Tables, BANK,
+    ITEM, R,
+};
 use serde::{Deserialize, Serialize};
 
 pub const SCHEMA: &str = "nioh3-normal-source-rebuild/v1";
@@ -124,7 +127,10 @@ pub struct Program {
 }
 
 fn digest(value: &str) -> bool {
-    value.len() == 64 && value.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 impl Program {
@@ -132,26 +138,41 @@ impl Program {
         if raw.len() > 1024 * 1024 {
             return Err("source rebuild program exceeds its bounded input size");
         }
-        let program: Self = serde_json::from_slice(raw).map_err(|_| "invalid source rebuild program")?;
+        let program: Self =
+            serde_json::from_slice(raw).map_err(|_| "invalid source rebuild program")?;
         program.validate()?;
         Ok(program)
     }
 
     pub fn validate(&self) -> R<()> {
         let b = &self.binding;
-        if self.schema != SCHEMA || !digest(&b.input_sha256) || !digest(&b.tables_sha256)
-            || b.generation.is_empty() || b.generation.len() > 256
-            || !matches!(b.form, 0 | 1) || b.compiler_return_rva != 0x3774ad
-            || b.owner_kind != 0 || b.item_sync || b.second_weapon_pass
-            || b.source_scalar_words.iter().enumerate().any(|(index, value)| index != 1 && *value != 0)
+        if self.schema != SCHEMA
+            || !digest(&b.input_sha256)
+            || !digest(&b.tables_sha256)
+            || b.generation.is_empty()
+            || b.generation.len() > 256
+            || !matches!(b.form, 0 | 1)
+            || b.compiler_return_rva != 0x3774ad
+            || b.owner_kind != 0
+            || b.item_sync
+            || b.second_weapon_pass
+            || b.source_scalar_words
+                .iter()
+                .enumerate()
+                .any(|(index, value)| index != 1 && *value != 0)
             || b.character.active > 1
         {
             return Err("source rebuild normal-owner contract is not supported");
         }
-        if self.prefix.len() > 4096 || self.active_guardian > 1 || self.guardians.len() > 12
+        if self.prefix.len() > 4096
+            || self.active_guardian > 1
+            || self.guardians.len() > 12
             || self.cores.len() != 8
             || self.reference_inventory.len() != 0x2018
-            || self.cores.iter().any(|c| c.record.len() != ITEM || c.effect_mask & 0x80 != 0)
+            || self
+                .cores
+                .iter()
+                .any(|c| c.record.len() != ITEM || c.effect_mask & 0x80 != 0)
         {
             return Err("source rebuild producer input extent differs");
         }
@@ -163,10 +184,11 @@ impl Program {
             }
             previous = Some(key);
         }
-        if self.baseline.as_ref().is_some_and(|baseline|
-            !digest(&baseline.stat_sha256) || !digest(&baseline.reset_d_sha256)
-                || baseline.attrs.iter().any(|a| !(1..=999).contains(a)))
-        {
+        if self.baseline.as_ref().is_some_and(|baseline| {
+            !digest(&baseline.stat_sha256)
+                || !digest(&baseline.reset_d_sha256)
+                || baseline.attrs.iter().any(|a| !(1..=999).contains(a))
+        }) {
             return Err("source rebuild baseline binding is malformed");
         }
         if b.scope == EvidenceScope::RebuildEpoch {
@@ -190,25 +212,47 @@ impl Program {
         }
         let expected = &self.binding.character;
         if (c.active, c.cap, c.plus_cap, c.style, c.unarmed, c.level)
-            != (expected.active, expected.cap, expected.plus_cap, expected.style, expected.unarmed, expected.level)
+            != (
+                expected.active,
+                expected.cap,
+                expected.plus_cap,
+                expected.style,
+                expected.unarmed,
+                expected.level,
+            )
         {
             return Err("source rebuild character/cap inputs changed generation");
         }
         let bank_start = c.active * BANK;
         let retained = [0..bank_start, bank_start + 13 * ITEM..c.inv.len()];
-        if retained.into_iter().any(|range| c.inv[range.clone()] != self.reference_inventory[range]) {
+        if retained
+            .into_iter()
+            .any(|range| c.inv[range.clone()] != self.reference_inventory[range])
+        {
             return Err("source rebuild retained inventory changed generation");
         }
         let held = bank_start..bank_start + ITEM;
         let spares = bank_start + ITEM..bank_start + 4 * ITEM;
         if c.inv[spares.clone()] != self.reference_inventory[spares.clone()] {
-            let mut moved = c.inv[spares.clone()].as_chunks::<ITEM>().0.iter().map(|row| row.as_slice())
-                .zip(self.reference_inventory[spares].as_chunks::<ITEM>().0.iter().map(|row| row.as_slice()))
+            let mut moved = c.inv[spares.clone()]
+                .as_chunks::<ITEM>()
+                .0
+                .iter()
+                .map(|row| row.as_slice())
+                .zip(
+                    self.reference_inventory[spares]
+                        .as_chunks::<ITEM>()
+                        .0
+                        .iter()
+                        .map(|row| row.as_slice()),
+                )
                 .filter(|(now, before)| now != before);
             let valid = match (moved.next(), moved.next()) {
-                (Some((now, before)), None) => before == &c.inv[held.clone()]
-                    && now == &self.reference_inventory[held]
-                    && c.inv[bank_start + 0xF68] != 0,
+                (Some((now, before)), None) => {
+                    before == &c.inv[held.clone()]
+                        && now == &self.reference_inventory[held]
+                        && c.inv[bank_start + 0xF68] != 0
+                }
                 _ => false,
             };
             if !valid {
@@ -219,12 +263,19 @@ impl Program {
         // not a skill name or a UI weapon ID. All same-category bodies share
         // this compiled prefix; a different category requires recompilation.
         let bank = i32_at(&c.inv, 0x1ee0);
-        if !matches!(bank, 0 | 1) { return Err("source rebuild inventory bank is invalid"); }
+        if !matches!(bank, 0 | 1) {
+            return Err("source rebuild inventory bank is invalid");
+        }
         let bank = bank as usize;
-        if bank != c.active { return Err("source rebuild inventory and character active banks differ"); }
+        if bank != c.active {
+            return Err("source rebuild inventory and character active banks differ");
+        }
         let slot = usize::from(c.inv[bank * BANK + 0xf68] == 0);
         let key = u16_at(&c.inv, bank * BANK + slot * ITEM);
-        let category = tables.items.row(u32::from(key)).map_or(0x3c2e, |row| u32_at(row, 0x58));
+        let category = tables
+            .items
+            .row(u32::from(key))
+            .map_or(0x3c2e, |row| u32_at(row, 0x58));
         if category != self.binding.native_item_category {
             return Err("candidate weapon category requires a new source compiler prefix");
         }
@@ -232,16 +283,24 @@ impl Program {
     }
 
     pub(super) fn submit_prefix(&self, tables: &Tables, source: &mut Source, mode: i32) {
-        for op in &self.prefix { tables.aggregate(source, mode, op.group, op.value); }
+        for op in &self.prefix {
+            tables.aggregate(source, mode, op.group, op.value);
+        }
     }
 
     pub(super) fn after_sets(&self, tables: &Tables, c: &Character, s: &mut Scratch) -> R<()> {
         let bank = selected_map(c.mode, c.mode);
         for op in &self.guardians {
-            if op.group == 0 || self.guardian_requirement < op.requirement { continue; }
-            let other_enabled = s.source.maps[bank].iter().find(|e| e.key == 0x8508)
+            if op.group == 0 || self.guardian_requirement < op.requirement {
+                continue;
+            }
+            let other_enabled = s.source.maps[bank]
+                .iter()
+                .find(|e| e.key == 0x8508)
                 .is_some_and(|e| e.base.wrapping_add(u32::from(e.dup)) as i32 >= 0);
-            if op.slot != self.active_guardian && !other_enabled { continue; }
+            if op.slot != self.active_guardian && !other_enabled {
+                continue;
+            }
             tables.aggregate(&mut s.source, c.mode, op.group, op.value);
         }
         for core in &self.cores {
@@ -262,13 +321,18 @@ impl Program {
                 let at = bank * BANK + slot * ITEM;
                 let item = &c.inv[at..][..ITEM];
                 let changed = item != &self.reference_inventory[at..][..ITEM];
-                if !self.post_record_present[bank][ordinal] && !changed { continue; }
+                if !self.post_record_present[bank][ordinal] && !changed {
+                    continue;
+                }
                 // Original1075ED0 reads raw affixes, without item qualification,
                 // ordinary masks, side exclusions, or aggregate caps.
                 for ordinal in 0..7 {
                     let effect = u32_at(item, 0x38 + ordinal * 24);
-                    if effect != u32::MAX && tables.effects.row(effect)
-                        .is_some_and(|row| u16_at(row, 2) == group)
+                    if effect != u32::MAX
+                        && tables
+                            .effects
+                            .row(effect)
+                            .is_some_and(|row| u16_at(row, 2) == group)
                     {
                         sum = sum.wrapping_add(u32_at(item, 0x3c + ordinal * 24));
                     }
@@ -288,16 +352,29 @@ impl Program {
             let mut amount = self.inventory_max(tables, c, group);
             for side in &source.sides[bank] {
                 let count = u32::from(u16_at(side, 4)).wrapping_add(u32_at(side, 8));
-                if count <= 1 { continue; }
-                let Some(parameter) = tables.sides.row(u32_at(side, 0)) else { continue; };
+                if count <= 1 {
+                    continue;
+                }
+                let Some(parameter) = tables.sides.row(u32_at(side, 0)) else {
+                    continue;
+                };
                 for index in 0..7 {
                     let reward = &parameter[0x30 + index * 24..][..24];
                     let threshold = u32_at(reward, 0);
-                    if u16_at(reward, 8) != group || count < threshold { continue; }
+                    if u16_at(reward, 8) != group || count < threshold {
+                        continue;
+                    }
                     let coordinate = threshold.wrapping_sub(u32_at(side, 8)) as i32;
-                    let offset = if coordinate > 0 { 0x1c + 2 * coordinate as i64 } else { 0x1e };
-                    if !(0..=66).contains(&offset) { return Err("late set reward leaves its side record"); }
-                    amount = amount.wrapping_add(tables.curve(reward, u16_at(side, offset as usize)));
+                    let offset = if coordinate > 0 {
+                        0x1c + 2 * coordinate as i64
+                    } else {
+                        0x1e
+                    };
+                    if !(0..=66).contains(&offset) {
+                        return Err("late set reward leaves its side record");
+                    }
+                    amount =
+                        amount.wrapping_add(tables.curve(reward, u16_at(side, offset as usize)));
                 }
             }
             if tables.groups.row(u32::from(group)).is_some() {
@@ -305,14 +382,22 @@ impl Program {
                     amount = amount.wrapping_add(clan.value);
                 }
             }
-            if amount as i32 > 0 { late_max(&mut source.maps[bank], group, amount, tables); }
+            if amount as i32 > 0 {
+                late_max(&mut source.maps[bank], group, amount, tables);
+            }
         }
         Ok(())
     }
 
-    pub(super) fn pipeline(&self, tables: &Tables, f: &Frame, c: &Character,
-        attrs: &[i32; 7], ops: &[(u16, i64)], output: &mut Scratch) -> R<()>
-    {
+    pub(super) fn pipeline(
+        &self,
+        tables: &Tables,
+        f: &Frame,
+        c: &Character,
+        attrs: &[i32; 7],
+        ops: &[(u16, i64)],
+        output: &mut Scratch,
+    ) -> R<()> {
         self.check_candidate(tables, c)?;
         if !ops.is_empty() || !f.native_before.is_empty() || !f.native_after.is_empty() {
             return Err("normal source rebuild cannot mix fitted or flattened source layers");
@@ -336,7 +421,10 @@ impl Program {
         core.core_maps = output.source.maps.clone();
         tables.refresh_prepared_attacks(&core, attrs, output)?;
         tables.materialize_entries(&core, attrs, &pre_tail, &mut output.stat, &mut output.d)?;
-        output.source_rebuild_trace = Some(Trace { prefix, completed_core: core.core_maps });
+        output.source_rebuild_trace = Some(Trace {
+            prefix,
+            completed_core: core.core_maps,
+        });
         Ok(())
     }
 }
@@ -345,13 +433,22 @@ impl Program {
 /// writes only base, and retains dup. New entries bypass group qualification.
 fn late_max(entries: &mut Vec<Entry>, group: u16, value: u32, tables: &Tables) {
     // Original1AB5300 returns before any source access for the zero group.
-    if group == 0 { return; }
-    if let Some(entry) = entries.iter_mut().find(|entry| entry.key == group
-        && tables.groups.row(u32::from(group)).is_some())
+    if group == 0 {
+        return;
+    }
+    if let Some(entry) = entries
+        .iter_mut()
+        .find(|entry| entry.key == group && tables.groups.row(u32::from(group)).is_some())
     {
-        if value > entry.base.wrapping_add(u32::from(entry.dup)) { entry.base = value; }
+        if value > entry.base.wrapping_add(u32::from(entry.dup)) {
+            entry.base = value;
+        }
     } else if entries.len() < 256 {
-        entries.push(Entry { key: group, base: value, dup: 0 });
+        entries.push(Entry {
+            key: group,
+            base: value,
+            dup: 0,
+        });
     }
 }
 

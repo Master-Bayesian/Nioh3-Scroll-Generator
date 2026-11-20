@@ -17,8 +17,8 @@ pub mod native;
 pub mod pipeline;
 pub mod search;
 
-pub mod sustained;
 pub mod sequence;
+pub mod sustained;
 
 mod stat_words;
 

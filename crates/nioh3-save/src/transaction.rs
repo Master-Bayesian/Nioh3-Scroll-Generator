@@ -1669,17 +1669,27 @@ impl SaveTransactionHost {
     }
 
     /// Drop a plan so it can never be committed.
-    pub fn discard(&self, plan: SavePlan) -> OperationReceipt {
-        // The persisted plan is removed, so a later commit by id fails closed.
-        let _ = fs::remove_file(self.plan_dir().join(format!("{}.json", plan.plan_id)));
-        OperationReceipt {
-            operation_id: plan.plan_id,
+    pub fn discard(&self, plan: &SavePlan) -> Result<OperationReceipt, SaveReadError> {
+        self.validate_plan(plan)?;
+        let path = self.plan_dir().join(format!("{}.json", plan.plan_id));
+        match fs::remove_file(&path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(SaveReadError::Io {
+                    path: path.display().to_string(),
+                    message: error.to_string(),
+                })
+            }
+        }
+        Ok(OperationReceipt {
+            operation_id: plan.plan_id.clone(),
             kind: plan.kind.label().to_string(),
             outcome: ReceiptOutcome::Discarded,
             installed_sha256: None,
             backup_id: None,
             message: None,
-        }
+        })
     }
 
     /// Commit a plan: quiescence, backup, durable replace, readback, receipt.

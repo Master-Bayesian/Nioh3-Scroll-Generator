@@ -11,26 +11,38 @@ pub struct SnapshotKnowledge {
 
 impl SnapshotKnowledge {
     pub fn set_byte(&mut self, address: u64, known: bool) {
-        let mask = self.chunks.entry(address & !(CHUNK - 1)).or_insert_with(|| vec![0; CHUNK as usize / 8]);
+        let mask = self
+            .chunks
+            .entry(address & !(CHUNK - 1))
+            .or_insert_with(|| vec![0; CHUNK as usize / 8]);
         let offset = (address & (CHUNK - 1)) as usize;
         let bit = 1 << (offset & 7);
-        if known { mask[offset / 8] |= bit; } else { mask[offset / 8] &= !bit; }
+        if known {
+            mask[offset / 8] |= bit;
+        } else {
+            mask[offset / 8] &= !bit;
+        }
     }
 
     pub fn declare_bytes(&mut self, start: u64, len: usize) {
-        for offset in 0..len { self.set_byte(start + offset as u64, true); }
+        for offset in 0..len {
+            self.set_byte(start + offset as u64, true);
+        }
     }
 
     pub fn is_known(&self, address: u64) -> bool {
         let offset = (address & (CHUNK - 1)) as usize;
-        self.chunks.get(&(address & !(CHUNK - 1)))
+        self.chunks
+            .get(&(address & !(CHUNK - 1)))
             .is_some_and(|m| m[offset / 8] & (1 << (offset & 7)) != 0)
     }
 
     pub fn require_range(&self, start: u64, len: usize) -> Result<(), u64> {
         for offset in 0..len {
             let address = start.checked_add(offset as u64).ok_or(u64::MAX)?;
-            if !self.is_known(address) { return Err(address); }
+            if !self.is_known(address) {
+                return Err(address);
+            }
         }
         Ok(())
     }
@@ -57,8 +69,10 @@ pub struct OracleEnvironment {
 
 impl OracleEnvironment {
     pub fn independently_grounded(self) -> bool {
-        self.tls_guard_captured && self.tls_epoch_captured
-            && self.native_reads_checked && self.source_admission_derived
+        self.tls_guard_captured
+            && self.tls_epoch_captured
+            && self.native_reads_checked
+            && self.source_admission_derived
     }
 }
 
@@ -81,11 +95,19 @@ mod tests {
     #[test]
     fn removing_instruction_cuts_is_insufficient_evidence() {
         for missing in 0..4 {
-            let mut e = OracleEnvironment { tls_guard_captured: true, tls_epoch_captured: true,
-                native_reads_checked: true, source_admission_derived: true };
+            let mut e = OracleEnvironment {
+                tls_guard_captured: true,
+                tls_epoch_captured: true,
+                native_reads_checked: true,
+                source_admission_derived: true,
+            };
             assert!(e.independently_grounded());
-            match missing { 0 => e.tls_guard_captured = false, 1 => e.tls_epoch_captured = false,
-                2 => e.native_reads_checked = false, _ => e.source_admission_derived = false }
+            match missing {
+                0 => e.tls_guard_captured = false,
+                1 => e.tls_epoch_captured = false,
+                2 => e.native_reads_checked = false,
+                _ => e.source_admission_derived = false,
+            }
             assert!(!e.independently_grounded());
         }
     }

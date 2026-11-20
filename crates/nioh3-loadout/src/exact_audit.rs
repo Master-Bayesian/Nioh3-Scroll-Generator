@@ -56,8 +56,14 @@ impl<'a> ExactSweep<'a> {
             reference_work: self.work()?,
             fused_work: self.work()?,
             cpu: self.search.engine.open_prepared_cpu()?,
-            device: compare_cuda.then(|| self.search.engine.open_prepared_device()).transpose()?,
-            bounds: self.search.engine.supports_read_bounds().then(ReadBounds::new),
+            device: compare_cuda
+                .then(|| self.search.engine.open_prepared_device())
+                .transpose()?,
+            bounds: self
+                .search
+                .engine
+                .supports_read_bounds()
+                .then(ReadBounds::new),
         })
     }
 }
@@ -65,16 +71,24 @@ impl<'a> ExactSweep<'a> {
 impl ExactAudit<'_, '_> {
     /// Direct-device control: every retained packet runs natively when disabled.
     pub fn set_device_reuse_enabled(&mut self, enabled: bool) {
-        if let Some(device) = &mut self.device { device.set_reuse_enabled(enabled); }
+        if let Some(device) = &mut self.device {
+            device.set_reuse_enabled(enabled);
+        }
     }
 
     pub fn batch(&mut self, from: u64, count: usize) -> Result<ExactAuditBatch, String> {
         if !(1..=4096).contains(&count) || from > self.sweep.identity.planned {
             return Err("invalid audit batch range".into());
         }
-        let end = from.saturating_add(count as u64).min(self.sweep.identity.planned);
+        let end = from
+            .saturating_add(count as u64)
+            .min(self.sweep.identity.planned);
         let mut report = ExactAuditBatch {
-            from, compared: 0, answered: 0, outside_limits: 0, unanswered: 0,
+            from,
+            compared: 0,
+            answered: 0,
+            outside_limits: 0,
+            unanswered: 0,
             rows: Vec::with_capacity((end - from) as usize),
         };
         let search = &self.sweep.search;
@@ -88,7 +102,12 @@ impl ExactAudit<'_, '_> {
             // by the original independent eligible preparation and score.
             let admission = search.set_admission(&candidate, request, &mut self.reference_work);
             let reference = match admission {
-                Ok(()) => engine.evaluate(&candidate, search.pack, &request.limits, &mut self.reference_work),
+                Ok(()) => engine.evaluate(
+                    &candidate,
+                    search.pack,
+                    &request.limits,
+                    &mut self.reference_work,
+                ),
                 Err(outcome) => outcome,
             };
             let mut certified = false;
@@ -108,18 +127,30 @@ impl ExactAudit<'_, '_> {
             if reference != fused {
                 return Err(format!("audit outcome mismatch at ordinal {ordinal}: reference={reference:?}, shared={fused:?}"));
             }
-            let reference_words = admission.and_then(|()| engine.prepare_device_contact(
-                &candidate, search.pack, &request.limits, &mut self.reference_work,
-            ));
-            let fused_words = search.prepare_candidate(&candidate, request, &mut self.fused_work)
+            let reference_words = admission.and_then(|()| {
+                engine.prepare_device_contact(
+                    &candidate,
+                    search.pack,
+                    &request.limits,
+                    &mut self.reference_work,
+                )
+            });
+            let fused_words = search
+                .prepare_candidate(&candidate, request, &mut self.fused_work)
                 .and_then(|prepared| prepared.device_contact());
             if reference_words != fused_words {
-                return Err(format!("audit ordered prepared-input mismatch at ordinal {ordinal}"));
+                return Err(format!(
+                    "audit ordered prepared-input mismatch at ordinal {ordinal}"
+                ));
             }
             let mut row = ExactAuditRow {
-                ordinal, items: candidate.items, attrs: candidate.attrs,
-                outcome: outcome_json(fused), cpu_components: None,
-                cuda_components: None, cpu_certificate: certified,
+                ordinal,
+                items: candidate.items,
+                attrs: candidate.attrs,
+                outcome: outcome_json(fused),
+                cpu_components: None,
+                cuda_components: None,
+                cpu_certificate: certified,
             };
             match fused {
                 Outcome::Damage(bits) if canonical_score_bits(bits).is_some() => {
@@ -129,8 +160,11 @@ impl ExactAudit<'_, '_> {
                     ))?;
                     let components = match words {
                         Some(words) => {
-                            let components = self.cpu.run_components(&words).map_err(|error|
-                                format!("audit strict CPU components failed at {ordinal}: {error:?}"))?;
+                            let components = self.cpu.run_components(&words).map_err(|error| {
+                                format!(
+                                    "audit strict CPU components failed at {ordinal}: {error:?}"
+                                )
+                            })?;
                             if self.device.is_some() {
                                 lanes.push(report.rows.len());
                                 contacts.push(words);
@@ -138,16 +172,21 @@ impl ExactAudit<'_, '_> {
                             components
                         }
                         None => {
-                            if self.device.is_some() { row.cuda_components = Some(DamageWords::default()); }
+                            if self.device.is_some() {
+                                row.cuda_components = Some(DamageWords::default());
+                            }
                             DamageWords::default()
                         }
                     };
                     if components.reserved != 0
                         || [components.total, components.physical, components.elemental]
-                            .iter().any(|bits| !f32::from_bits(*bits).is_finite())
+                            .iter()
+                            .any(|bits| !f32::from_bits(*bits).is_finite())
                         || (0.0f32 + f32::from_bits(components.total)).to_bits() != bits
                     {
-                        return Err(format!("audit invalid CPU component/total at ordinal {ordinal}"));
+                        return Err(format!(
+                            "audit invalid CPU component/total at ordinal {ordinal}"
+                        ));
                     }
                     row.cpu_components = Some(components);
                 }
@@ -164,7 +203,10 @@ impl ExactAudit<'_, '_> {
             for (index, score) in lanes.into_iter().zip(scores) {
                 let row = &mut report.rows[index];
                 if score.bail != 0 || Some(score.damage) != row.cpu_components {
-                    return Err(format!("audit strict CPU/CUDA component mismatch at ordinal {}", row.ordinal));
+                    return Err(format!(
+                        "audit strict CPU/CUDA component mismatch at ordinal {}",
+                        row.ordinal
+                    ));
                 }
                 row.cuda_components = Some(score.damage);
             }

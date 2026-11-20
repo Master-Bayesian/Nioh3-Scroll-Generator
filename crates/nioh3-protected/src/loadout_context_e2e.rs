@@ -25,7 +25,9 @@ fn score(engine: &Engine, attrs: [i32; 7]) -> u32 {
         &mut engine.work(),
     ) {
         Outcome::Damage(bits) => bits,
-        other @ (Outcome::Refused(_) | Outcome::NoPath | Outcome::OutsideLimits) => panic!("Unanswered current outfit: {other:?}"),
+        other @ (Outcome::Refused(_) | Outcome::NoPath | Outcome::OutsideLimits) => {
+            panic!("Unanswered current outfit: {other:?}")
+        }
     }
 }
 fn capsule(directory: &Path, id: &str) -> PathBuf {
@@ -41,7 +43,7 @@ fn observe(
     params: &Value,
     snapshot: &CombatSnapshot,
 ) -> Result<Value, HostError> {
-    let result=contexts.read_with_snapshot_source(
+    let result = contexts.read_with_snapshot_source(
         state,
         data,
         plain,
@@ -50,21 +52,36 @@ fn observe(
         crate::loadout_live::SnapshotUse::RetainedDiagnostic,
         || Ok(Some(SnapshotOutcome::Ready(Box::new(snapshot.clone())))),
     );
-    if let Ok(value)=&result {
-        let contract=crate::Contract::load(&PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages/contracts")).unwrap();
-        let jobs=crate::ProtectedJobs::new();
-        let result_value=value.clone();
-        let accepted=jobs.start("save.loadout_context",false,move |_|Ok(result_value)).unwrap();
-        let id=accepted["job_id"].as_str().unwrap();
-        let deadline=std::time::Instant::now()+std::time::Duration::from_secs(5);
-        let completed=loop {
-            let job=jobs.snapshot(id).unwrap();
-            if job["state"]=="completed" { break job; }
-            assert!(std::time::Instant::now()<deadline,"Public job envelope did not complete");
+    if let Ok(value) = &result {
+        let contract = crate::Contract::load(
+            &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages/contracts"),
+        )
+        .unwrap();
+        let jobs = crate::ProtectedJobs::new();
+        let result_value = value.clone();
+        let accepted = jobs
+            .start("save.loadout_context", false, move |_| Ok(result_value))
+            .unwrap();
+        let id = accepted["job_id"].as_str().unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        let completed = loop {
+            let job = jobs.snapshot(id).unwrap();
+            if job["state"] == "completed" {
+                break job;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "Public job envelope did not complete"
+            );
             std::thread::sleep(std::time::Duration::from_millis(1));
         };
         jobs.join();
-        assert!(contract.response_valid(&json!({"protocol":1,"id":"retained-live-refresh","ok":true,"result":completed})),"Live context job violates the actual protected wire schema");
+        assert!(
+            contract.response_valid(
+                &json!({"protocol":1,"id":"retained-live-refresh","ok":true,"result":completed})
+            ),
+            "Live context job violates the actual protected wire schema"
+        );
     }
     result
 }
@@ -884,10 +901,7 @@ fn consumed_single_use_buff_rebinds_first_hit_without_frozen_bonus() {
         (owner + 0x3110, 0),
     ];
     for (offset, word) in head_bytes.as_chunks::<4>().0.iter().enumerate() {
-        independent.push((
-            head + offset as u64 * 4,
-            u32::from_le_bytes(*word),
-        ));
+        independent.push((head + offset as u64 * 4, u32::from_le_bytes(*word)));
     }
     let mut native = Native::open(Path::new(
         "F:/Nioh3_r16_build/deliverables/sustained-actions-20261111/reaper-held-native",

@@ -696,7 +696,7 @@ fn captured_hell_flag_tracks_each_candidate_and_preserves_other_bytes() {
     inventory[weapon_at + 0x1A] |= 0x10;
     manifest.inventory_sha256 = sha256(&inventory);
     let context = LoadoutContext::new_with_scene(
-        manifest,
+        manifest.clone(),
         inventory.clone(),
         frame.clone(),
         scene_bytes(&image, &known, &entry),
@@ -715,7 +715,6 @@ fn captured_hell_flag_tracks_each_candidate_and_preserves_other_bytes() {
     for (name, item, expected) in [
         ("retained_hell", None, 0xCC01_5AA5u32),
         ("ordinary_candidate", Some(0), 0xCC00_5AA5),
-        ("empty_candidate", Some(1), 0xCC00_5AA5),
     ] {
         let mut candidate = candidate(&engine);
         candidate.items[9] = item;
@@ -726,6 +725,37 @@ fn captured_hell_flag_tracks_each_candidate_and_preserves_other_bytes() {
         assert_eq!(values[0].1, expected);
         proof.push(json!({"case": name, "main_address": target, "word": values[0].1, "preserved_other_bytes": values[0].1 & 0xFF00_FFFF == 0xCC00_5AA5}));
     }
+    // Removing the equipped weapon changes its shared sources. The legacy
+    // context must refuse that candidate; exercise the empty writer with a
+    // separate context whose baseline already has the empty slot.
+    let mut removed = candidate(&engine);
+    removed.items[9] = Some(1);
+    assert_eq!(
+        engine
+            .native_words(&removed, &pack, &mut engine.work())
+            .unwrap_err(),
+        "legacy shared-source dependencies changed; fresh source rebuild required"
+    );
+    inventory[weapon_at..weapon_at + 0xE8].copy_from_slice(&empty);
+    manifest.inventory_sha256 = sha256(&inventory);
+    let empty_context = LoadoutContext::new_with_scene(
+        manifest,
+        inventory,
+        frame,
+        scene_bytes(&image, &known, &entry),
+    )
+    .unwrap();
+    let empty_engine = Engine::open_with_context(&bundle(), &empty_context).unwrap();
+    let mut work = empty_engine.work();
+    let (words, _) = empty_engine
+        .native_words(&candidate(&empty_engine), &pack, &mut work)
+        .unwrap();
+    let flags: Vec<_> = words.iter().filter(|word| word.0 == target).collect();
+    assert_eq!(flags.len(), 1);
+    assert_eq!(flags[0].1, 0xCC00_5AA5);
+    proof.push(
+        json!({"case":"empty_baseline","word":flags[0].1,"removal_requires_source_rebuild":true}),
+    );
     let legacy = Engine::open(&bundle()).unwrap();
     let mut work = legacy.work();
     let (words, _) = legacy

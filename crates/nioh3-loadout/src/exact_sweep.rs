@@ -332,8 +332,10 @@ impl<'a> ExactSweep<'a> {
         let mut stats = self.performance.clone();
         stats.host_preparation = self.work.preparation_stats();
         if let Scorer::Cpu(Some(bounds)) = &self.scorer {
-            (stats.cpu_overlay_layout_rebuilds, stats.cpu_overlay_layout_reuses) =
-                bounds.overlay_layout_counts();
+            (
+                stats.cpu_overlay_layout_rebuilds,
+                stats.cpu_overlay_layout_reuses,
+            ) = bounds.overlay_layout_counts();
         }
         stats.device = match &self.scorer {
             Scorer::Cpu(_) => None,
@@ -507,7 +509,11 @@ impl<'a> ExactSweep<'a> {
             Scorer::Cuda(device) => {
                 let timed = self.performance.timing_enabled.then(Instant::now);
                 let result = self.search.prepared_device_outcomes_with_work_controlled(
-                    device, &candidates, &self.request, work, cancelled,
+                    device,
+                    &candidates,
+                    &self.request,
+                    work,
+                    cancelled,
                 );
                 if let Some(timed) = timed {
                     self.performance.cuda_batch_seconds += timed.elapsed().as_secs_f64();
@@ -519,13 +525,18 @@ impl<'a> ExactSweep<'a> {
                 for candidate in &candidates {
                     check_cancelled()?;
                     let timed = self.performance.timing_enabled.then(Instant::now);
-                    let prepared = self.search.prepare_candidate(candidate, &self.request, work);
+                    let prepared = self
+                        .search
+                        .prepare_candidate(candidate, &self.request, work);
                     if let Some(timed) = timed {
                         self.performance.cpu_preparation_seconds += timed.elapsed().as_secs_f64();
                     }
                     let prepared = match prepared {
                         Ok(prepared) => prepared,
-                        Err(outcome) => { outcomes.push(outcome); continue; }
+                        Err(outcome) => {
+                            outcomes.push(outcome);
+                            continue;
+                        }
                     };
                     let timed = self.performance.timing_enabled.then(Instant::now);
                     let outcome = if let Some(bound) = bounds.as_mut() {

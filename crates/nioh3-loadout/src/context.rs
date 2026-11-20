@@ -403,8 +403,11 @@ impl LoadoutContext {
                 }
             }
             let pointer = |address: u64| -> Result<u64, ContextError> {
-                let high = address.checked_add(4).ok_or_else(|| invalid("source pointer overflows"))?;
-                Ok(u64::from(known_word(&scene, address)?) | (u64::from(known_word(&scene, high)?) << 32))
+                let high = address
+                    .checked_add(4)
+                    .ok_or_else(|| invalid("source pointer overflows"))?;
+                Ok(u64::from(known_word(&scene, address)?)
+                    | (u64::from(known_word(&scene, high)?) << 32))
             };
             // frame.owner is the typed producer's normalized0x340000000
             // address. Resource ownership follows the actual MAIN entity
@@ -421,13 +424,19 @@ impl LoadoutContext {
                 }
                 if let Some(owner_field) = player.checked_add(0x3A0) {
                     if let Ok(owner) = pointer(owner_field) {
-                        if owner > 0 && owner.checked_add(0x164).is_some()
-                            && matches!(pointer(owner), Ok(value) if value == player) {
-                            if let (Ok(current), Ok(maximum)) = (known_word(&scene, owner + 0x15C),
-                                known_word(&scene, owner + 0x160))
-                            {
-                                bound = crate::pipeline::Frame::with_owner_resource(&bound, [current, maximum])
-                                    .map_err(invalid)?;
+                        if owner > 0
+                            && owner.checked_add(0x164).is_some()
+                            && matches!(pointer(owner), Ok(value) if value == player)
+                        {
+                            if let (Ok(current), Ok(maximum)) = (
+                                known_word(&scene, owner + 0x15C),
+                                known_word(&scene, owner + 0x160),
+                            ) {
+                                bound = crate::pipeline::Frame::with_owner_resource(
+                                    &bound,
+                                    [current, maximum],
+                                )
+                                .map_err(invalid)?;
                             }
                         }
                     }
@@ -461,15 +470,20 @@ impl LoadoutContext {
             if let Some(native) = native {
                 for op in &layer.operations {
                     if op.group == 0 || !(0..=u32::MAX as i64).contains(&op.value) {
-                        return Err(invalid("native source submissions require nonzero u16 groups and u32 values"));
+                        return Err(invalid(
+                            "native source submissions require nonzero u16 groups and u32 values",
+                        ));
                     }
                     native.push((op.group, op.value as u32));
                 }
             }
         }
         let native_frame = crate::pipeline::Frame::with_native_sources(
-            captured_frame.as_ref().unwrap_or(&frame), &native_before, &native_after)
-            .map_err(invalid)?;
+            captured_frame.as_ref().unwrap_or(&frame),
+            &native_before,
+            &native_after,
+        )
+        .map_err(invalid)?;
         if captured_frame.is_some() || native_frame != frame {
             captured_frame = Some(native_frame);
         }
@@ -557,7 +571,12 @@ impl LoadoutContext {
             .non_gear
             .layers
             .iter()
-            .filter(|l| !matches!(l.kind, SourceKind::NativeBeforeEquipment | SourceKind::NativeAfterSets))
+            .filter(|l| {
+                !matches!(
+                    l.kind,
+                    SourceKind::NativeBeforeEquipment | SourceKind::NativeAfterSets
+                )
+            })
             .flat_map(|l| &l.operations)
             .collect();
         let mut setup = format!(

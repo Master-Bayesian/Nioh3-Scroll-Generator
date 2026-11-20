@@ -659,6 +659,44 @@ fn character_edits_commit_through_the_save_transaction() {
     let source = character["source_sha256"].as_str().unwrap().to_string();
     assert!(source.eq_ignore_ascii_case(&digest(&original)));
 
+    let pending = job(
+        &mut exchange,
+        "save.prepare_character_edit",
+        json!({"save_id":save_id,"source_sha256":source,"currencies":{"gold":1}}),
+    );
+    assert_eq!(pending["state"], "completed", "{pending}");
+    let id = pending["result"]["plan_id"].as_str().unwrap();
+    let path = root
+        .join("state/protected-internal/v2-plans")
+        .join(format!("{id}.json"));
+    std::fs::create_dir_all(&path).unwrap();
+    let discard = json!({"plan_id":id});
+    let failed = job(&mut exchange, "save.discard", discard.clone());
+    assert_eq!(failed["state"], "failed", "{failed}");
+    // A repeated failure distinguishes retained ownership from an idempotent
+    // success response for an unknown ID.
+    let again = job(&mut exchange, "save.discard", discard.clone());
+    assert_eq!(again["state"], "failed", "{again}");
+    std::fs::remove_dir(&path).unwrap();
+    std::fs::write(&path, b"retained plan marker").unwrap();
+    let settled = job(&mut exchange, "save.discard", discard.clone());
+    assert_eq!(settled["result"]["discarded"], true, "{settled}");
+    assert!(!path.exists());
+    let refused = job(&mut exchange, "save.commit", discard);
+    assert_eq!(refused["state"], "failed", "{refused}");
+    assert_eq!(std::fs::read(&save_path).unwrap(), original);
+    let evidence = build_root().join("deliverables/discard-fault");
+    std::fs::create_dir_all(&evidence).unwrap();
+    std::fs::write(
+        evidence.join("result.json"),
+        serde_json::to_vec_pretty(&json!({
+            "first":failed, "retry_before_repair":again, "after_repair":settled,
+            "commit_after_discard":refused, "synthetic_save_sha256":digest(&original)
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
     let stale = job(
         &mut exchange,
         "save.prepare_character_edit",

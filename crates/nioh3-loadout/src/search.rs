@@ -9,8 +9,8 @@ use crate::engine::{
     Outcome, PreparedCandidate, ReadBounds, SetState, SweepOutcome, SLOTS,
 };
 use crate::gpu::{CardOutcome, Gpu, GpuSweepError, MainDevice, NkSpace, Sweep};
-use crate::pipeline::{Profile, SetCapacity};
 pub use crate::pipeline::SET_REDUCTION_GROUP;
+use crate::pipeline::{Profile, SetCapacity};
 use crate::search_control::{
     RunControl, SearchBackend, SearchInterrupted, SearchObserver, SearchProgress, SearchStage,
 };
@@ -359,9 +359,11 @@ impl Plan {
     /// Native set predicates use the CPU only when the loaded DLL lacks their exports.
     /// Other small complete searches can avoid GPU contention using read witnesses.
     pub fn prefers_bounded_cpu(&self) -> bool {
-        self.legacy_source_risk || (self.native_set_constraints && !self.gpu_native_sets) || (self.complete
-            && self.size() <= CPU_CERTIFICATE_PREFERENCE_LIMIT
-            && !std::env::var("NIOH3_LOADOUT_GPU").is_ok_and(|mode| mode == "1"))
+        self.legacy_source_risk
+            || (self.native_set_constraints && !self.gpu_native_sets)
+            || (self.complete
+                && self.size() <= CPU_CERTIFICATE_PREFERENCE_LIMIT
+                && !std::env::var("NIOH3_LOADOUT_GPU").is_ok_and(|mode| mode == "1"))
     }
 
     /// Iterate the same assignments that the production sweep covers.
@@ -617,15 +619,25 @@ pub enum Backend {
 pub enum SearchFailure {
     DomainCountTooLarge,
     SourceAttributesUnproven,
-    CpuFallbackBudget { planned: u64, limit: u64, reason: String },
+    CpuFallbackBudget {
+        planned: u64,
+        limit: u64,
+        reason: String,
+    },
 }
 impl std::fmt::Display for SearchFailure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::DomainCountTooLarge => f.write_str("LOADOUT_DOMAIN_COUNT_TOO_LARGE"),
             Self::SourceAttributesUnproven => f.write_str("LOADOUT_SOURCE_ATTRIBUTES_UNPROVEN"),
-            Self::CpuFallbackBudget { planned, limit, reason } => write!(f,
-                "LOADOUT_SPACE_TOO_LARGE_CPU: {planned} outfits exceed {limit}; backend: {reason}"),
+            Self::CpuFallbackBudget {
+                planned,
+                limit,
+                reason,
+            } => {
+                write!(f,
+                "LOADOUT_SPACE_TOO_LARGE_CPU: {planned} outfits exceed {limit}; backend: {reason}")
+            }
         }
     }
 }
@@ -649,8 +661,11 @@ pub struct Report {
 
 /// Optional caller policy: an omitted axis keeps the bound character's item.
 /// Enhanced pools compare with the corresponding enhanced current record.
-#[derive(Clone,Copy,Debug)]
-pub enum CurrentChoicePolicy { Captured, Enhanced }
+#[derive(Clone, Copy, Debug)]
+pub enum CurrentChoicePolicy {
+    Captured,
+    Enhanced,
+}
 
 /// Source-production scope is separate from the player's requested weapon TYPE.
 /// A limited source producer still enumerates the requested domain and reports
@@ -710,8 +725,9 @@ impl<'a> Search<'a> {
 
     /// Explicitly include retaining each currently bound slot when its record
     /// is absent from the submitted pool. This does not invent an unequip action.
-    pub fn with_current_choices(mut self,policy:CurrentChoicePolicy)->Self {
-        self.current_choices=Some(policy);self
+    pub fn with_current_choices(mut self, policy: CurrentChoicePolicy) -> Self {
+        self.current_choices = Some(policy);
+        self
     }
 
     /// Retain all requested TYPE rows in coverage accounting while limiting
@@ -735,7 +751,9 @@ impl<'a> Search<'a> {
     }
 
     fn legacy_card_admission(&self, attrs: &[i32; 7]) -> Result<(), String> {
-        if self.legacy_pool_risk || (!self.engine.has_dynamic_sources() && *attrs != self.engine.start_attrs) {
+        if self.legacy_pool_risk
+            || (!self.engine.has_dynamic_sources() && *attrs != self.engine.start_attrs)
+        {
             return Err("legacy shared-source dependencies require guarded CPU evaluation".into());
         }
         Ok(())
@@ -743,7 +761,8 @@ impl<'a> Search<'a> {
 
     fn current_record(&self, position: usize) -> Option<[u8; crate::engine::ITEM]> {
         let policy = self.current_choices?;
-        let mut current = <[u8; crate::engine::ITEM]>::try_from(self.engine.worn_item(position)).ok()?;
+        let mut current =
+            <[u8; crate::engine::ITEM]>::try_from(self.engine.worn_item(position)).ok()?;
         if matches!(policy, CurrentChoicePolicy::Enhanced) && current[0x30] <= 5 {
             self.engine.enhance(&mut current);
         }
@@ -752,15 +771,21 @@ impl<'a> Search<'a> {
 
     fn current_missing(&self, position: usize, rows: &[u32]) -> bool {
         self.current_record(position).is_some_and(|current| {
-            !rows.iter().any(|&row| self.pack.pool[row as usize] == current)
+            !rows
+                .iter()
+                .any(|&row| self.pack.pool[row as usize] == current)
         })
     }
 
     fn current_accessories_missing(&self, rows: &[u32]) -> [bool; 2] {
         let mut represented = Vec::new();
         ACCESSORY_SLOTS.map(|slot| {
-            let Some(position) = position_of(slot) else { return false; };
-            let Some(current) = self.current_record(position) else { return false; };
+            let Some(position) = position_of(slot) else {
+                return false;
+            };
+            let Some(current) = self.current_record(position) else {
+                return false;
+            };
             // The two captured records can be byte-identical while belonging
             // to distinct owned items. A single pool row represents only one.
             if let Some(&row) = rows.iter().find(|&&row| {
@@ -776,16 +801,25 @@ impl<'a> Search<'a> {
 
     fn cpu_budget_failure(&self, plan: &Plan, t: Instant, reason: &str) -> Option<Report> {
         let limit = self.cpu_fallback_limit?;
-        if plan.size() <= limit { return None; }
+        if plan.size() <= limit {
+            return None;
+        }
         Some(Report {
             failure: Some(SearchFailure::CpuFallbackBudget {
-                planned: plan.size(), limit, reason: reason.to_owned(),
+                planned: plan.size(),
+                limit,
+                reason: reason.to_owned(),
             }),
-            best: Vec::new(), backend: Backend::Cpu(reason.to_owned()),
-            counts: Counts::default(), searched: 0, full_size: plan.full_size,
+            best: Vec::new(),
+            backend: Backend::Cpu(reason.to_owned()),
+            counts: Counts::default(),
+            searched: 0,
+            full_size: plan.full_size,
             source_uncomputed: plan.source_uncomputed,
-            polish_rounds: 0, seconds: t.elapsed().as_secs_f64(),
-            missed: Vec::new(), complete: false,
+            polish_rounds: 0,
+            seconds: t.elapsed().as_secs_f64(),
+            missed: Vec::new(),
+            complete: false,
         })
     }
 
@@ -826,7 +860,16 @@ impl<'a> Search<'a> {
     ) -> Result<Sweep, String> {
         self.legacy_card_admission(attrs)?;
         let Some(control) = self.control else {
-            return g.sweep_with_sets(spaces, lists, attrs, limits, sets, keep, capacity, miss_capacity);
+            return g.sweep_with_sets(
+                spaces,
+                lists,
+                attrs,
+                limits,
+                sets,
+                keep,
+                capacity,
+                miss_capacity,
+            );
         };
         if !control.checkpoint() {
             return Err("search interrupted".into());
@@ -834,7 +877,16 @@ impl<'a> Search<'a> {
         if !g.supports_observed_search() {
             // Legacy kernels remain usable through small host-owned partitions.
             // Stop is checked before and after each synchronous foreign call.
-            let sweep = g.sweep_with_sets(spaces, lists, attrs, limits, sets, keep, capacity, miss_capacity)?;
+            let sweep = g.sweep_with_sets(
+                spaces,
+                lists,
+                attrs,
+                limits,
+                sets,
+                keep,
+                capacity,
+                miss_capacity,
+            )?;
             if !control.checkpoint() {
                 return Err("search interrupted".into());
             }
@@ -1087,9 +1139,15 @@ impl<'a> Search<'a> {
                 SetPlanning::ExactCapacity(inputs) => inputs.rows[row as usize].clone(),
                 SetPlanning::ExistingProfiles => profiles[index].as_ref().map_or_else(
                     // Unknown producer state cannot prove a set impossible.
-                    || SetCapacity { pieces: vec![7; keys.len()], reduction: true },
+                    || SetCapacity {
+                        pieces: vec![7; keys.len()],
+                        reduction: true,
+                    },
                     |p| {
-                        let lines = self.engine.tables().effect_lines(&self.pack.pool[row as usize]);
+                        let lines = self
+                            .engine
+                            .tables()
+                            .effect_lines(&self.pack.pool[row as usize]);
                         SetCapacity {
                             // Free sets can count repeated lines; fixed sets can
                             // deduplicate them. Count each possible submission.
@@ -1164,7 +1222,7 @@ impl<'a> Search<'a> {
         let mut groups: Vec<(usize, Group)> = Vec::new();
         let mut full_size = 1u64;
         let mut source_uncomputed = 0u64;
-        let mut has_current_choices=false;
+        let mut has_current_choices = false;
         for &(slot, first, count) in &self.pack.ranges {
             if ACCESSORY_SLOTS.contains(&slot) {
                 continue;
@@ -1175,9 +1233,14 @@ impl<'a> Search<'a> {
             let requested_rows: Vec<u32> = (first..first + count).collect();
             // Admission precedes all profile and set-bound logic. An unknown
             // weapon cannot disappear as an alleged infeasible or dominated row.
-            let rows: Vec<u32> = requested_rows.iter().copied()
-                .filter(|&row| slot != 0 || self.weapon_row_admitted(row)).collect();
-            let keep = if slot == 0 && self.source_admission == SourceAdmissionPolicy::CapturedWeaponOnly {
+            let rows: Vec<u32> = requested_rows
+                .iter()
+                .copied()
+                .filter(|&row| slot != 0 || self.weapon_row_admitted(row))
+                .collect();
+            let keep = if slot == 0
+                && self.source_admission == SourceAdmissionPolicy::CapturedWeaponOnly
+            {
                 // None always keeps the actual captured body. An enhanced
                 // hypothetical weapon is not that body, even if it came from
                 // the same owned inventory record.
@@ -1187,13 +1250,21 @@ impl<'a> Search<'a> {
             };
             has_current_choices |= keep;
             let requested_count = u64::from(count) + u64::from(keep);
-            source_uncomputed = source_uncomputed.saturating_mul(requested_count)
-                .saturating_add(full_size.saturating_mul((requested_rows.len() - rows.len()) as u64));
+            source_uncomputed = source_uncomputed
+                .saturating_mul(requested_count)
+                .saturating_add(
+                    full_size.saturating_mul((requested_rows.len() - rows.len()) as u64),
+                );
             full_size = full_size.saturating_mul(requested_count);
             let classes = self.classes(
-                &rows, slot, &keys, request, (!complete).then_some(1), &planning,
+                &rows,
+                slot,
+                &keys,
+                request,
+                (!complete).then_some(1),
+                &planning,
             );
-            let mut choices:Vec<Choice> = classes
+            let mut choices: Vec<Choice> = classes
                 .iter()
                 .map(|(class, g)| Choice {
                     pieces: class.pieces.clone(),
@@ -1202,7 +1273,11 @@ impl<'a> Search<'a> {
                 })
                 .collect();
             if keep {
-                choices.push(Choice { pieces:vec![0;keys.len()],reduction:false,parts:vec![Vec::new()] });
+                choices.push(Choice {
+                    pieces: vec![0; keys.len()],
+                    reduction: false,
+                    parts: vec![Vec::new()],
+                });
             }
             units.push(Unit { choices });
             groups.extend(classes.into_iter().map(|(_, g)| (position, g)));
@@ -1216,10 +1291,10 @@ impl<'a> Search<'a> {
             .filter(|r| ACCESSORY_SLOTS.contains(&r.0))
             .flat_map(|&(_, first, count)| first..first + count)
             .collect();
-        if accessories.len()>=2 || (self.current_choices.is_some() && !accessories.is_empty()) {
+        if accessories.len() >= 2 || (self.current_choices.is_some() && !accessories.is_empty()) {
             let n = accessories.len() as u64;
             let divisor = if complete { 1 } else { 2 };
-            let mut accessory_size=n * (n - 1) / divisor;
+            let mut accessory_size = n * (n - 1) / divisor;
             let [one, two] = ACCESSORY_SLOTS.map(|s| position_of(s).unwrap_or(0));
             let classes = self.classes(
                 &accessories,
@@ -1259,7 +1334,12 @@ impl<'a> Search<'a> {
                     };
                     if !parts.is_empty() {
                         choices.push(Choice {
-                            pieces: ca.pieces.iter().zip(&cb.pieces).map(|(a, b)| a + b).collect(),
+                            pieces: ca
+                                .pieces
+                                .iter()
+                                .zip(&cb.pieces)
+                                .map(|(a, b)| a + b)
+                                .collect(),
                             reduction: ca.reduction || cb.reduction,
                             parts,
                         });
@@ -1269,29 +1349,43 @@ impl<'a> Search<'a> {
             let [keep_one, keep_two] = self.current_accessories_missing(&accessories);
             if keep_one {
                 for (class, group) in &classes {
-                    choices.push(Choice { pieces:class.pieces.clone(),reduction:class.reduction,
-                        parts:vec![vec![(two,group.kept.clone())]] });
+                    choices.push(Choice {
+                        pieces: class.pieces.clone(),
+                        reduction: class.reduction,
+                        parts: vec![vec![(two, group.kept.clone())]],
+                    });
                 }
-                accessory_size=accessory_size.saturating_add(n);
+                accessory_size = accessory_size.saturating_add(n);
             }
             if keep_two {
                 for (class, group) in &classes {
-                    choices.push(Choice { pieces:class.pieces.clone(),reduction:class.reduction,
-                        parts:vec![vec![(one,group.kept.clone())]] });
+                    choices.push(Choice {
+                        pieces: class.pieces.clone(),
+                        reduction: class.reduction,
+                        parts: vec![vec![(one, group.kept.clone())]],
+                    });
                 }
-                accessory_size=accessory_size.saturating_add(n);
+                accessory_size = accessory_size.saturating_add(n);
             }
             if keep_one && keep_two {
-                choices.push(Choice { pieces:vec![0;keys.len()],reduction:false,parts:vec![Vec::new()] });
-                accessory_size=accessory_size.saturating_add(1);
+                choices.push(Choice {
+                    pieces: vec![0; keys.len()],
+                    reduction: false,
+                    parts: vec![Vec::new()],
+                });
+                accessory_size = accessory_size.saturating_add(1);
             }
-            has_current_choices|=keep_one||keep_two;
+            has_current_choices |= keep_one || keep_two;
             // The legacy one-record pool retains both slots. An explicit current
             // policy additionally represents each legal one-slot replacement.
-            if accessory_size==0 { accessory_size=1; }
-            full_size=full_size.saturating_mul(accessory_size);
-            source_uncomputed=source_uncomputed.saturating_mul(accessory_size);
-            if !choices.is_empty() { units.push(Unit { choices }); }
+            if accessory_size == 0 {
+                accessory_size = 1;
+            }
+            full_size = full_size.saturating_mul(accessory_size);
+            source_uncomputed = source_uncomputed.saturating_mul(accessory_size);
+            if !choices.is_empty() {
+                units.push(Unit { choices });
+            }
             for (_, g) in classes {
                 groups.push((one, g.clone()));
                 groups.push((two, g));
@@ -1301,7 +1395,10 @@ impl<'a> Search<'a> {
         // cannot make an inexact requested coverage number publishable.
         if full_size > MAX_EXACT_COVERAGE {
             return Plan {
-                spaces: Vec::new(), groups, full_size, source_uncomputed,
+                spaces: Vec::new(),
+                groups,
+                full_size,
+                source_uncomputed,
                 complete: false,
                 native_set_constraints: !request.sets.is_empty(),
                 gpu_native_sets: !request.sets.is_empty() && self.engine.supports_set_constraints(),
@@ -1333,15 +1430,20 @@ impl<'a> Search<'a> {
                         attrs: self.engine.start_attrs,
                         items: [None; SLOTS],
                     };
-                    self.engine.equipment_set_state(&current, self.pack, &mut work)
+                    self.engine
+                        .equipment_set_state(&current, self.pack, &mut work)
                 } else {
-                    self.engine.retained_set_state(self.pack, &self.engine.start_attrs, &mut work)
+                    self.engine
+                        .retained_set_state(self.pack, &self.engine.start_attrs, &mut work)
                 };
                 state.ok().map(|state| SetCapacity {
                     pieces: keys
                         .iter()
                         .map(|key| {
-                            state.pieces.iter().find(|entry| entry.0 == *key)
+                            state
+                                .pieces
+                                .iter()
+                                .find(|entry| entry.0 == *key)
                                 .map_or(0, |entry| entry.1)
                         })
                         .collect(),
@@ -1349,7 +1451,11 @@ impl<'a> Search<'a> {
                 })
             }
         };
-        let rules = if retained.is_some() { &request.sets[..] } else { &[] };
+        let rules = if retained.is_some() {
+            &request.sets[..]
+        } else {
+            &[]
+        };
         let mut initial = retained.unwrap_or_else(|| SetCapacity::empty(&keys));
         // Qualification may be gained after moving attributes; start-attribute
         // membership is not an upper bound for that search. It therefore uses
@@ -1413,8 +1519,10 @@ impl<'a> Search<'a> {
         card: Option<&mut Gpu>,
         attempt: u32,
     ) -> (Vec<Option<u32>>, Counts) {
-        if let Some(g) = card.filter(|g| !self.legacy_source_risk(request)
-            && (request.sets.is_empty() || g.supports_set_constraints())) {
+        if let Some(g) = card.filter(|g| {
+            !self.legacy_source_risk(request)
+                && (request.sets.is_empty() || g.supports_set_constraints())
+        }) {
             let mut bits = Vec::with_capacity(list.len());
             let mut counts = Counts::default();
             let mut failed = false;
@@ -1496,10 +1604,7 @@ impl<'a> Search<'a> {
                             if self.stopped() {
                                 break;
                             }
-                            local.push((
-                                i,
-                                self.candidate_outcome(c, request, &mut w),
-                            ));
+                            local.push((i, self.candidate_outcome(c, request, &mut w)));
                         }
                     }
                     if let Ok(mut r) = results.lock() {
@@ -1671,7 +1776,7 @@ impl<'a> Search<'a> {
                 &lists,
                 &attrs,
                 &request.limits,
-                    &request.sets,
+                &request.sets,
                 keep,
                 size,
                 CARD_MISSES,
@@ -1756,12 +1861,29 @@ impl<'a> Search<'a> {
         request: &Request,
         w: &'w mut crate::engine::Work,
     ) -> Result<PreparedCandidate<'w>, Outcome> {
-        let admit = |state: &SetState| request.sets.iter().all(|rule| rule.holds(
-            |key| Some(state.pieces.iter().find(|entry| entry.0 == key).map_or(0, |entry| entry.1)),
-            state.reduction,
-        ));
-        self.engine.prepare_for_search(c, self.pack, &request.limits, w,
-            (!request.sets.is_empty()).then_some(admit))
+        let admit = |state: &SetState| {
+            request.sets.iter().all(|rule| {
+                rule.holds(
+                    |key| {
+                        Some(
+                            state
+                                .pieces
+                                .iter()
+                                .find(|entry| entry.0 == key)
+                                .map_or(0, |entry| entry.1),
+                        )
+                    },
+                    state.reduction,
+                )
+            })
+        };
+        self.engine.prepare_for_search(
+            c,
+            self.pack,
+            &request.limits,
+            w,
+            (!request.sets.is_empty()).then_some(admit),
+        )
     }
 
     /// Deliberately unfused set-only reference for host acceptance. Search
@@ -1772,12 +1894,31 @@ impl<'a> Search<'a> {
         request: &Request,
         w: &mut crate::engine::Work,
     ) -> Result<(), Outcome> {
-        if request.sets.is_empty() { return Ok(()); }
-        let state = self.engine.equipment_set_state(c, self.pack, w).map_err(Outcome::Refused)?;
-        if request.sets.iter().all(|rule| rule.holds(
-            |key| Some(state.pieces.iter().find(|entry| entry.0 == key).map_or(0, |entry| entry.1)),
-            state.reduction,
-        )) { Ok(()) } else { Err(Outcome::OutsideLimits) }
+        if request.sets.is_empty() {
+            return Ok(());
+        }
+        let state = self
+            .engine
+            .equipment_set_state(c, self.pack, w)
+            .map_err(Outcome::Refused)?;
+        if request.sets.iter().all(|rule| {
+            rule.holds(
+                |key| {
+                    Some(
+                        state
+                            .pieces
+                            .iter()
+                            .find(|entry| entry.0 == key)
+                            .map_or(0, |entry| entry.1),
+                    )
+                },
+                state.reduction,
+            )
+        }) {
+            Ok(())
+        } else {
+            Err(Outcome::OutsideLimits)
+        }
     }
 
     fn candidate_outcome(
@@ -1862,8 +2003,8 @@ impl<'a> Search<'a> {
                             let evaluated = match self.prepare_candidate(&c, request, &mut w) {
                                 Err(outcome) => SweepOutcome::Executed(outcome),
                                 Ok(prepared) => match bounds.as_mut() {
-                                Some(bounds) => prepared.evaluate_with_bound(bounds),
-                                None => SweepOutcome::Executed(prepared.evaluate()),
+                                    Some(bounds) => prepared.evaluate_with_bound(bounds),
+                                    None => SweepOutcome::Executed(prepared.evaluate()),
                                 },
                             };
                             let outcome = match evaluated {
@@ -2045,7 +2186,10 @@ impl<'a> Search<'a> {
             return Err("a complete card sweep uses fixed attributes".into());
         }
         if !request.sets.is_empty() && !self.engine.supports_set_constraints() {
-            return Err("native set constraints require CPU validation; card ABI has no set predicate".into());
+            return Err(
+                "native set constraints require CPU validation; card ABI has no set predicate"
+                    .into(),
+            );
         }
         let t = Instant::now();
         let plan = self.build_plan(request, Some(limit));
@@ -2058,7 +2202,10 @@ impl<'a> Search<'a> {
             ));
         }
         if plan.source_uncomputed != 0 {
-            return Err(format!("{} requested outfits have uncomputed weapon sources", plan.source_uncomputed));
+            return Err(format!(
+                "{} requested outfits have uncomputed weapon sources",
+                plan.source_uncomputed
+            ));
         }
         let attrs = self.engine.start_attrs;
         self.legacy_card_admission(&attrs)?;
@@ -2098,17 +2245,28 @@ impl<'a> Search<'a> {
     }
 
     fn prepared_device_outcomes_with_work(
-        &self, device: &mut MainDevice, candidates: &[Candidate], request: &Request,
+        &self,
+        device: &mut MainDevice,
+        candidates: &[Candidate],
+        request: &Request,
         work: &mut crate::engine::Work,
     ) -> Result<Vec<Outcome>, String> {
         self.prepared_device_outcomes_with_work_controlled(
-            device, candidates, request, work, &|| false,
+            device,
+            candidates,
+            request,
+            work,
+            &|| false,
         )
     }
 
     fn prepared_device_outcomes_with_work_controlled(
-        &self, device: &mut MainDevice, candidates: &[Candidate], request: &Request,
-        work: &mut crate::engine::Work, cancelled: &dyn Fn() -> bool,
+        &self,
+        device: &mut MainDevice,
+        candidates: &[Candidate],
+        request: &Request,
+        work: &mut crate::engine::Work,
+        cancelled: &dyn Fn() -> bool,
     ) -> Result<Vec<Outcome>, String> {
         let check_stopped = || {
             if cancelled() {
@@ -2124,8 +2282,10 @@ impl<'a> Search<'a> {
         let mut lanes = Vec::new();
         for (index, candidate) in candidates.iter().enumerate() {
             check_stopped()?;
-            match self.prepare_candidate(candidate, request, work)
-                .and_then(PreparedCandidate::device_contact) {
+            match self
+                .prepare_candidate(candidate, request, work)
+                .and_then(PreparedCandidate::device_contact)
+            {
                 Ok(Some(words)) => {
                     contacts.push(words);
                     lanes.push(index);
@@ -2160,7 +2320,13 @@ impl<'a> Search<'a> {
         let total = plan.size();
         let make_candidate = |index| plan.nth(&starts, index, self.engine.start_attrs);
         let sample_size = PREPARED_DEVICE_VERIFY.min(total);
-        self.publish(SearchStage::Verification, SearchBackend::Card, 0, Some(sample_size), 0);
+        self.publish(
+            SearchStage::Verification,
+            SearchBackend::Card,
+            0,
+            Some(sample_size),
+            0,
+        );
         let sample: Vec<_> = (0..sample_size)
             .map(|index| make_candidate(index * total / sample_size))
             .collect();
@@ -2179,7 +2345,13 @@ impl<'a> Search<'a> {
         let mut counts = Counts::default();
         let mut missed = Vec::new();
         let mut completed = 0;
-        self.publish(SearchStage::Evaluation, SearchBackend::Card, completed, Some(total), 0);
+        self.publish(
+            SearchStage::Evaluation,
+            SearchBackend::Card,
+            completed,
+            Some(total),
+            0,
+        );
         while completed < total {
             let end = (completed + PREPARED_DEVICE_BATCH).min(total);
             let candidates: Vec<_> = (completed..end).map(make_candidate).collect();
@@ -2193,7 +2365,13 @@ impl<'a> Search<'a> {
             }
             counts.card_batches += 1;
             completed = end;
-            self.publish(SearchStage::Evaluation, SearchBackend::Card, completed, Some(total), 0);
+            self.publish(
+                SearchStage::Evaluation,
+                SearchBackend::Card,
+                completed,
+                Some(total),
+                0,
+            );
             if self.stopped() {
                 return Err("search interrupted".into());
             }
@@ -2204,8 +2382,10 @@ impl<'a> Search<'a> {
     fn run_plan(&self, request: &Request, plan: Plan, t: Instant) -> Report {
         let invalid = if plan.full_size > MAX_EXACT_COVERAGE {
             Some(SearchFailure::DomainCountTooLarge)
-        } else if request.move_points && (self.source_admission == SourceAdmissionPolicy::CapturedWeaponOnly
-            || !self.engine.has_dynamic_sources()) {
+        } else if request.move_points
+            && (self.source_admission == SourceAdmissionPolicy::CapturedWeaponOnly
+                || !self.engine.has_dynamic_sources())
+        {
             Some(SearchFailure::SourceAttributesUnproven)
         } else {
             None
@@ -2215,9 +2395,14 @@ impl<'a> Search<'a> {
                 backend: Backend::Cpu(failure.to_string()),
                 failure: Some(failure),
                 best: Vec::new(),
-                counts: Counts::default(), searched: 0, full_size: plan.full_size,
-                source_uncomputed: plan.source_uncomputed, polish_rounds: 0,
-                seconds: t.elapsed().as_secs_f64(), missed: Vec::new(), complete: false,
+                counts: Counts::default(),
+                searched: 0,
+                full_size: plan.full_size,
+                source_uncomputed: plan.source_uncomputed,
+                polish_rounds: 0,
+                seconds: t.elapsed().as_secs_f64(),
+                missed: Vec::new(),
+                complete: false,
             };
         }
         let space_size = plan.size();
@@ -2225,7 +2410,9 @@ impl<'a> Search<'a> {
         if plan.is_complete()
             && !request.move_points
             && space_size != 0
-            && self.cpu_fallback_limit.is_none_or(|limit| space_size <= limit)
+            && self
+                .cpu_fallback_limit
+                .is_none_or(|limit| space_size <= limit)
             && (space_size > CPU_CERTIFICATE_PREFERENCE_LIMIT
                 || std::env::var("NIOH3_LOADOUT_GPU").is_ok_and(|mode| mode == "1"))
             && self.engine.supports_prepared_device()
@@ -2233,7 +2420,13 @@ impl<'a> Search<'a> {
         {
             match self.sweep_prepared_device(&plan, request) {
                 Ok((top, counts, missed)) => {
-                    self.publish(SearchStage::Finalizing, SearchBackend::Card, space_size, Some(space_size), 0);
+                    self.publish(
+                        SearchStage::Finalizing,
+                        SearchBackend::Card,
+                        space_size,
+                        Some(space_size),
+                        0,
+                    );
                     if !self.stopped() {
                         return Report {
                             failure: None,
@@ -2254,15 +2447,23 @@ impl<'a> Search<'a> {
             }
             if self.stopped() {
                 return Report {
-                    failure: None, best: Vec::new(), backend: Backend::Card,
-                    counts: Counts::default(), searched: 0, full_size: plan.full_size,
-                    source_uncomputed: plan.source_uncomputed, polish_rounds: 0,
-                    seconds: t.elapsed().as_secs_f64(), missed: Vec::new(), complete: false,
+                    failure: None,
+                    best: Vec::new(),
+                    backend: Backend::Card,
+                    counts: Counts::default(),
+                    searched: 0,
+                    full_size: plan.full_size,
+                    source_uncomputed: plan.source_uncomputed,
+                    polish_rounds: 0,
+                    seconds: t.elapsed().as_secs_f64(),
+                    missed: Vec::new(),
+                    complete: false,
                 };
             }
         }
         let mut attrs = self.engine.start_attrs;
-        let mut kernel = (prepared_refusal.is_none() && !plan.prefers_bounded_cpu()).then(|| self.engine.kernel());
+        let mut kernel = (prepared_refusal.is_none() && !plan.prefers_bounded_cpu())
+            .then(|| self.engine.kernel());
         let refusal = prepared_refusal.or_else(|| match kernel.as_deref_mut() {
             Some(Kernel::Ready(g)) => g
                 .use_pool(&self.pack.pool)
@@ -2270,8 +2471,13 @@ impl<'a> Search<'a> {
                 .err(),
             Some(Kernel::Unavailable(reason)) => Some(reason.clone()),
             Some(Kernel::Untried) => Some("the kernel was not loaded".into()),
-            None if plan.legacy_source_risk => Some("legacy shared-source dependencies require guarded CPU evaluation".into()),
-            None if plan.native_set_constraints => Some("native set constraints require CPU validation; card ABI has no set predicate".into()),
+            None if plan.legacy_source_risk => {
+                Some("legacy shared-source dependencies require guarded CPU evaluation".into())
+            }
+            None if plan.native_set_constraints => Some(
+                "native set constraints require CPU validation; card ABI has no set predicate"
+                    .into(),
+            ),
             None => Some("complete CPU sweep with read certificates".into()),
         });
         if let (Some(k), Some(r)) = (
@@ -2287,7 +2493,9 @@ impl<'a> Search<'a> {
         }
         let mut backend = refusal.map_or(Backend::Card, Backend::Cpu);
         if let Backend::Cpu(reason) = &backend {
-            if let Some(failed) = self.cpu_budget_failure(&plan, t, reason) { return failed; }
+            if let Some(failed) = self.cpu_budget_failure(&plan, t, reason) {
+                return failed;
+            }
         }
         let mut card = match (&backend, kernel.as_deref_mut()) {
             (Backend::Card, Some(Kernel::Ready(g))) => Some(g),
@@ -2319,9 +2527,12 @@ impl<'a> Search<'a> {
                         backend = Backend::Cpu(reason.clone());
                     }
                     let fallback_reason = match &backend {
-                        Backend::Cpu(reason) => reason.as_str(), Backend::Card => reason.as_str(),
+                        Backend::Cpu(reason) => reason.as_str(),
+                        Backend::Card => reason.as_str(),
                     };
-                    if let Some(failed) = self.cpu_budget_failure(&plan, t, fallback_reason) { return failed; }
+                    if let Some(failed) = self.cpu_budget_failure(&plan, t, fallback_reason) {
+                        return failed;
+                    }
                     self.sweep(&plan, attrs, request)
                 }
             };
@@ -2387,8 +2598,10 @@ impl<'a> Search<'a> {
                 // None refers to the captured item in THAT slot. Swapping
                 // None with a pool row changes which captured item is retained,
                 // so those two assignments are different outfits.
-                if outfit.items[one].is_some() && outfit.items[two].is_some()
-                    && outfit.items[one] > outfit.items[two] {
+                if outfit.items[one].is_some()
+                    && outfit.items[two].is_some()
+                    && outfit.items[one] > outfit.items[two]
+                {
                     outfit.items.swap(one, two);
                 }
                 seen.insert(outfit)
@@ -2658,7 +2871,11 @@ mod tests {
 
     #[test]
     fn complete_search_checks_both_accessory_orientations_without_duplicate_items() {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/loadout/katana-light");
+        let dir = std::env::var_os("NIOH3_LOADOUT_TEST_BUNDLE")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| {
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/loadout/katana-light")
+            });
         let engine = Engine::open(&dir).expect("katana bundle");
         // Two head items, three accessories the renderer put in slot 9 and two in slot 10.
         let items: Vec<(u32, [u8; ITEM])> = [

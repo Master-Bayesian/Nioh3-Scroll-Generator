@@ -206,9 +206,14 @@ mod tests {
             layout.fill(&invalid, &mut output);
             output.clone()
         }));
+        assert_eq!(
+            old.is_err(),
+            cfg!(debug_assertions),
+            "baseline overflow mode"
+        );
         match (old, new) {
             (Ok(expected), Ok(actual)) => assert_eq!(actual, expected),
-            (Err(_), Err(_)) => assert!(cfg!(debug_assertions)),
+            (Err(_), Err(_)) => {}
             _ => panic!("address-overflow behavior changed"),
         }
         check(&mut layout, &mut output, &[(u64::MAX - 3, 0x1413_1211)]);

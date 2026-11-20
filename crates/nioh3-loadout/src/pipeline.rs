@@ -28,12 +28,12 @@ pub type R<T> = Result<T, &'static str>;
 /// The ordinary source group that lowers a set requirement by one piece.
 pub const SET_REDUCTION_GROUP: u16 = 0x38BA;
 
+#[path = "source_dependency.rs"]
+pub(crate) mod source_dependency;
 #[path = "source_numeric.rs"]
 pub mod source_numeric;
 #[path = "source_rebuild.rs"]
 pub mod source_rebuild;
-#[path = "source_dependency.rs"]
-pub(crate) mod source_dependency;
 
 const ITEM: usize = 0xE8;
 const BANK: usize = 0xF70;
@@ -1233,11 +1233,13 @@ impl Tables {
         for (rec, slot) in [0, 1, 2, 3, 13].into_iter().enumerate() {
             let item = &c.inv[c.active * BANK + slot * ITEM..][..ITEM];
             let key = u16_at(item, 0);
-            let Some(original) = (key != 0).then(|| self.items.row(u32::from(key))).flatten() else {
+            let Some(original) = (key != 0).then(|| self.items.row(u32::from(key))).flatten()
+            else {
                 continue;
             };
             let admitted = self.requirements(c, attrs, original, item);
-            let (first, second) = self.prepared_attack_pair(c, &s.transformed, item, original, slot, admitted)?;
+            let (first, second) =
+                self.prepared_attack_pair(c, &s.transformed, item, original, slot, admitted)?;
             put_u32(&mut s.stat, 0x24 + 64 * rec, first);
             put_u32(&mut s.stat, 0x28 + 64 * rec, second);
         }
@@ -1278,7 +1280,8 @@ impl Tables {
             }
             let original = self.items.row(key).ok_or("weapon outside the item table")?;
             let admitted = self.requirements(c, attrs, original, item);
-            let (first, second) = self.prepared_attack_pair(c, &s.transformed, item, original, slot, admitted)?;
+            let (first, second) =
+                self.prepared_attack_pair(c, &s.transformed, item, original, slot, admitted)?;
             let aux0 = self.auxiliary(item, c.style, false)?;
             let aux1 = self.auxiliary(item, c.style, true)?;
             let fraction = |off: usize| {
@@ -1532,9 +1535,12 @@ impl Tables {
         let mode = c.mode;
         for family in self.families {
             let bank = selected_map(family, source.mode);
-            let reduction = source.maps[bank].iter().any(|e| e.key == SET_REDUCTION_GROUP) as u32;
+            let reduction = source.maps[bank]
+                .iter()
+                .any(|e| e.key == SET_REDUCTION_GROUP) as u32;
             source.set_reduction[bank] = reduction != 0;
-            source.set_pieces[bank] = source.sides[bank].iter()
+            source.set_pieces[bank] = source.sides[bank]
+                .iter()
                 .map(|entry| (u32_at(entry, 0), usize::from(u16_at(entry, 4))))
                 .collect();
             for index in 0..source.sides[bank].len() {
@@ -1883,14 +1889,23 @@ impl Tables {
 
     pub(crate) fn set_reduction_before_equipment(&self, f: &Frame) -> bool {
         let in_prefix = match &f.source_rebuild {
-            Some(program) => program.prefix.iter().any(|op| op.group == SET_REDUCTION_GROUP),
-            None => f.native_before.iter().any(|&(group, _)| group == SET_REDUCTION_GROUP),
+            Some(program) => program
+                .prefix
+                .iter()
+                .any(|op| op.group == SET_REDUCTION_GROUP),
+            None => f
+                .native_before
+                .iter()
+                .any(|&(group, _)| group == SET_REDUCTION_GROUP),
         };
         // Set rewards write to the selected mode, which may be visited after
         // the other family. Include any possible earlier reduction reward.
-        in_prefix || self.sides.rows[8..].chunks_exact(self.sides.stride).any(|side| {
-            (0..7).any(|reward| u16_at(side, 0x38 + 24 * reward) == SET_REDUCTION_GROUP)
-        })
+        in_prefix
+            || self.sides.rows[8..]
+                .chunks_exact(self.sides.stride)
+                .any(|side| {
+                    (0..7).any(|reward| u16_at(side, 0x38 + 24 * reward) == SET_REDUCTION_GROUP)
+                })
     }
 
     pub(crate) fn add_set_capacity(
@@ -2039,8 +2054,13 @@ impl Tables {
     }
 
     fn collect_pipeline(
-        &self, f: &Frame, c: &Character, attrs: &[i32; 7], ops: &[(u16, i64)],
-        s: &mut Scratch, program: Option<&source_rebuild::Program>,
+        &self,
+        f: &Frame,
+        c: &Character,
+        attrs: &[i32; 7],
+        ops: &[(u16, i64)],
+        s: &mut Scratch,
+        program: Option<&source_rebuild::Program>,
     ) -> R<()> {
         s.stat.copy_from_slice(&f.stat);
         // Original818E85..818ED4: Heart row90 u16+4, binary32 scaling,
@@ -2142,12 +2162,22 @@ impl Tables {
     }
 
     fn materialize_entries(
-        &self, c: &Character, attrs: &[i32; 7], entries: &[Entry],
-        stat: &mut [u8], d: &mut [u8],
+        &self,
+        c: &Character,
+        attrs: &[i32; 7],
+        entries: &[Entry],
+        stat: &mut [u8],
+        d: &mut [u8],
     ) -> R<()> {
         for entry in entries {
-            self.materialize_one(c, attrs, entry.key,
-                entry.base.wrapping_add(u32::from(entry.dup)), stat, d)?;
+            self.materialize_one(
+                c,
+                attrs,
+                entry.key,
+                entry.base.wrapping_add(u32::from(entry.dup)),
+                stat,
+                d,
+            )?;
         }
         Ok(())
     }
@@ -2163,7 +2193,9 @@ impl Tables {
         s: &mut Scratch,
     ) -> R<()> {
         if f.source_rebuild.is_some() && !f.source_baseline_ready {
-            return Err("source rebuild needs a matching current predictor baseline before scoring");
+            return Err(
+                "source rebuild needs a matching current predictor baseline before scoring",
+            );
         }
         let pred = &mut s.pred;
         pred.copy_from_slice(&f.stat);
@@ -2214,7 +2246,11 @@ impl Tables {
             );
             // Original819254..8192B0 can only raise the value to 20.
             // The actor predicate cannot change a score already at 20 or above.
-            let score = if score < 20 && f.actor_minimum_agility()? { 20 } else { score };
+            let score = if score < 20 && f.actor_minimum_agility()? {
+                20
+            } else {
+                score
+            };
             put_u32(pred, offset, score);
         }
         for at in [0x7A4, 0x7A8, 0x7B0] {
@@ -2237,8 +2273,11 @@ impl Tables {
         let grade = i32_at(&s.d, 0x608);
         if grade >= 0 {
             let (current, maximum) = f.owner_resource.ok_or(
-                "STAT capacity resource-curve7A62 requires an explicit owner-resource binding")?;
-            let ratio = if maximum <= 0 { 0.0 } else {
+                "STAT capacity resource-curve7A62 requires an explicit owner-resource binding",
+            )?;
+            let ratio = if maximum <= 0 {
+                0.0
+            } else {
                 finite(f32::from_bits(current) / maximum as f32)?.clamp(0.0, 1.0)
             };
             // Original81938D..8193C3: binary32 ratio*1000, CVTT64 then
@@ -2305,21 +2344,34 @@ impl Frame {
     /// Rebuild the predictor reference at the immutable context's attributes.
     /// The observed STAT stays untouched. This prevents adding a newly owned
     /// source program on top of an equipment-only comparison baseline.
-    pub fn rebase_source(&mut self, tables: &Tables, character: &Character,
-        attrs: &[i32; 7]) -> R<()>
-    {
-        if self.source_rebuild.is_none() { return Ok(()); }
+    pub fn rebase_source(
+        &mut self,
+        tables: &Tables,
+        character: &Character,
+        attrs: &[i32; 7],
+    ) -> R<()> {
+        if self.source_rebuild.is_none() {
+            return Ok(());
+        }
         let baseline = self.source_rebuild.as_ref().and_then(|program| program.baseline.as_ref())
             .ok_or("source program requires an independently bound current STAT baseline before scoring")?;
         use sha2::{Digest, Sha256};
         if baseline.attrs != *attrs
             || baseline.stat_sha256 != format!("{:x}", Sha256::digest(&self.stat))
             || baseline.reset_d_sha256 != format!("{:x}", Sha256::digest(&self.d0))
-            || (baseline.health_seed, baseline.defense_sources, baseline.main_base)
-                != (self.hp_base, self.baseline_defense_sources, self.main8)
-            || attrs.iter().enumerate().any(|(index, value)| i32_at(&self.stat, 0x844 + 4 * index) != *value)
+            || (
+                baseline.health_seed,
+                baseline.defense_sources,
+                baseline.main_base,
+            ) != (self.hp_base, self.baseline_defense_sources, self.main8)
+            || attrs
+                .iter()
+                .enumerate()
+                .any(|(index, value)| i32_at(&self.stat, 0x844 + 4 * index) != *value)
         {
-            return Err("source program baseline is not the same actor/attributes as the current context");
+            return Err(
+                "source program baseline is not the same actor/attributes as the current context",
+            );
         }
         let mut scratch = Scratch::new();
         tables.pipeline(self, character, attrs, &[], &mut scratch)?;
@@ -2335,17 +2387,28 @@ impl Frame {
         Ok(())
     }
 
-    pub fn has_source_rebuild(&self) -> bool { self.source_rebuild.is_some() }
+    pub fn has_source_rebuild(&self) -> bool {
+        self.source_rebuild.is_some()
+    }
 
     /// Identity of the immutable source producer bound to this frame.
     pub fn source_generation(&self) -> Option<&str> {
-        self.source_rebuild.as_ref().map(|program| program.binding.generation.as_str())
+        self.source_rebuild
+            .as_ref()
+            .map(|program| program.binding.generation.as_str())
     }
 
     pub(crate) fn product_kernel_features(data: &[u8]) -> R<Vec<&'static str>> {
         let sections = Sections::parse(data)?;
-        Ok(["owner_resource", "native_sources", "actor_agility", "source_rebuild"]
-            .into_iter().filter(|name| sections.0.contains_key(*name)).collect())
+        Ok([
+            "owner_resource",
+            "native_sources",
+            "actor_agility",
+            "source_rebuild",
+        ]
+        .into_iter()
+        .filter(|name| sections.0.contains_key(*name))
+        .collect())
     }
 
     /// Replace the complete source program atomically; no merge with an old
@@ -2378,19 +2441,33 @@ impl Frame {
         let Some([tag, active, cancelled, known]) = self.actor_agility else {
             return Ok(false); // Original recorded-scenario compatibility.
         };
-        if known & 1 == 0 { return Err("source actor tag is unknown for agility"); }
-        if tag & 15 != 0 { return Ok(false); }
-        if known & 2 == 0 { return Err("source actor886 is unknown for agility"); }
-        if active == 0 { return Ok(false); }
-        if known & 4 == 0 { return Err("source actor88A is unknown for agility"); }
+        if known & 1 == 0 {
+            return Err("source actor tag is unknown for agility");
+        }
+        if tag & 15 != 0 {
+            return Ok(false);
+        }
+        if known & 2 == 0 {
+            return Err("source actor886 is unknown for agility");
+        }
+        if active == 0 {
+            return Ok(false);
+        }
+        if known & 4 == 0 {
+            return Err("source actor88A is unknown for agility");
+        }
         Ok(cancelled == 0)
     }
 
     pub(crate) fn with_actor_agility(frame: &[u8], words: [u8; 4]) -> R<Vec<u8>> {
         let sections = Sections::parse(frame)?;
-        if words[3] > 7 { return Err("invalid actor agility known mask"); }
+        if words[3] > 7 {
+            return Err("invalid actor agility known mask");
+        }
         if let Some(existing) = sections.0.get("actor_agility") {
-            if existing.bytes != words { return Err("actor agility contradicts captured scene"); }
+            if existing.bytes != words {
+                return Err("actor agility contradicts captured scene");
+            }
             return Ok(frame.to_vec());
         }
         let mut output = frame.to_vec();
@@ -2402,12 +2479,16 @@ impl Frame {
         Ok(output)
     }
     pub(crate) fn with_native_sources(
-        frame: &[u8], before: &[(u16, u32)], after: &[(u16, u32)],
+        frame: &[u8],
+        before: &[(u16, u32)],
+        after: &[(u16, u32)],
     ) -> R<Vec<u8>> {
         let _ = Sections::parse(frame)?;
         if before.len() + after.len() > 4096
             || before.iter().chain(after).any(|(group, _)| *group == 0)
-        { return Err("native source submission extent or group is invalid"); }
+        {
+            return Err("native source submission extent or group is invalid");
+        }
         // Replace an earlier generated program when refreshing a context. The
         // manifest remains the authoritative owner of source-layer semantics.
         let mut output = Vec::with_capacity(frame.len() + 32 + 8 * (before.len() + after.len()));
@@ -2446,7 +2527,12 @@ impl Frame {
         let sections = Sections::parse(frame)?;
         let mut output = frame.to_vec();
         if let Some(existing) = sections.0.get("owner_resource") {
-            if existing.bytes != recorded.into_iter().flat_map(u32::to_le_bytes).collect::<Vec<_>>() {
+            if existing.bytes
+                != recorded
+                    .into_iter()
+                    .flat_map(u32::to_le_bytes)
+                    .collect::<Vec<_>>()
+            {
                 return Err("explicit source resource conflicts with recorded scene");
             }
             output[existing.offset..existing.offset + 4].copy_from_slice(&current.to_le_bytes());
@@ -2457,7 +2543,12 @@ impl Frame {
     pub(crate) fn with_owner_resource(frame: &[u8], words: [u32; 2]) -> R<Vec<u8>> {
         let sections = Sections::parse(frame)?;
         if let Some(existing) = sections.0.get("owner_resource") {
-            if existing.bytes != words.into_iter().flat_map(u32::to_le_bytes).collect::<Vec<_>>() {
+            if existing.bytes
+                != words
+                    .into_iter()
+                    .flat_map(u32::to_le_bytes)
+                    .collect::<Vec<_>>()
+            {
                 return Err("explicit source resource conflicts with observed scene");
             }
             return Ok(frame.to_vec());
@@ -2467,13 +2558,15 @@ impl Frame {
         output.extend_from_slice(&(name.len() as u32).to_le_bytes());
         output.extend_from_slice(name);
         output.extend_from_slice(&8u32.to_le_bytes());
-        for word in words { output.extend_from_slice(&word.to_le_bytes()); }
+        for word in words {
+            output.extend_from_slice(&word.to_le_bytes());
+        }
         Ok(output)
     }
     pub fn with_runtime_hit_inputs(frame: &[u8], hits: &[u8]) -> R<Vec<u8>> {
         let _ = Sections::parse(frame)?;
         crate::hit_buffer::HitBuffer::parse(
-            std::str::from_utf8(hits).map_err(|_| "runtime hit inputs are not UTF8")?
+            std::str::from_utf8(hits).map_err(|_| "runtime hit inputs are not UTF8")?,
         )?;
         let mut output = Vec::with_capacity(frame.len() + hits.len() + 32);
         let mut at = 0;
@@ -2645,14 +2738,25 @@ impl Frame {
                 }
                 let before = u32_at(bytes, 4) as usize;
                 let after = u32_at(bytes, 8) as usize;
-                if before > 4096 || after > 4096 || before + after > 4096
+                if before > 4096
+                    || after > 4096
+                    || before + after > 4096
                     || bytes.len() != 12 + (before + after) * 8
-                { return Err("invalid native source program extent"); }
-                let entries = bytes[12..].as_chunks::<8>().0.iter().map(|row| {
-                    let group = u32_at(row, 0);
-                    if !(1..=65535).contains(&group) { return Err("invalid native source group"); }
-                    Ok((group as u16, u32_at(row, 4)))
-                }).collect::<R<Vec<_>>>()?;
+                {
+                    return Err("invalid native source program extent");
+                }
+                let entries = bytes[12..]
+                    .as_chunks::<8>()
+                    .0
+                    .iter()
+                    .map(|row| {
+                        let group = u32_at(row, 0);
+                        if !(1..=65535).contains(&group) {
+                            return Err("invalid native source group");
+                        }
+                        Ok((group as u16, u32_at(row, 4)))
+                    })
+                    .collect::<R<Vec<_>>>()?;
                 (entries[..before].to_vec(), entries[before..].to_vec())
             }
         };
@@ -2669,20 +2773,29 @@ impl Frame {
             owner: q(4),
             owner_resource: match s.0.get("owner_resource") {
                 None => None,
-                Some(value) if value.bytes.len() == 8 =>
-                    Some((u32_at(&value.bytes, 0), i32_at(&value.bytes, 4))),
+                Some(value) if value.bytes.len() == 8 => {
+                    Some((u32_at(&value.bytes, 0), i32_at(&value.bytes, 4)))
+                }
                 Some(_) => return Err("invalid source owner_resource section"),
             },
             actor_agility: match s.0.get("actor_agility") {
                 None => None,
-                Some(value) if value.bytes.len() == 4 && value.bytes[3] <= 7 =>
-                    Some(value.bytes.as_slice().try_into().map_err(|_| "invalid actor agility extent")?),
+                Some(value) if value.bytes.len() == 4 && value.bytes[3] <= 7 => Some(
+                    value
+                        .bytes
+                        .as_slice()
+                        .try_into()
+                        .map_err(|_| "invalid actor agility extent")?,
+                ),
                 Some(_) => return Err("invalid actor agility section"),
             },
             native_before,
             native_after,
-            source_rebuild: s.0.get("source_rebuild")
-                .map(|section| source_rebuild::Program::load(&section.bytes)).transpose()?,
+            source_rebuild: s
+                .0
+                .get("source_rebuild")
+                .map(|section| source_rebuild::Program::load(&section.bytes))
+                .transpose()?,
             source_baseline_ready: !s.0.contains_key("source_rebuild"),
             attr: q(5),
             dest: q(6),
@@ -2773,15 +2886,34 @@ pub(crate) fn audit_frame_bytes() -> Vec<u8> {
         data.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
         data.extend_from_slice(bytes);
     };
-    let addresses: Vec<u8> = [f.stat_addr, f.d_addr, f.main_addr, f.ext_addr,
-        f.owner, f.attr, f.dest, u64::from(f.main8), u64::from(f.hp_base)]
-        .into_iter().flat_map(u64::to_le_bytes).collect();
+    let addresses: Vec<u8> = [
+        f.stat_addr,
+        f.d_addr,
+        f.main_addr,
+        f.ext_addr,
+        f.owner,
+        f.attr,
+        f.dest,
+        u64::from(f.main8),
+        u64::from(f.hp_base),
+    ]
+    .into_iter()
+    .flat_map(u64::to_le_bytes)
+    .collect();
     add("addresses", &addresses);
-    for (name, bytes) in [("stat", &f.stat), ("d0", &f.d0), ("s_base", &f.s_base), ("d_base", &f.d_base)] {
+    for (name, bytes) in [
+        ("stat", &f.stat),
+        ("d0", &f.d0),
+        ("s_base", &f.s_base),
+        ("d_base", &f.d_base),
+    ] {
         add(name, bytes);
     }
     add("baseline_sources", &0u32.to_le_bytes());
     add("weapon_element_packet", &[1]);
-    add("identity_ki_seed", &[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63]);
+    add(
+        "identity_ki_seed",
+        &[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 63],
+    );
     data
 }

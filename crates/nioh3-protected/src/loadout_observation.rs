@@ -178,10 +178,16 @@ struct PendingDirectory {
 impl PendingDirectory {
     fn new(parent: &Path) -> Result<Self, HostError> {
         fs::create_dir_all(parent).map_err(failed)?;
-        let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map_err(failed)?.as_nanos();
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(failed)?
+            .as_nanos();
         let path = parent.join(format!(".pending-{}-{stamp}", std::process::id()));
         fs::create_dir(&path).map_err(failed)?;
-        Ok(Self { path, published: false })
+        Ok(Self {
+            path,
+            published: false,
+        })
     }
     fn publish(mut self, destination: &Path) -> Result<(), HostError> {
         if destination.exists() {
@@ -227,7 +233,10 @@ fn write_new(path: &Path, bytes: &[u8]) -> Result<(), HostError> {
         .write(true)
         .open(path)
         .map_err(failed)?;
-    let result = file.write_all(bytes).and_then(|_| file.sync_all()).map_err(failed);
+    let result = file
+        .write_all(bytes)
+        .and_then(|_| file.sync_all())
+        .map_err(failed);
     drop(file);
     if result.is_err() {
         let _ = fs::remove_file(path);
@@ -316,9 +325,12 @@ pub(crate) fn record(
         ensure_bundle(&directory, request.bundle_path, &resources)?;
         if let Ok(value) = refreshed {
             let retained_bundle = directory.join("bundles").join(bundle_id(&resources)?);
-            let pinned = Engine::open_with_context(&retained_bundle, &value.context).map_err(failed)?;
+            let pinned =
+                Engine::open_with_context(&retained_bundle, &value.context).map_err(failed)?;
             if pinned.bundle_input_digest() != value.bundle_input_sha256 {
-                return Err(failed("recorded attack data differs from source reconstruction"));
+                return Err(failed(
+                    "recorded attack data differs from source reconstruction",
+                ));
             }
         }
         let stamp = SystemTime::now()
@@ -337,8 +349,12 @@ pub(crate) fn record(
                 message: error.to_string(),
             },
         };
-        let buff_scene = metadata["refresh_policy"]["buff_scene"].as_str()
-            .map(|_| serde_json::from_value(metadata["refresh_policy"]["buff_scene"].clone()).map_err(failed))
+        let buff_scene = metadata["refresh_policy"]["buff_scene"]
+            .as_str()
+            .map(|_| {
+                serde_json::from_value(metadata["refresh_policy"]["buff_scene"].clone())
+                    .map_err(failed)
+            })
             .transpose()?;
         let mut observation=SourceObservation { schema:SCHEMA.to_owned(),observation_id:observation_id.clone(),recorded_unix_nanos:stamp.to_string(),origin:request.origin,snapshot_use:Some(request.snapshot_use),buff_scene,reference,
             bundle:request.bundle_id.to_owned(),bundle_sha256:resources,bundle_input_sha256:refreshed.ok().and_then(|value|value.bundle_input_sha256.clone()),save_id:request.save_id.to_owned(),source_sha256:request.source_sha256.to_owned(),
@@ -394,7 +410,10 @@ pub fn replay(path: &Path, bundle_path: &Path) -> Result<(Value, LoadoutContext)
     Ok((receipt, context))
 }
 
-fn replay_owned(path: &Path, bundle_path: &Path) -> Result<(Value, LoadoutContext, SourceObservation), HostError> {
+fn replay_owned(
+    path: &Path,
+    bundle_path: &Path,
+) -> Result<(Value, LoadoutContext, SourceObservation), HostError> {
     let mut bytes = Vec::new();
     File::open(path)
         .map_err(failed)?
@@ -453,7 +472,9 @@ fn replay_owned(path: &Path, bundle_path: &Path) -> Result<(Value, LoadoutContex
     if ObservationReference::new(&context, &metadata)? != observation.reference {
         return Err(failed("reference resources differ"));
     }
-    let usage = observation.snapshot_use.unwrap_or(loadout_live::SnapshotUse::RetainedDiagnostic);
+    let usage = observation
+        .snapshot_use
+        .unwrap_or(loadout_live::SnapshotUse::RetainedDiagnostic);
     let usage_binding = if observation.snapshot_use.is_some() {
         "recorded_policy"
     } else {
@@ -465,7 +486,9 @@ fn replay_owned(path: &Path, bundle_path: &Path) -> Result<(Value, LoadoutContex
         &mut metadata,
         &observation.snapshot,
         usage,
-        observation.buff_scene.unwrap_or(crate::loadout::BuffScene::Current),
+        observation
+            .buff_scene
+            .unwrap_or(crate::loadout::BuffScene::Current),
     );
     let expected = &observation.terminal;
     let refreshed = match (refreshed, expected) {
@@ -487,7 +510,9 @@ fn replay_owned(path: &Path, bundle_path: &Path) -> Result<(Value, LoadoutContex
             if observation.bundle_input_sha256.is_some()
                 && observation.bundle_input_sha256 != value.bundle_input_sha256
             {
-                return Err(failed("replayed attack data differs from source reconstruction"));
+                return Err(failed(
+                    "replayed attack data differs from source reconstruction",
+                ));
             }
             value
         }
@@ -541,16 +566,28 @@ fn replay_owned(path: &Path, bundle_path: &Path) -> Result<(Value, LoadoutContex
 
 /// Test authority remains file-backed and cannot authorize a game read/write.
 #[cfg(debug_assertions)]
-pub(crate) fn snapshot_for_offline_e2e(path:&Path)->Result<CombatSnapshot,HostError> {
-    let mut raw=Vec::new();File::open(path).map_err(failed)?.take(MAX_CAPSULE+1).read_to_end(&mut raw).map_err(failed)?;
-    if raw.len() as u64>MAX_CAPSULE { return Err(failed("source capsule exceeds its bounded size")); }
-    let observation:SourceObservation=serde_json::from_slice(&raw).map_err(failed)?;
-    if observation.schema!=SCHEMA || observation.content_id()?!=observation.observation_id ||
-        path.file_stem().and_then(|name|name.to_str())!=Some(observation.observation_id.as_str()) ||
-        observation.game_version!=[2,0,2,0] ||
-        observation.executable_sha256!=nioh3_runtime::INVENTORY_EXECUTABLE_SHA256 ||
-        !matches!(observation.terminal,ObservationTerminal::Ready { .. }) {
-        return Err(failed("offline acceptance capsule identity/profile/terminal differs"));
+pub(crate) fn snapshot_for_offline_e2e(path: &Path) -> Result<CombatSnapshot, HostError> {
+    let mut raw = Vec::new();
+    File::open(path)
+        .map_err(failed)?
+        .take(MAX_CAPSULE + 1)
+        .read_to_end(&mut raw)
+        .map_err(failed)?;
+    if raw.len() as u64 > MAX_CAPSULE {
+        return Err(failed("source capsule exceeds its bounded size"));
+    }
+    let observation: SourceObservation = serde_json::from_slice(&raw).map_err(failed)?;
+    if observation.schema != SCHEMA
+        || observation.content_id()? != observation.observation_id
+        || path.file_stem().and_then(|name| name.to_str())
+            != Some(observation.observation_id.as_str())
+        || observation.game_version != [2, 0, 2, 0]
+        || observation.executable_sha256 != nioh3_runtime::INVENTORY_EXECUTABLE_SHA256
+        || !matches!(observation.terminal, ObservationTerminal::Ready { .. })
+    {
+        return Err(failed(
+            "offline acceptance capsule identity/profile/terminal differs",
+        ));
     }
     observation.snapshot.validate().map_err(failed)?;
     Ok(observation.snapshot)
@@ -565,7 +602,9 @@ pub fn export_replayed_context(
     if destination.exists() {
         return Err(failed("context export destination already exists"));
     }
-    let parent = destination.parent().ok_or_else(|| failed("missing export parent"))?;
+    let parent = destination
+        .parent()
+        .ok_or_else(|| failed("missing export parent"))?;
     let pending = PendingDirectory::new(parent)?;
     write_context(&pending.path, &context)?;
     if let ObservationTerminal::Ready { mut profile, .. } = observation.terminal {
@@ -578,7 +617,9 @@ pub fn export_replayed_context(
             &serde_json::to_vec(&profile).map_err(failed)?,
         )?;
     } else {
-        return Err(failed("a rejected refresh cannot be exported as a current context"));
+        return Err(failed(
+            "a rejected refresh cannot be exported as a current context",
+        ));
     }
     write_new(
         &pending.path.join("replay.json"),
@@ -595,10 +636,19 @@ mod portable_tests {
     use nioh3_loadout::context::{ContextManifest, Scenario};
 
     fn work_directory(label: &str) -> PathBuf {
-        let root = std::env::var_os("NIOH3_BUILD_ROOT").map(PathBuf::from).expect("build root");
-        let stamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-        let path = root.join("tmp").join(format!("live-refresh-{label}-{}-{stamp}", std::process::id()));
-        fs::create_dir_all(&path).unwrap(); path
+        let root = std::env::var_os("NIOH3_BUILD_ROOT")
+            .map(PathBuf::from)
+            .expect("build root");
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let path = root.join("tmp").join(format!(
+            "live-refresh-{label}-{}-{stamp}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&path).unwrap();
+        path
     }
 
     #[test]
@@ -611,26 +661,47 @@ mod portable_tests {
         let pending_path = pending.path.clone();
         write_new(&pending.path.join("new"), b"new bytes").unwrap();
         assert!(pending.publish(&existing).is_err());
-        assert!(!pending_path.exists(), "failed preparation leaked a pending directory");
-        assert_eq!(fs::read(existing.join("old")).unwrap(), b"old immutable bytes");
+        assert!(
+            !pending_path.exists(),
+            "failed preparation leaked a pending directory"
+        );
+        assert_eq!(
+            fs::read(existing.join("old")).unwrap(),
+            b"old immutable bytes"
+        );
         assert!(!existing.join("new").exists());
         assert!(write_new(&existing.join("old"), b"overwrite").is_err());
-        assert_eq!(fs::read(existing.join("old")).unwrap(), b"old immutable bytes");
+        assert_eq!(
+            fs::read(existing.join("old")).unwrap(),
+            b"old immutable bytes"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     #[ignore = "Requires the packaged Nov15 capsule only; no game, save or full replay image"]
     fn legacy_fresh_read_capsule_keeps_its_exact_content_identity() {
-        let evidence = PathBuf::from(std::env::var_os("NIOH3_REFRESH_EVIDENCE_ROOT").expect("evidence root"));
+        let evidence =
+            PathBuf::from(std::env::var_os("NIOH3_REFRESH_EVIDENCE_ROOT").expect("evidence root"));
         let id = "eb44f06c141594617a44a767507a635fc443a7c217d9f61ae4ac7b60023dca77";
-        let bytes = fs::read(evidence.join("live-refresh-20261115").join(format!("{id}.json"))).unwrap();
+        let bytes = fs::read(
+            evidence
+                .join("live-refresh-20261115")
+                .join(format!("{id}.json")),
+        )
+        .unwrap();
         let observation: SourceObservation = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(observation.content_id().unwrap(), id);
         observation.snapshot.validate().unwrap();
-        assert!(matches!(observation.origin, ObservationOrigin::VerifiedProcessRead));
+        assert!(matches!(
+            observation.origin,
+            ObservationOrigin::VerifiedProcessRead
+        ));
         assert!(observation.snapshot_use.is_none());
-        assert!(serde_json::to_value(&observation).unwrap().get("snapshot_use").is_none());
+        assert!(serde_json::to_value(&observation)
+            .unwrap()
+            .get("snapshot_use")
+            .is_none());
         assert!(observation.snapshot.status_tree_raw.is_none());
         assert!(observation.snapshot.inputs.stats.secondary_attack.is_none());
         assert!(observation.snapshot.inputs.owner_flags_188.is_none());
@@ -639,8 +710,13 @@ mod portable_tests {
             "recorded_origin":observation.origin,"snapshot_use_omitted":true,"historical_fields_fabricated":false,
             "live_process_accessed":false,"scope":"Canonical content identity and optional-field omission of the actual retained Nov15 v2 capsule; no new process read or full refresh replay."});
         if let Some(output) = std::env::var_os("NIOH3_LIVE_REFRESH_RESULTS") {
-            let output = PathBuf::from(output); fs::create_dir_all(&output).unwrap();
-            fs::write(output.join("legacy_capsule_identity.json"), serde_json::to_vec_pretty(&report).unwrap()).unwrap();
+            let output = PathBuf::from(output);
+            fs::create_dir_all(&output).unwrap();
+            fs::write(
+                output.join("legacy_capsule_identity.json"),
+                serde_json::to_vec_pretty(&report).unwrap(),
+            )
+            .unwrap();
         }
         println!("{report}");
     }
@@ -648,33 +724,68 @@ mod portable_tests {
     #[test]
     #[ignore = "Requires packaged logical capture/frame; executes rejected-state journal/replay without MAIN"]
     fn production_journal_replays_rejection_and_preserves_file_failure_boundaries() {
-        let evidence = PathBuf::from(std::env::var_os("NIOH3_REFRESH_EVIDENCE_ROOT").expect("evidence root"));
+        let evidence =
+            PathBuf::from(std::env::var_os("NIOH3_REFRESH_EVIDENCE_ROOT").expect("evidence root"));
         let root = work_directory("journal");
-        let directory = root.join("context"); fs::create_dir(&directory).unwrap();
-        let bundle = root.join("bundle"); fs::create_dir(&bundle).unwrap();
+        let directory = root.join("context");
+        fs::create_dir(&directory).unwrap();
+        let bundle = root.join("bundle");
+        fs::create_dir(&bundle).unwrap();
         write_new(&bundle.join("bundle.json"), b"{}\n").unwrap();
         let old_id = "eb44f06c141594617a44a767507a635fc443a7c217d9f61ae4ac7b60023dca77";
-        let original: SourceObservation = serde_json::from_slice(&fs::read(evidence.join("live-refresh-20261115").join(format!("{old_id}.json"))).unwrap()).unwrap();
+        let original: SourceObservation = serde_json::from_slice(
+            &fs::read(
+                evidence
+                    .join("live-refresh-20261115")
+                    .join(format!("{old_id}.json")),
+            )
+            .unwrap(),
+        )
+        .unwrap();
         let mut snapshot = original.snapshot;
         let frame = fs::read(evidence.join("held-context/frame.bin")).unwrap();
-        let mut manifest: ContextManifest = serde_json::from_slice(&fs::read(evidence.join("held-context/context.json")).unwrap()).unwrap();
+        let mut manifest: ContextManifest =
+            serde_json::from_slice(&fs::read(evidence.join("held-context/context.json")).unwrap())
+                .unwrap();
         manifest.scenario = Scenario::RecordedScenario;
         manifest.inventory_sha256 = sha256(&snapshot.inputs.inventory);
         manifest.frame_sha256 = sha256(&frame);
         manifest.provenance.capture_id = "portable-journal-rejection-control".into();
         manifest.provenance.description = "Synthetic recorded-scenario envelope over retained logical inputs; rejects form before evaluator access.".into();
-        let context = LoadoutContext::new(manifest, snapshot.inputs.inventory.clone(), frame).unwrap();
-        let metadata: Value = serde_json::from_slice(&fs::read(evidence.join("held-context/profile.json")).unwrap()).unwrap();
+        let context =
+            LoadoutContext::new(manifest, snapshot.inputs.inventory.clone(), frame).unwrap();
+        let metadata: Value =
+            serde_json::from_slice(&fs::read(evidence.join("held-context/profile.json")).unwrap())
+                .unwrap();
         snapshot.inputs.mode = 0;
-        let error = loadout_live::refresh_snapshot(&context, &bundle, &mut metadata.clone(), &snapshot,
-            loadout_live::SnapshotUse::RetainedDiagnostic).err().expect("form refusal");
+        let error = loadout_live::refresh_snapshot(
+            &context,
+            &bundle,
+            &mut metadata.clone(),
+            &snapshot,
+            loadout_live::SnapshotUse::RetainedDiagnostic,
+        )
+        .err()
+        .expect("form refusal");
         assert!(error.to_string().contains("SCHOOL_MISMATCH"));
-        let record_case = || record(RecordingRequest {
-            directory:&directory, bundle_path:&bundle, bundle_id:"portable-journal-control",
-            save_id:"synthetic-owned-copy", source_sha256:"diagnostic", template:&context,
-            template_profile:&metadata, snapshot:&snapshot, origin:ObservationOrigin::ControlledRetainedInput,
-            snapshot_use:loadout_live::SnapshotUse::RetainedDiagnostic,
-        }, Err(&error), &metadata);
+        let record_case = || {
+            record(
+                RecordingRequest {
+                    directory: &directory,
+                    bundle_path: &bundle,
+                    bundle_id: "portable-journal-control",
+                    save_id: "synthetic-owned-copy",
+                    source_sha256: "diagnostic",
+                    template: &context,
+                    template_profile: &metadata,
+                    snapshot: &snapshot,
+                    origin: ObservationOrigin::ControlledRetainedInput,
+                    snapshot_use: loadout_live::SnapshotUse::RetainedDiagnostic,
+                },
+                Err(&error),
+                &metadata,
+            )
+        };
         let RecordingOutcome::Recorded { observation_id } = record_case() else {
             panic!("journal did not publish the actual rejected input")
         };
@@ -692,7 +803,9 @@ mod portable_tests {
         // school refusal, rather than acquiring current-process admission.
         let mut legacy_control: SourceObservation = serde_json::from_slice(&first).unwrap();
         legacy_control.snapshot_use = None;
-        legacy_control.scope = "Controlled legacy-format omission over retained bytes; not a new game observation.".into();
+        legacy_control.scope =
+            "Controlled legacy-format omission over retained bytes; not a new game observation."
+                .into();
         legacy_control.observation_id = legacy_control.content_id().unwrap();
         let legacy_path = journal.join(format!("{}.json", legacy_control.observation_id));
         write_new(&legacy_path, &serde_json::to_vec(&legacy_control).unwrap()).unwrap();
@@ -700,32 +813,62 @@ mod portable_tests {
         assert_eq!(legacy_receipt["terminal"], "rejected");
         assert_eq!(legacy_receipt["message"], error.to_string());
         assert_eq!(legacy_receipt["snapshot_use"], "retained_diagnostic");
-        assert_eq!(legacy_receipt["snapshot_use_binding"], "legacy_diagnostic_default");
-        assert_eq!(legacy_receipt["recorded_origin"], "controlled_retained_input");
+        assert_eq!(
+            legacy_receipt["snapshot_use_binding"],
+            "legacy_diagnostic_default"
+        );
+        assert_eq!(
+            legacy_receipt["recorded_origin"],
+            "controlled_retained_input"
+        );
         assert_eq!(legacy_receipt["live_process_accessed"], false);
-        let index: Value = serde_json::from_str(fs::read_to_string(directory.join("source-checks.jsonl")).unwrap().trim()).unwrap();
+        let index: Value = serde_json::from_str(
+            fs::read_to_string(directory.join("source-checks.jsonl"))
+                .unwrap()
+                .trim(),
+        )
+        .unwrap();
         assert_eq!(index["capsule_sha256"], sha256(&first));
         let destination = root.join("must-not-export-rejected");
         assert!(export_replayed_context(&capsule, Path::new("@recorded"), &destination).is_err());
-        assert!(!destination.exists(), "rejected refresh was published as a context");
-        assert!(!fs::read_dir(&root).unwrap().filter_map(Result::ok)
+        assert!(
+            !destination.exists(),
+            "rejected refresh was published as a context"
+        );
+        assert!(!fs::read_dir(&root)
+            .unwrap()
+            .filter_map(Result::ok)
             .any(|entry| entry.file_name().to_string_lossy().starts_with(".pending-")));
         let mut tampered: Value = serde_json::from_slice(&first).unwrap();
         tampered["recorded_unix_nanos"] = json!("1");
         fs::write(&capsule, serde_json::to_vec(&tampered).unwrap()).unwrap();
-        assert!(replay(&capsule, Path::new("@recorded")).unwrap_err().to_string().contains("content identity differs"));
+        assert!(replay(&capsule, Path::new("@recorded"))
+            .unwrap_err()
+            .to_string()
+            .contains("content identity differs"));
         fs::write(&capsule, &first).unwrap();
         let index_path = directory.join("source-checks.jsonl");
         fs::rename(&index_path, directory.join("retained-index.jsonl")).unwrap();
         fs::create_dir(&index_path).unwrap();
-        let RecordingOutcome::SnapshotOnly { observation_id: unindexed, .. } = record_case() else {
+        let RecordingOutcome::SnapshotOnly {
+            observation_id: unindexed,
+            ..
+        } = record_case()
+        else {
             panic!("actual index I/O failure did not preserve a sealed capsule")
         };
-        replay(&journal.join(format!("{unindexed}.json")), Path::new("@recorded")).unwrap();
+        replay(
+            &journal.join(format!("{unindexed}.json")),
+            Path::new("@recorded"),
+        )
+        .unwrap();
         fs::remove_dir(index_path).unwrap();
         fs::rename(&journal, directory.join("retained-journal")).unwrap();
         fs::write(&journal, b"controlled directory obstacle").unwrap();
-        assert!(matches!(record_case(), RecordingOutcome::Unavailable { .. }));
+        assert!(matches!(
+            record_case(),
+            RecordingOutcome::Unavailable { .. }
+        ));
         assert!(error.to_string().contains("SCHOOL_MISMATCH"));
         fs::remove_file(&journal).unwrap();
         fs::rename(directory.join("retained-journal"), &journal).unwrap();
@@ -738,8 +881,13 @@ mod portable_tests {
             "full_ready_refresh_executed":false,"game_or_save_accessed":false,
             "scope":"Actual observation/refresh modules over retained source bytes and a synthetic rejection-only envelope; no full MAIN or protected-host transport acceptance."});
         if let Some(output) = std::env::var_os("NIOH3_LIVE_REFRESH_RESULTS") {
-            let output = PathBuf::from(output); fs::create_dir_all(&output).unwrap();
-            fs::write(output.join("journal_rejection_e2e.json"), serde_json::to_vec_pretty(&report).unwrap()).unwrap();
+            let output = PathBuf::from(output);
+            fs::create_dir_all(&output).unwrap();
+            fs::write(
+                output.join("journal_rejection_e2e.json"),
+                serde_json::to_vec_pretty(&report).unwrap(),
+            )
+            .unwrap();
         }
         println!("{report}");
         fs::remove_dir_all(root).unwrap();

@@ -161,17 +161,23 @@ fn bundles(data_root: &Path) -> Vec<Bundle> {
         if weapon_class.is_none() && !weapon.is_null() {
             continue;
         }
-        if !matches!(school, "samurai" | "ninja") || !valid_bundle_id(id)
+        if !matches!(school, "samurai" | "ninja")
+            || !valid_bundle_id(id)
             || dir.file_name().and_then(|name| name.to_str()) != Some(id)
             || weapon_class.is_some_and(|class| class >= ARMOR_FIRST)
         {
             continue;
         }
         let selection = &meta["selection_weapon_class"];
-        let selection_weapon_class = selection.as_u64().and_then(|class| u32::try_from(class).ok());
+        let selection_weapon_class = selection
+            .as_u64()
+            .and_then(|class| u32::try_from(class).ok());
         if (!selection.is_null() && selection_weapon_class.is_none())
-            || selection_weapon_class.is_some_and(|class| class >= ARMOR_FIRST
-                || weapon_class.is_some_and(|candidate_class| candidate_class != class)) {
+            || selection_weapon_class.is_some_and(|class| {
+                class >= ARMOR_FIRST
+                    || weapon_class.is_some_and(|candidate_class| candidate_class != class)
+            })
+        {
             continue;
         }
         let scene = if let Some(scene) = meta.get("scene") {
@@ -261,7 +267,10 @@ pub fn all_owned_search_items(
         }
         let key = u16::from_le_bytes([record[0], record[1]]);
         if let Some(class) = crate::item_kinds::type_class(data_root, key) {
-            if let Some(slot) = [0, 4, 5, 6, 7, 8, 9].into_iter().find(|&slot| slot_allows(&bundle, class, slot)) {
+            if let Some(slot) = [0, 4, 5, 6, 7, 8, 9]
+                .into_iter()
+                .find(|&slot| slot_allows(&bundle, class, slot))
+            {
                 items.push(OwnedSearchItem { slot_index, slot });
             }
         }
@@ -303,8 +312,8 @@ fn backpack(
         };
         // JSON integers must not wrap into an admitted native slot or save row.
         let slot = u32::try_from(slot).map_err(|_| HostError::rejected("LOADOUT_ITEM_SLOT"))?;
-        let slot_index = usize::try_from(slot_index)
-            .map_err(|_| HostError::rejected("LOADOUT_ITEM_SLOT"))?;
+        let slot_index =
+            usize::try_from(slot_index).map_err(|_| HostError::rejected("LOADOUT_ITEM_SLOT"))?;
         if !seen.insert(slot_index) {
             return Err(HostError::rejected("LOADOUT_ITEM_REPEATED"));
         }
@@ -361,8 +370,11 @@ mod catalog;
 pub fn list_with_query(data_root: &Path, params: &Value) -> Result<Value, HostError> {
     let mut result = list(data_root);
     result["catalog"] = catalog::page(data_root, params)?;
-    if serde_json::to_vec(&result).map_err(|_| HostError::invalid_request())?.len()
-        > nioh3_worker::MAX_FRAME_BYTES as usize - 16_384 {
+    if serde_json::to_vec(&result)
+        .map_err(|_| HostError::invalid_request())?
+        .len()
+        > nioh3_worker::MAX_FRAME_BYTES as usize - 16_384
+    {
         return Err(HostError::rejected("LOADOUT_CATALOG_PAGE_TOO_LARGE"));
     }
     Ok(result)
@@ -411,32 +423,50 @@ pub fn sets(
     // A pinned weapon or other unsearched slot can supply a real set even
     // when none of the replacement-pool records carry it. Offer that native
     // membership as a constraint; exact candidate qualification still decides.
-    let current=Candidate { attrs:engine.start_attrs,items:[None;SLOTS] };
-    let retained=engine.equipment_set_state(&current,&pack,&mut engine.work());
-    let current_records=engine.encoded_context().and_then(|context|context.file("characters.bin"))
-        .and_then(|bytes|nioh3_loadout::pipeline::Frame::characters(bytes).ok())
-        .and_then(|characters|characters.into_iter().next());
+    let current = Candidate {
+        attrs: engine.start_attrs,
+        items: [None; SLOTS],
+    };
+    let retained = engine.equipment_set_state(&current, &pack, &mut engine.work());
+    let current_records = engine
+        .encoded_context()
+        .and_then(|context| context.file("characters.bin"))
+        .and_then(|bytes| nioh3_loadout::pipeline::Frame::characters(bytes).ok())
+        .and_then(|characters| characters.into_iter().next());
     match &retained {
-        Ok(state)=>for &(key,count) in &state.pieces {
-            if rows.iter().any(|row|row["key"].as_u64()==Some(u64::from(key))) {continue;}
-            let mut members=Vec::new();let mut effect=None;
-            if let Some(character)=&current_records {
-                for bank in 0..2 { for slot in 0..17 {
-                    let start=bank*0xf70+slot*ITEM;let record=&character.inv[start..start+ITEM];
-                    let lines=engine.tables().effect_lines(record);
-                    if let Some(line)=lines.iter().find(|line|line.2==key) {
-                        let id=u16::from_le_bytes([record[0],record[1]]);
-                        if !members.contains(&id) {members.push(id);}
-                        effect.get_or_insert(line.0);
+        Ok(state) => {
+            for &(key, count) in &state.pieces {
+                if rows
+                    .iter()
+                    .any(|row| row["key"].as_u64() == Some(u64::from(key)))
+                {
+                    continue;
+                }
+                let mut members = Vec::new();
+                let mut effect = None;
+                if let Some(character) = &current_records {
+                    for bank in 0..2 {
+                        for slot in 0..17 {
+                            let start = bank * 0xf70 + slot * ITEM;
+                            let record = &character.inv[start..start + ITEM];
+                            let lines = engine.tables().effect_lines(record);
+                            if let Some(line) = lines.iter().find(|line| line.2 == key) {
+                                let id = u16::from_le_bytes([record[0], record[1]]);
+                                if !members.contains(&id) {
+                                    members.push(id);
+                                }
+                                effect.get_or_insert(line.0);
+                            }
+                        }
                     }
-                }}
-            }
-            rows.push(json!({"key":key,"pieces":count,"slots":count,
+                }
+                rows.push(json!({"key":key,"pieces":count,"slots":count,
                 "item_ids":members,"effect":effect}));
-        },
-        Err(reason)=>eprintln!("Retained set catalog unavailable: {reason}"),
+            }
+        }
+        Err(reason) => eprintln!("Retained set catalog unavailable: {reason}"),
     }
-    rows.sort_by_key(|row|row["key"].as_u64().unwrap_or(0));
+    rows.sort_by_key(|row| row["key"].as_u64().unwrap_or(0));
     let mut reduction = pack
         .pool
         .iter()
@@ -449,7 +479,9 @@ pub fn sets(
                 .any(|l| l.1 == SET_REDUCTION_GROUP)
         })
         .count();
-    if reduction==0 && retained.as_ref().is_ok_and(|state|state.reduction) {reduction=1;}
+    if reduction == 0 && retained.as_ref().is_ok_and(|state| state.reduction) {
+        reduction = 1;
+    }
     Ok(
         json!({"bundle": bundle.id, "context_id": params["context_id"], "sets": rows, "reduction_items": reduction}),
     )
@@ -462,7 +494,14 @@ pub fn search(
     params: &Value,
     engine: &Engine,
 ) -> Result<Value, HostError> {
-    search_with_observer(data_root, plain, params, engine, None, crate::loadout_context::SearchAuthority::BundleDefault)
+    search_with_observer(
+        data_root,
+        plain,
+        params,
+        engine,
+        None,
+        crate::loadout_context::SearchAuthority::BundleDefault,
+    )
 }
 
 struct HostSearchObserver<'a> {
@@ -493,8 +532,14 @@ pub fn search_observed(
     engine: &Engine,
     context: &JobContext,
 ) -> Result<Value, HostError> {
-    search_observed_with_authority(data_root, plain, params, engine, context,
-        crate::loadout_context::SearchAuthority::BundleDefault)
+    search_observed_with_authority(
+        data_root,
+        plain,
+        params,
+        engine,
+        context,
+        crate::loadout_context::SearchAuthority::BundleDefault,
+    )
 }
 
 pub(crate) fn search_observed_with_authority(
@@ -552,7 +597,9 @@ fn search_with_observer(
     )?;
     // Keep the physical spare assignments before aligning the current
     // outfit display to the scene. ExactSweep checks the displaced records.
-    let assigned_spares: Vec<_> = pack.ranges.iter()
+    let assigned_spares: Vec<_> = pack
+        .ranges
+        .iter()
         .filter(|range| range.0 == 0)
         .flat_map(|&(_, first, count)| first..first + count)
         .filter_map(|row| {
@@ -582,7 +629,9 @@ fn search_with_observer(
     };
     let source_admission = match authority {
         crate::loadout_context::SearchAuthority::BundleDefault => bundle.source_admission(),
-        crate::loadout_context::SearchAuthority::VerifiedNativeEpoch => SourceAdmissionPolicy::OwnedType,
+        crate::loadout_context::SearchAuthority::VerifiedNativeEpoch => {
+            SourceAdmissionPolicy::OwnedType
+        }
     };
     validate_source_search(source_admission, request.move_points)?;
     let weapon_domain = weapon_domain(&bundle, engine, &pack, params, source_admission);
@@ -594,15 +643,26 @@ fn search_with_observer(
         && !keep_current;
     let (space, report, excluded, mut details_work, swaps) = if exact {
         let completed = exact_search::run(engine, &pack, request, &assigned_spares, observer)?;
-        (completed.planned, completed.report, completed.excluded, completed.work, assigned_spares)
+        (
+            completed.planned,
+            completed.report,
+            completed.excluded,
+            completed.work,
+            assigned_spares,
+        )
     } else {
         let search = Search::new(engine, &pack)
             .with_source_admission(source_admission)
             .with_cpu_fallback_limit(CPU_SPACE_LIMIT);
-        let search=if params["keep_current"].as_bool().unwrap_or(false) {
-            search.with_current_choices(if enhanced { nioh3_loadout::search::CurrentChoicePolicy::Enhanced }
-                else { nioh3_loadout::search::CurrentChoicePolicy::Captured })
-        } else { search };
+        let search = if params["keep_current"].as_bool().unwrap_or(false) {
+            search.with_current_choices(if enhanced {
+                nioh3_loadout::search::CurrentChoicePolicy::Enhanced
+            } else {
+                nioh3_loadout::search::CurrentChoicePolicy::Captured
+            })
+        } else {
+            search
+        };
 
         // Resolve the budget after planning so a small certified search can
         // run without opening the graphics-card kernel.
@@ -703,25 +763,43 @@ fn search_with_observer(
     }))
 }
 
-fn validate_source_search(policy: SourceAdmissionPolicy, move_points: bool) -> Result<(), HostError> {
+fn validate_source_search(
+    policy: SourceAdmissionPolicy,
+    move_points: bool,
+) -> Result<(), HostError> {
     match (policy, move_points) {
-        (SourceAdmissionPolicy::CapturedWeaponOnly, true) =>
-            Err(HostError::rejected("LOADOUT_SOURCE_ATTRIBUTES_UNPROVEN")),
-        (SourceAdmissionPolicy::CapturedWeaponOnly, false) |
-        (SourceAdmissionPolicy::OwnedType, true | false) => Ok(()),
+        (SourceAdmissionPolicy::CapturedWeaponOnly, true) => {
+            Err(HostError::rejected("LOADOUT_SOURCE_ATTRIBUTES_UNPROVEN"))
+        }
+        (SourceAdmissionPolicy::CapturedWeaponOnly, false)
+        | (SourceAdmissionPolicy::OwnedType, true | false) => Ok(()),
     }
 }
 
 /// Record-level source scope accompanies outfit-level coverage. Retaining the
 /// actual context weapon is a separate option, not another owned pool record.
-fn weapon_domain(bundle: &Bundle, engine: &Engine, pack: &Backpack, params: &Value, policy: SourceAdmissionPolicy) -> Value {
-    let rows = pack.ranges.iter().filter(|range| range.0 == 0)
-        .flat_map(|&(_, first, count)| first..first + count).collect::<Vec<_>>();
-    let admitted = rows.iter().filter(|&&row| match policy {
-        SourceAdmissionPolicy::OwnedType => true,
-        SourceAdmissionPolicy::CapturedWeaponOnly =>
-            pack.pool[row as usize].as_slice() == engine.worn_item(9),
-    }).count();
+fn weapon_domain(
+    bundle: &Bundle,
+    engine: &Engine,
+    pack: &Backpack,
+    params: &Value,
+    policy: SourceAdmissionPolicy,
+) -> Value {
+    let rows = pack
+        .ranges
+        .iter()
+        .filter(|range| range.0 == 0)
+        .flat_map(|&(_, first, count)| first..first + count)
+        .collect::<Vec<_>>();
+    let admitted = rows
+        .iter()
+        .filter(|&&row| match policy {
+            SourceAdmissionPolicy::OwnedType => true,
+            SourceAdmissionPolicy::CapturedWeaponOnly => {
+                pack.pool[row as usize].as_slice() == engine.worn_item(9)
+            }
+        })
+        .count();
     let name = if bundle.requested_weapon_class().is_none() {
         "retained"
     } else {
@@ -783,7 +861,10 @@ fn set_rules(value: &Value) -> Result<Vec<SetRule>, HostError> {
         let guaranteed = parsed.iter().filter(|option| option.pieces == 0).count();
         if guaranteed < at_least {
             parsed.retain(|option| option.pieces != 0);
-            out.push(SetRule { options: parsed, at_least: at_least - guaranteed });
+            out.push(SetRule {
+                options: parsed,
+                at_least: at_least - guaranteed,
+            });
         }
     }
     if keys.len() > MAX_SET_KEYS {
@@ -835,7 +916,12 @@ fn bind_context_worn_items(
 /// What the bundle's school wears now among the chosen items, evaluated like a
 /// result. Missing searchable positions keep the captured context's records and
 /// are reported explicitly in kept_slots.
-fn current_outfit(engine: &Engine, pack: &Backpack, origin: &[Chosen], source_admission: SourceAdmissionPolicy) -> Value {
+fn current_outfit(
+    engine: &Engine,
+    pack: &Backpack,
+    origin: &[Chosen],
+    source_admission: SourceAdmissionPolicy,
+) -> Value {
     let mut items = [None; SLOTS];
     let mut doubled = Vec::new();
     for (row, &input) in pack.origin.iter().enumerate() {
@@ -844,8 +930,10 @@ fn current_outfit(engine: &Engine, pack: &Backpack, origin: &[Chosen], source_ad
         let Some((slot, position)) = c.worn.and_then(|s| position_of(s).map(|p| (s, p))) else {
             continue;
         };
-        if slot == 0 && source_admission == SourceAdmissionPolicy::CapturedWeaponOnly
-            && pack.pool[row].as_slice() != engine.worn_item(position) {
+        if slot == 0
+            && source_admission == SourceAdmissionPolicy::CapturedWeaponOnly
+            && pack.pool[row].as_slice() != engine.worn_item(position)
+        {
             continue;
         }
         if items[position].replace(row as u32).is_some() {
@@ -885,9 +973,13 @@ fn current_outfit(engine: &Engine, pack: &Backpack, origin: &[Chosen], source_ad
         Outcome::Refused(_) => ("refused", None),
         Outcome::OutsideLimits => ("refused", None),
     };
-    let details=match damage {
-        Some(damage)=>engine.damage_details(&candidate,pack,&mut w).verify_total(damage.to_bits()),
-        None=>nioh3_loadout::damage::DamageDetails::unavailable(nioh3_loadout::damage::DetailUnavailable::EvaluationFailed),
+    let details = match damage {
+        Some(damage) => engine
+            .damage_details(&candidate, pack, &mut w)
+            .verify_total(damage.to_bits()),
+        None => nioh3_loadout::damage::DamageDetails::unavailable(
+            nioh3_loadout::damage::DetailUnavailable::EvaluationFailed,
+        ),
     };
     json!({
         "status": status,
@@ -899,7 +991,6 @@ fn current_outfit(engine: &Engine, pack: &Backpack, origin: &[Chosen], source_ad
     })
 }
 
-
 #[cfg(test)]
 mod rule_normalization_tests {
     use super::*;
@@ -910,13 +1001,17 @@ mod rule_normalization_tests {
         Ok(())
     }
     #[test]
-    fn guaranteed_options_reduce_the_requirement_without_collapsing_duplicates() -> Result<(), HostError> {
+    fn guaranteed_options_reduce_the_requirement_without_collapsing_duplicates(
+    ) -> Result<(), HostError> {
         let rules = set_rules(&json!([{"options":[{"key":1,"pieces":0},
             {"key":2,"pieces":1},{"key":2,"pieces":1}],"at_least":3}]))?;
         assert_eq!(rules.len(), 1);
         assert_eq!(rules[0].at_least, 2);
         assert_eq!(rules[0].options.len(), 2);
-        assert!(rules[0].options.iter().all(|option| option.key == 2 && option.pieces == 1));
+        assert!(rules[0]
+            .options
+            .iter()
+            .all(|option| option.key == 2 && option.pieces == 1));
         Ok(())
     }
 }

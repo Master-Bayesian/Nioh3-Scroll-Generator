@@ -33,10 +33,16 @@ struct Shape {
 impl Shape {
     fn of(source: &Source) -> Self {
         Self {
-            keys: source.maps.each_ref().map(|map| map.iter().map(|e| e.key).collect()),
-            gates: source.maps.each_ref().map(|map| map.iter()
-                .filter(|e| SENSITIVE.contains(&e.key))
-                .map(|e| (e.key, e.base, e.dup)).collect()),
+            keys: source
+                .maps
+                .each_ref()
+                .map(|map| map.iter().map(|e| e.key).collect()),
+            gates: source.maps.each_ref().map(|map| {
+                map.iter()
+                    .filter(|e| SENSITIVE.contains(&e.key))
+                    .map(|e| (e.key, e.base, e.dup))
+                    .collect()
+            }),
             sides: source.sides.clone(),
         }
     }
@@ -78,7 +84,12 @@ impl Tables {
     /// orientations, so jointly activated set tiers cannot hide behind an
     /// unchanged one-item aggregate or local dominance.
     pub(crate) fn legacy_item_dependency(
-        &self, c: &Character, attrs: &[i32; 7], bank: usize, slot: usize, item: &[u8],
+        &self,
+        c: &Character,
+        attrs: &[i32; 7],
+        bank: usize,
+        slot: usize,
+        item: &[u8],
     ) -> R<ItemDependency> {
         if item.len() != ITEM || bank > 1 || slot > 15 {
             return Err("legacy source dependency record has invalid extent");
@@ -91,11 +102,21 @@ impl Tables {
             match slot {
                 0..=3 | 13 if self.requirements(c, attrs, row, item) => {
                     let held = usize::from(c.inv[bank * BANK + 0xF68] == 0);
-                    let mask = if reserve || slot == held || slot == 13 { 255 } else { 0 };
+                    let mask = if reserve || slot == held || slot == 13 {
+                        255
+                    } else {
+                        0
+                    };
                     self.collect(&mut source, item, reserve, bank as i32, mask)?;
                 }
                 4..=12 if self.requirements(c, attrs, row, item) => {
-                    self.collect(&mut source, item, reserve, bank as i32, if reserve { 0 } else { 255 })?;
+                    self.collect(
+                        &mut source,
+                        item,
+                        reserve,
+                        bank as i32,
+                        if reserve { 0 } else { 255 },
+                    )?;
                 }
                 15 if !reserve => self.collect(&mut source, item, false, c.mode, 255)?,
                 15 => {
@@ -110,19 +131,34 @@ impl Tables {
         }
         let lines = self.effect_lines(item);
         Ok(ItemDependency {
-            category: if matches!(slot, 0..=3 | 13) { self.category(key) } else { None },
+            category: if matches!(slot, 0..=3 | 13) {
+                self.category(key)
+            } else {
+                None
+            },
             source: Shape::of(&source),
-            gates: lines.iter().filter(|(_, group, _, _)| SENSITIVE.contains(group))
-                .map(|&(_, group, _, value)| (group, value)).collect(),
+            gates: lines
+                .iter()
+                .filter(|(_, group, _, _)| SENSITIVE.contains(group))
+                .map(|&(_, group, _, value)| (group, value))
+                .collect(),
             late: if matches!(slot, 13 | 9 | 10 | 15) {
-                lines.iter().filter(|(_, group, _, _)| LATE.contains(group))
-                    .map(|&(_, group, _, value)| (group, value)).collect()
-            } else { Vec::new() },
+                lines
+                    .iter()
+                    .filter(|(_, group, _, _)| LATE.contains(group))
+                    .map(|&(_, group, _, value)| (group, value))
+                    .collect()
+            } else {
+                Vec::new()
+            },
         })
     }
 
     pub(crate) fn legacy_source_signature(
-        &self, c: &Character, attrs: &[i32; 7], source: &Source,
+        &self,
+        c: &Character,
+        attrs: &[i32; 7],
+        source: &Source,
     ) -> R<Signature> {
         if c.active > 1 || c.inv.len() < 2 * BANK {
             return Err("legacy source dependency inventory has invalid extent");
@@ -131,9 +167,19 @@ impl Tables {
         for bank in 0..2 {
             for slot in 0..16 {
                 let at = bank * BANK + slot * ITEM;
-                items.push(self.legacy_item_dependency(c, attrs, bank, slot, &c.inv[at..at + ITEM])?);
+                items.push(self.legacy_item_dependency(
+                    c,
+                    attrs,
+                    bank,
+                    slot,
+                    &c.inv[at..at + ITEM],
+                )?);
             }
         }
-        Ok(Signature { attrs: *attrs, before_guardian: Shape::of(source), items })
+        Ok(Signature {
+            attrs: *attrs,
+            before_guardian: Shape::of(source),
+            items,
+        })
     }
 }

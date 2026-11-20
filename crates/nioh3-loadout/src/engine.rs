@@ -12,11 +12,11 @@ use std::sync::{Arc, OnceLock};
 #[path = "event_program.rs"]
 mod event_program;
 use event_program::{EventProgram, ExecutionEvent};
-#[path = "prepared_overlay.rs"]
-mod prepared_overlay;
 #[cfg(test)]
 #[path = "legacy_source_guard_tests.rs"]
 mod legacy_source_guard_tests;
+#[path = "prepared_overlay.rs"]
+mod prepared_overlay;
 #[cfg(test)]
 #[path = "shared_preparation_tests.rs"]
 mod shared_preparation_tests;
@@ -153,7 +153,8 @@ pub struct Engine {
     context: Option<EncodedContext>,
     cpu_evaluation: CpuEvaluation,
     work_owner: Arc<()>,
-    legacy_source_reference: OnceLock<Result<crate::pipeline::source_dependency::Signature, &'static str>>,
+    legacy_source_reference:
+        OnceLock<Result<crate::pipeline::source_dependency::Signature, &'static str>>,
     kernel: std::sync::Mutex<Kernel>,
     formula: Formula,
     tables: Tables,
@@ -345,14 +346,20 @@ impl ReadBounds {
     }
 
     fn certified_score(&mut self, writes: &[(u64, u32)]) -> Option<u32> {
-        if !writes.iter().all(|(address, _)| self.validated_words.contains(address)) {
+        if !writes
+            .iter()
+            .all(|(address, _)| self.validated_words.contains(address))
+        {
             return None;
         }
         self.lookup.0 = self.duration;
         for shape in self.shapes.iter().rev() {
             self.lookup.1.clear();
             self.lookup.1.extend(
-                shape.addresses.iter().map(|&at| Self::input_byte(&self.overlay, at)),
+                shape
+                    .addresses
+                    .iter()
+                    .map(|&at| Self::input_byte(&self.overlay, at)),
             );
             if let Some(&bits) = shape.scores.get(&self.lookup) {
                 return Some(bits);
@@ -380,10 +387,16 @@ impl ReadBounds {
         if self.trace.addresses.is_empty() {
             return;
         }
-        self.trace.addresses.retain(|at| self.mutable_bytes.contains(at));
+        self.trace
+            .addresses
+            .retain(|at| self.mutable_bytes.contains(at));
         self.trace.addresses.sort_unstable();
         self.trace.addresses.dedup();
-        let index = match self.shapes.iter().position(|shape| shape.addresses == self.trace.addresses) {
+        let index = match self
+            .shapes
+            .iter()
+            .position(|shape| shape.addresses == self.trace.addresses)
+        {
             Some(index) => index,
             None if self.shapes.len() == MAX_SHAPES => return,
             None => {
@@ -395,8 +408,13 @@ impl ReadBounds {
             }
         };
         let shape = &mut self.shapes[index];
-        let values: Vec<_> = shape.addresses.iter().map(|&at| Self::input_byte(&self.overlay, at)).collect();
-        let bytes = std::mem::size_of::<ReadKey>() + values.len() * std::mem::size_of::<Option<u8>>();
+        let values: Vec<_> = shape
+            .addresses
+            .iter()
+            .map(|&at| Self::input_byte(&self.overlay, at))
+            .collect();
+        let bytes =
+            std::mem::size_of::<ReadKey>() + values.len() * std::mem::size_of::<Option<u8>>();
         if shape.scores.insert((self.duration, values), bits).is_none() {
             self.owned_key_bytes += bytes;
         }
@@ -659,7 +677,8 @@ impl Engine {
             })
             .transpose()?;
         let setup = parse_setup_bytes(dir, &input("gpu_setup.txt")?)?;
-        frame.rebase_source(&tables, &character, &setup.attrs)
+        frame
+            .rebase_source(&tables, &character, &setup.attrs)
             .map_err(|reason| bad(dir, "source_rebuild", reason))?;
         let groups = |name: &str| -> Result<HashSet<u16>, LoadError> {
             std::str::from_utf8(inputs.required(name))
@@ -832,15 +851,32 @@ impl Engine {
     /// Execution-model scope is separate from requested-domain completeness.
     /// Runtime epoch ingestion is closed, so no runtime-bound scope is emitted.
     pub fn source_model_scope(&self) -> &'static str {
-        if self.has_dynamic_sources() { "conditional_rebuild" } else { "legacy_unverified" }
+        if self.has_dynamic_sources() {
+            "conditional_rebuild"
+        } else {
+            "legacy_unverified"
+        }
     }
 
-    fn legacy_source_reference(&self) -> Result<&crate::pipeline::source_dependency::Signature, &'static str> {
-        self.legacy_source_reference.get_or_init(|| {
-            let mut scratch = Scratch::new();
-            self.tables.pipeline(&self.frame, &self.character, &self.start_attrs, &[], &mut scratch)?;
-            scratch.legacy_source_signature.ok_or("legacy source reference signature was not produced")
-        }).as_ref().map_err(|reason| *reason)
+    fn legacy_source_reference(
+        &self,
+    ) -> Result<&crate::pipeline::source_dependency::Signature, &'static str> {
+        self.legacy_source_reference
+            .get_or_init(|| {
+                let mut scratch = Scratch::new();
+                self.tables.pipeline(
+                    &self.frame,
+                    &self.character,
+                    &self.start_attrs,
+                    &[],
+                    &mut scratch,
+                )?;
+                scratch
+                    .legacy_source_signature
+                    .ok_or("legacy source reference signature was not produced")
+            })
+            .as_ref()
+            .map_err(|reason| *reason)
     }
 
     fn check_legacy_attributes(&self, attrs: &[i32; 7]) -> Result<(), &'static str> {
@@ -853,9 +889,13 @@ impl Engine {
     /// Every scoring/eligibility path checks the same pre-guardian state before
     /// frame writes, MAIN, constraint rejection, or a cached read certificate.
     fn check_legacy_source(&self, scratch: &Scratch) -> Result<(), &'static str> {
-        if self.has_dynamic_sources() { return Ok(()); }
+        if self.has_dynamic_sources() {
+            return Ok(());
+        }
         let reference = self.legacy_source_reference()?;
-        let candidate = scratch.legacy_source_signature.as_ref()
+        let candidate = scratch
+            .legacy_source_signature
+            .as_ref()
             .ok_or("legacy candidate source signature was not produced")?;
         if candidate != reference {
             return Err(crate::pipeline::source_dependency::CHANGED);
@@ -867,18 +907,38 @@ impl Engine {
     /// dispatch. Equal one-item final aggregates would miss jointly activated
     /// set tiers; compare independent native collection inputs for every slot.
     pub(crate) fn legacy_source_pool_risk(&self, pack: &Backpack) -> bool {
-        if self.has_dynamic_sources() { return false; }
-        let Ok(reference) = self.legacy_source_reference() else { return true; };
+        if self.has_dynamic_sources() {
+            return false;
+        }
+        let Ok(reference) = self.legacy_source_reference() else {
+            return true;
+        };
         for &(slot, first, count) in &pack.ranges {
-            if position_of(slot).is_none() { return true; }
-            let Some(end) = first.checked_add(count) else { return true; };
-            let slots: &[u32] = if matches!(slot, 9 | 10) { &[9, 10] } else { std::slice::from_ref(&slot) };
+            if position_of(slot).is_none() {
+                return true;
+            }
+            let Some(end) = first.checked_add(count) else {
+                return true;
+            };
+            let slots: &[u32] = if matches!(slot, 9 | 10) {
+                &[9, 10]
+            } else {
+                std::slice::from_ref(&slot)
+            };
             for &placement in slots {
                 for row in first..end {
-                    let Some(item) = pack.pool.get(row as usize) else { return true; };
-                    let expected = &reference.items[self.character.active * 16 + placement as usize];
-                    match self.tables.legacy_item_dependency(&self.character, &self.start_attrs,
-                        self.character.active, placement as usize, item) {
+                    let Some(item) = pack.pool.get(row as usize) else {
+                        return true;
+                    };
+                    let expected =
+                        &reference.items[self.character.active * 16 + placement as usize];
+                    match self.tables.legacy_item_dependency(
+                        &self.character,
+                        &self.start_attrs,
+                        self.character.active,
+                        placement as usize,
+                        item,
+                    ) {
                         Ok(candidate) if &candidate == expected => {}
                         _ => return true,
                     }
@@ -1072,10 +1132,17 @@ impl Engine {
         let equipped = |bank: usize, slot: usize| &c.inv[bank * BANK + slot * ITEM..][..ITEM];
         let add_record = |capacity: &mut SetCapacity, record: &[u8], requires_attributes| {
             self.tables.add_set_capacity(
-                capacity, keys, c, &self.start_attrs, record, requires_attributes,
+                capacity,
+                keys,
+                c,
+                &self.start_attrs,
+                record,
+                requires_attributes,
             );
         };
-        let accessories = pack.ranges.iter()
+        let accessories = pack
+            .ranges
+            .iter()
             .filter(|&&(slot, _, _)| matches!(slot, 9 | 10))
             .map(|&(_, _, count)| u64::from(count))
             .sum::<u64>();
@@ -1090,7 +1157,10 @@ impl Engine {
             let replaced = match slot {
                 1..=3 => variable_spares.contains(&slot),
                 9 | 10 => accessories >= 2,
-                _ => pack.ranges.iter().any(|&(axis, _, _)| axis as usize == slot),
+                _ => pack
+                    .ranges
+                    .iter()
+                    .any(|&(axis, _, _)| axis as usize == slot),
             };
             if !(selected_bank_is_searched && replaced) {
                 add_record(&mut retained, equipped(bank, slot), true);
@@ -1106,7 +1176,11 @@ impl Engine {
                     add_record(capacity, &pack.pool[row as usize], true);
                     if slot == 0 {
                         for &spare in &variable_spares {
-                            let from = if swaps.contains(&(row, spare)) { 0 } else { spare };
+                            let from = if swaps.contains(&(row, spare)) {
+                                0
+                            } else {
+                                spare
+                            };
                             add_record(capacity, equipped(bank, from), true);
                         }
                     }
@@ -1162,7 +1236,10 @@ impl Engine {
     pub fn is_single_fixed_contact(&self) -> bool {
         self.hit_count() == 1
             && !self.reuses_held_templates()
-            && self.event_program.as_ref().is_none_or(EventProgram::is_single_fixed_contact)
+            && self
+                .event_program
+                .as_ref()
+                .is_none_or(EventProgram::is_single_fixed_contact)
     }
 
     pub fn supports_prepared_device(&self) -> bool {
@@ -1172,12 +1249,18 @@ impl Engine {
     }
 
     pub(crate) fn open_prepared_device(&self) -> Result<crate::gpu::MainDevice, String> {
-        let context = self.context.as_ref().ok_or("prepared CUDA MAIN scene missing")?;
+        let context = self
+            .context
+            .as_ref()
+            .ok_or("prepared CUDA MAIN scene missing")?;
         crate::gpu::MainDevice::open(&self.dir, context)
     }
 
     pub(crate) fn open_prepared_cpu(&self) -> Result<crate::gpu::MainCpu, String> {
-        let context = self.context.as_ref().ok_or("prepared CPU MAIN scene missing")?;
+        let context = self
+            .context
+            .as_ref()
+            .ok_or("prepared CPU MAIN scene missing")?;
         crate::gpu::MainCpu::open(&self.dir, context)
     }
 
@@ -1196,16 +1279,17 @@ impl Engine {
 
     /// Share the exact candidate and packet builder with the CPU route. A
     /// device lane represents one executable scored contact of this objective.
-    fn prepared_device_contact(
-        &self,
-        work: &mut Work,
-    ) -> Result<Option<Vec<(u64, u32)>>, Outcome> {
+    fn prepared_device_contact(&self, work: &mut Work) -> Result<Option<Vec<(u64, u32)>>, Outcome> {
         let events = self.execution_events(work).map_err(Outcome::Refused)?;
         let [event] = events.as_slice() else {
-            return Err(Outcome::Refused("prepared CUDA objective is not a single contact"));
+            return Err(Outcome::Refused(
+                "prepared CUDA objective is not a single contact",
+            ));
         };
         if !event.scored {
-            return Err(Outcome::Refused("prepared CUDA objective is not a scored contact"));
+            return Err(Outcome::Refused(
+                "prepared CUDA objective is not a scored contact",
+            ));
         }
         let active = self
             .assemble_execution(*event, &work.scratch.writes, &mut work.writes)
@@ -1237,16 +1321,22 @@ impl Engine {
         let mut work = self.work();
         if !swaps.is_empty()
             && (!self.has_dynamic_sources()
-                || self.context.as_ref().and_then(EncodedContext::scene_metadata).map(|m| m.0) != Some(0))
+                || self
+                    .context
+                    .as_ref()
+                    .and_then(EncodedContext::scene_metadata)
+                    .map(|m| m.0)
+                    != Some(0))
         {
             return Err("weapon swaps require a slot-zero dynamic-source context");
         }
         let mut unique = HashSet::new();
         let bank = self.character.active * BANK;
         for &(row, slot) in swaps {
-            let in_weapon_axis = pack.ranges.iter().any(|&(slot, first, count)| {
-                slot == 0 && row >= first && row - first < count
-            });
+            let in_weapon_axis = pack
+                .ranges
+                .iter()
+                .any(|&(slot, first, count)| slot == 0 && row >= first && row - first < count);
             if !in_weapon_axis || !(1..=3).contains(&slot) || !unique.insert(row) {
                 return Err("weapon swap does not identify one owned spare");
             }
@@ -1297,13 +1387,8 @@ impl Engine {
         self.check_legacy_attributes(&c.attrs)?;
         self.wear(c, pack, w);
         w.preparation_stats.pipeline_runs += 1;
-        self.tables.pipeline(
-            &self.frame,
-            &w.character,
-            &c.attrs,
-            ops,
-            &mut w.scratch,
-        )?;
+        self.tables
+            .pipeline(&self.frame, &w.character, &c.attrs, ops, &mut w.scratch)?;
         self.check_legacy_source(&w.scratch)
     }
 
@@ -1592,7 +1677,8 @@ impl Engine {
         set_admission: Option<impl FnOnce(&SetState) -> bool>,
     ) -> Result<PreparedCandidate<'a>, Outcome> {
         if let Some(admit) = set_admission {
-            self.prepare_equipment(c, pack, &[], w).map_err(Outcome::Refused)?;
+            self.prepare_equipment(c, pack, &[], w)
+                .map_err(Outcome::Refused)?;
             w.preparation_stats.set_checks += 1;
             if !admit(&w.scratch.source.set_state()) {
                 return Err(Outcome::OutsideLimits);
@@ -1607,7 +1693,10 @@ impl Engine {
             self.prepare(c, pack, w).map_err(Outcome::Refused)?;
         }
         self.check_limits(c, limits, w)?;
-        Ok(PreparedCandidate { engine: self, work: w })
+        Ok(PreparedCandidate {
+            engine: self,
+            work: w,
+        })
     }
 
     pub fn evaluate(
@@ -1839,7 +1928,10 @@ impl Engine {
 
     /// Planning-only conditional producer fixture; it does not attest the
     /// constant-score frame's source baseline or a live input generation.
-    pub(crate) fn audit_source_program(&mut self, program: crate::pipeline::source_rebuild::Program) {
+    pub(crate) fn audit_source_program(
+        &mut self,
+        program: crate::pipeline::source_rebuild::Program,
+    ) {
         self.frame.source_rebuild = Some(program);
     }
 
@@ -1848,8 +1940,11 @@ impl Engine {
     /// it is not an original MAIN damage or live generation assertion.
     pub(crate) fn audit_legacy_source_fixture() -> Self {
         let mut engine = Self::audit_fixture();
-        engine.character = Frame::characters(include_bytes!("../tests/fixtures/legacy_source_characters.bin"))
-            .unwrap().remove(0);
+        engine.character = Frame::characters(include_bytes!(
+            "../tests/fixtures/legacy_source_characters.bin"
+        ))
+        .unwrap()
+        .remove(0);
         engine.frame = Frame::load(include_bytes!("../tests/fixtures/audit_frame.bin")).unwrap();
         engine.frame.held_reaper = false;
         engine
@@ -1858,10 +1953,20 @@ impl Engine {
     /// Inspect the native set producer without claiming source admission or a
     /// score. Used only to distinguish qualification laws from the explicitly
     /// unsupported legacy changed-attribute execution domain.
-    pub(crate) fn audit_native_set_state(&self, candidate: &Candidate, pack: &Backpack) -> Result<SetState, &'static str> {
+    pub(crate) fn audit_native_set_state(
+        &self,
+        candidate: &Candidate,
+        pack: &Backpack,
+    ) -> Result<SetState, &'static str> {
         let mut work = self.work();
         self.wear(candidate, pack, &mut work);
-        self.tables.pipeline(&self.frame, &work.character, &candidate.attrs, &[], &mut work.scratch)?;
+        self.tables.pipeline(
+            &self.frame,
+            &work.character,
+            &candidate.attrs,
+            &[],
+            &mut work.scratch,
+        )?;
         Ok(work.scratch.source.set_state())
     }
 }

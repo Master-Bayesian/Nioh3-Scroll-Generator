@@ -39,7 +39,12 @@ fn wear(engine: &mut Engine, slot: usize, item: [u8; ITEM]) {
 }
 
 fn request() -> Request {
-    Request { sets: Vec::new(), limits: Limits::NONE, move_points: false, threads: 1 }
+    Request {
+        sets: Vec::new(),
+        limits: Limits::NONE,
+        move_points: false,
+        threads: 1,
+    }
 }
 
 #[test]
@@ -49,35 +54,69 @@ fn type_source_partition_counts_uncomputed_before_set_pruning() {
     let mut changed = current;
     changed[0xA..0xC].copy_from_slice(&1u16.to_le_bytes());
     let pack = Backpack::from_slots(&[
-        (0, current), (0, changed),
-        (4, record(0x0404, &[])), (4, record(0x0404, &[])),
-        (9, record(0x117E, &[])), (9, record(0x117E, &[])), (9, record(0x117E, &[])),
-    ]).unwrap();
+        (0, current),
+        (0, changed),
+        (4, record(0x0404, &[])),
+        (4, record(0x0404, &[])),
+        (9, record(0x117E, &[])),
+        (9, record(0x117E, &[])),
+        (9, record(0x117E, &[])),
+    ])
+    .unwrap();
     let search = Search::new(&engine, &pack)
         .with_source_admission(SourceAdmissionPolicy::CapturedWeaponOnly);
     let plan = search.plan(&request());
-    assert_eq!((plan.full_size, plan.size(), plan.source_uncomputed), (24, 12, 12));
+    assert_eq!(
+        (plan.full_size, plan.size(), plan.source_uncomputed),
+        (24, 12, 12)
+    );
     assert!(!plan.is_complete());
-    assert!(plan.candidates(engine.start_attrs).all(|candidate| candidate.items[9] == Some(0)));
+    assert!(plan
+        .candidates(engine.start_attrs)
+        .all(|candidate| candidate.items[9] == Some(0)));
     let report = search.run(&request());
-    assert_eq!((report.searched, report.counts.answered, report.source_uncomputed), (12, 12, 12));
+    assert_eq!(
+        (
+            report.searched,
+            report.counts.answered,
+            report.source_uncomputed
+        ),
+        (12, 12, 12)
+    );
     assert!(!report.complete);
     assert!(report.best.iter().all(|row| row.0.damage() == 1.0));
 
     let mut constrained = request();
     constrained.sets.push(SetRule {
-        options: vec![SetOption { key: FREE_SET, pieces: 7 }], at_least: 1,
+        options: vec![SetOption {
+            key: FREE_SET,
+            pieces: 7,
+        }],
+        at_least: 1,
     });
     let pruned = search.plan(&constrained);
-    assert_eq!(pruned.size(), 0, "known admitted outfits cannot satisfy this rule");
-    assert_eq!(pruned.source_uncomputed, 12, "a set bound cannot erase unknown source candidates");
+    assert_eq!(
+        pruned.size(),
+        0,
+        "known admitted outfits cannot satisfy this rule"
+    );
+    assert_eq!(
+        pruned.source_uncomputed, 12,
+        "a set bound cannot erase unknown source candidates"
+    );
     let report = search.run(&constrained);
     assert!(!report.complete && report.best.is_empty());
     assert_eq!((report.searched, report.source_uncomputed), (0, 12));
 
     let unrestricted = Search::new(&engine, &pack).plan(&request());
-    assert_eq!((unrestricted.size(), unrestricted.source_uncomputed), (24, 0));
-    assert!(unrestricted.is_complete(), "the existing admitted TYPE path is unchanged");
+    assert_eq!(
+        (unrestricted.size(), unrestricted.source_uncomputed),
+        (24, 0)
+    );
+    assert!(
+        unrestricted.is_complete(),
+        "the existing admitted TYPE path is unchanged"
+    );
 }
 
 #[test]
@@ -89,18 +128,27 @@ fn an_unproved_type_replacement_never_becomes_zero_damage_or_an_empty_complete_r
     let search = Search::new(&engine, &pack)
         .with_source_admission(SourceAdmissionPolicy::CapturedWeaponOnly);
     let report = search.run(&request());
-    assert_eq!((report.full_size, report.searched, report.source_uncomputed), (1, 0, 1));
+    assert_eq!(
+        (report.full_size, report.searched, report.source_uncomputed),
+        (1, 0, 1)
+    );
     assert!(report.best.is_empty() && !report.complete);
     assert_eq!(report.counts, Counts::default());
 
     let search = search.with_current_choices(CurrentChoicePolicy::Captured);
     let report = search.run(&request());
-    assert_eq!((report.full_size, report.searched, report.source_uncomputed), (2, 1, 1));
+    assert_eq!(
+        (report.full_size, report.searched, report.source_uncomputed),
+        (2, 1, 1)
+    );
     assert_eq!(report.counts.answered, 1);
     assert_eq!(report.best[0].0.candidate.items[9], None);
     assert_eq!(report.best[0].0.damage(), 1.0);
     assert!(!report.complete);
-    assert!(search.run_complete_on_card(&request(), 100, 100).err().unwrap()
+    assert!(search
+        .run_complete_on_card(&request(), 100, 100)
+        .err()
+        .unwrap()
         .contains("uncomputed weapon sources"));
 }
 
@@ -117,31 +165,49 @@ fn hypothetical_enhanced_weapon_does_not_acquire_captured_source_admission() {
         .with_source_admission(SourceAdmissionPolicy::CapturedWeaponOnly)
         .with_current_choices(CurrentChoicePolicy::Enhanced);
     let plan = search.plan(&request());
-    assert_eq!((plan.full_size, plan.size(), plan.source_uncomputed), (2, 1, 1));
-    assert!(plan.candidates(engine.start_attrs).all(|candidate| candidate.items[9].is_none()));
+    assert_eq!(
+        (plan.full_size, plan.size(), plan.source_uncomputed),
+        (2, 1, 1)
+    );
+    assert!(plan
+        .candidates(engine.start_attrs)
+        .all(|candidate| candidate.items[9].is_none()));
 }
 
 #[test]
 fn one_byte_identical_pool_accessory_cannot_represent_two_distinct_current_items() {
     let mut engine = engine();
     let identical = record(0x117E, &[(FREE_EFFECT, 1)]);
-    for slot in [9, 10] { wear(&mut engine, slot, identical); }
+    for slot in [9, 10] {
+        wear(&mut engine, slot, identical);
+    }
     let other = record(0xF5BB, &[]);
     let pack = Backpack::from_slots(&[(9, identical), (9, other)]).unwrap();
-    let search = Search::new(&engine, &pack)
-        .with_current_choices(CurrentChoicePolicy::Captured);
+    let search = Search::new(&engine, &pack).with_current_choices(CurrentChoicePolicy::Captured);
     assert_eq!(search.current_accessories_missing(&[0, 1]), [false, true]);
     let plan = search.plan(&request());
     assert_eq!((plan.full_size, plan.size()), (4, 4));
     let [one, two] = ACCESSORY_SLOTS.map(|slot| position_of(slot).unwrap());
     let candidates: Vec<_> = plan.candidates(engine.start_attrs).collect();
-    assert!(candidates.iter().any(|c| c.items[one] == Some(0) && c.items[two].is_none()),
-        "the current two owned items must remain representable");
+    assert!(
+        candidates
+            .iter()
+            .any(|c| c.items[one] == Some(0) && c.items[two].is_none()),
+        "the current two owned items must remain representable"
+    );
     let report = search.run(&request());
-    assert_eq!((report.counts.answered, report.counts.refused), (1, 3),
-        "the current pair remains scored; changed unbound side state is now explicit refusal");
-    let current = candidates.iter().find(|c| c.items[one] == Some(0) && c.items[two].is_none()).unwrap();
-    let state = engine.equipment_set_state(current, &pack, &mut engine.work()).unwrap();
+    assert_eq!(
+        (report.counts.answered, report.counts.refused),
+        (1, 3),
+        "the current pair remains scored; changed unbound side state is now explicit refusal"
+    );
+    let current = candidates
+        .iter()
+        .find(|c| c.items[one] == Some(0) && c.items[two].is_none())
+        .unwrap();
+    let state = engine
+        .equipment_set_state(current, &pack, &mut engine.work())
+        .unwrap();
     assert!(state.pieces.contains(&(FREE_SET, 2)));
 }
 
@@ -153,26 +219,53 @@ fn retained_accessory_slots_are_not_collapsed_as_exchangeable_orientations() {
     let mut alternative = record(0x117E, &[]);
     alternative[0xA..0xC].copy_from_slice(&1u16.to_le_bytes());
     let pack = Backpack::from_slots(&[(9, alternative)]).unwrap();
-    let search = Search::new(&engine, &pack)
-        .with_current_choices(CurrentChoicePolicy::Captured);
+    let search = Search::new(&engine, &pack).with_current_choices(CurrentChoicePolicy::Captured);
     let report = search.run(&request());
-    assert_eq!((report.full_size, report.searched, report.counts.answered, report.counts.refused), (3, 3, 2, 1));
+    assert_eq!(
+        (
+            report.full_size,
+            report.searched,
+            report.counts.answered,
+            report.counts.refused
+        ),
+        (3, 3, 2, 1)
+    );
     // Exercise ranking canonicalization independently of the new source guard.
     // These are declared constant-oracle scores, not computed damage for the
     // one now-refused source state. None must retain its own captured slot.
-    let ranked = search.ranked_facts(search.plan(&request()).candidates(engine.start_attrs)
-        .map(|candidate| Scored { candidate, bits: 1.0f32.to_bits() }).collect(), true);
-    assert_eq!(ranked.len(), 3, "None in slot9 retains a different item from None in slot10");
+    let ranked = search.ranked_facts(
+        search
+            .plan(&request())
+            .candidates(engine.start_attrs)
+            .map(|candidate| Scored {
+                candidate,
+                bits: 1.0f32.to_bits(),
+            })
+            .collect(),
+        true,
+    );
+    assert_eq!(
+        ranked.len(),
+        3,
+        "None in slot9 retains a different item from None in slot10"
+    );
     let [one, two] = ACCESSORY_SLOTS.map(|slot| position_of(slot).unwrap());
-    let retained_first = ranked.iter().find(|r| r.0.candidate.items[one].is_none()
-        && r.0.candidate.items[two] == Some(0)).unwrap();
-    let retained_second = ranked.iter().find(|r| r.0.candidate.items[one] == Some(0)
-        && r.0.candidate.items[two].is_none()).unwrap();
+    let retained_first = ranked
+        .iter()
+        .find(|r| r.0.candidate.items[one].is_none() && r.0.candidate.items[two] == Some(0))
+        .unwrap();
+    let retained_second = ranked
+        .iter()
+        .find(|r| r.0.candidate.items[one] == Some(0) && r.0.candidate.items[two].is_none())
+        .unwrap();
     let a = engine.equipment_set_state(&retained_first.0.candidate, &pack, &mut engine.work());
     let b = engine.equipment_set_state(&retained_second.0.candidate, &pack, &mut engine.work());
     assert!(a.is_ok());
-    assert_eq!(b.err(), Some(crate::pipeline::source_dependency::CHANGED),
-        "native source production distinguishes the two retained-slot assignments");
+    assert_eq!(
+        b.err(),
+        Some(crate::pipeline::source_dependency::CHANGED),
+        "native source production distinguishes the two retained-slot assignments"
+    );
 }
 
 #[test]
@@ -184,7 +277,10 @@ fn limited_source_policy_cannot_be_bypassed_by_library_attribute_polish() {
     let mut request = request();
     request.move_points = true;
     let report = search.run(&request);
-    assert_eq!(report.failure, Some(SearchFailure::SourceAttributesUnproven));
+    assert_eq!(
+        report.failure,
+        Some(SearchFailure::SourceAttributesUnproven)
+    );
     assert_eq!(report.searched, 0);
     assert!(report.best.is_empty() && !report.complete);
 }
@@ -196,20 +292,35 @@ fn uncomputed_cartesian_counts_cannot_overflow_or_round_through_a_tiny_admitted_
         let mut changed = record(0x00AB, &[]);
         changed[0xA..0xC].copy_from_slice(&1u16.to_le_bytes());
         let mut items = Vec::new();
-        for _ in 0..per_slot { items.push((0, changed)); }
-        for slot in 4..=8 {
-            for _ in 0..per_slot { items.push((slot, record(0x0404, &[]))); }
+        for _ in 0..per_slot {
+            items.push((0, changed));
         }
-        for _ in 0..accessories { items.push((9, record(0x117E, &[]))); }
-        assert!(items.len() <= 2500, "the ordinary request item limit permits this product");
+        for slot in 4..=8 {
+            for _ in 0..per_slot {
+                items.push((slot, record(0x0404, &[])));
+            }
+        }
+        for _ in 0..accessories {
+            items.push((9, record(0x117E, &[])));
+        }
+        assert!(
+            items.len() <= 2500,
+            "the ordinary request item limit permits this product"
+        );
         let pack = Backpack::from_slots(&items).unwrap();
         let search = Search::new(&engine, &pack)
             .with_source_admission(SourceAdmissionPolicy::CapturedWeaponOnly);
         let plan = search.plan(&request());
-        assert_eq!(plan.size(), 0, "all requested weapon sources are uncomputed");
+        assert_eq!(
+            plan.size(),
+            0,
+            "all requested weapon sources are uncomputed"
+        );
         assert!(plan.full_size > MAX_EXACT_COVERAGE);
         assert_eq!(plan.full_size == u64::MAX, saturates_u64);
-        let (_, report) = search.run_limited(&request(), 0).expect("explicit count failure precedes execution budget");
+        let (_, report) = search
+            .run_limited(&request(), 0)
+            .expect("explicit count failure precedes execution budget");
         assert_eq!(report.failure, Some(SearchFailure::DomainCountTooLarge));
         assert_eq!(report.searched, 0);
         assert_eq!(report.counts, Counts::default());
@@ -219,7 +330,11 @@ fn uncomputed_cartesian_counts_cannot_overflow_or_round_through_a_tiny_admitted_
         let plan = admitted.plan(&request());
         assert!(plan.full_size > MAX_EXACT_COVERAGE);
         assert_eq!(plan.source_uncomputed, 0);
-        assert_eq!(plan.spaces(), 0, "oversized admitted products must be refused before class traversal");
+        assert_eq!(
+            plan.spaces(),
+            0,
+            "oversized admitted products must be refused before class traversal"
+        );
         let (_, report) = admitted.run_limited(&request(), 0).unwrap();
         assert_eq!(report.failure, Some(SearchFailure::DomainCountTooLarge));
         assert_eq!(report.searched, 0);
@@ -230,15 +345,20 @@ fn uncomputed_cartesian_counts_cannot_overflow_or_round_through_a_tiny_admitted_
 #[test]
 fn dynamic_source_programs_preserve_rows_and_defer_unproved_set_bounds() {
     let mut engine = engine();
-    let pack = Backpack::from_slots(&[
-        (4, record(0x0404, &[])), (4, record(0x0404, &[])),
-    ]).unwrap();
+    let pack = Backpack::from_slots(&[(4, record(0x0404, &[])), (4, record(0x0404, &[]))]).unwrap();
     let moving = request();
-    assert_eq!(Search::new(&engine, &pack).build_plan(&moving, None).size(), 1,
-        "the legacy profile screen merges these equivalent local profiles");
+    assert_eq!(
+        Search::new(&engine, &pack).build_plan(&moving, None).size(),
+        1,
+        "the legacy profile screen merges these equivalent local profiles"
+    );
     let mut constrained = request();
     constrained.sets.push(SetRule {
-        options: vec![SetOption { key: FREE_SET, pieces: 7 }], at_least: 1,
+        options: vec![SetOption {
+            key: FREE_SET,
+            pieces: 7,
+        }],
+        at_least: 1,
     });
     assert_eq!(Search::new(&engine, &pack).plan(&constrained).size(), 0);
 
@@ -260,13 +380,28 @@ fn dynamic_source_programs_preserve_rows_and_defer_unproved_set_bounds() {
     program.validate().unwrap();
     engine.audit_source_program(program);
     assert!(engine.has_dynamic_sources());
-    let retained = engine.retained_set_state(&pack, &engine.start_attrs, &mut engine.work())
-        .expect("the source pipeline must produce the actual retained-state input to the faulty bound");
-    assert!(!constrained.sets[0].holds(|key| retained.pieces.iter()
-        .find(|entry| entry.0 == key).map(|entry| entry.1), retained.reduction));
+    let retained = engine
+        .retained_set_state(&pack, &engine.start_attrs, &mut engine.work())
+        .expect(
+            "the source pipeline must produce the actual retained-state input to the faulty bound",
+        );
+    assert!(!constrained.sets[0].holds(
+        |key| retained
+            .pieces
+            .iter()
+            .find(|entry| entry.0 == key)
+            .map(|entry| entry.1),
+        retained.reduction
+    ));
     let search = Search::new(&engine, &pack);
-    assert_eq!(search.build_plan(&moving, None).size(), 2,
-        "local dominance cannot order candidate guardian/core source effects");
-    assert_eq!(search.plan(&constrained).size(), 2,
-        "set constraints must use the exact per-candidate native predicate");
+    assert_eq!(
+        search.build_plan(&moving, None).size(),
+        2,
+        "local dominance cannot order candidate guardian/core source effects"
+    );
+    assert_eq!(
+        search.plan(&constrained).size(),
+        2,
+        "set constraints must use the exact per-candidate native predicate"
+    );
 }

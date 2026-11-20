@@ -10,7 +10,9 @@ pub struct HitBuffer {
 impl HitBuffer {
     pub fn parse(text: &str) -> Result<Self, &'static str> {
         let mut lines = text.lines();
-        let header = lines.next().ok_or("missing hit header")?
+        let header = lines
+            .next()
+            .ok_or("missing hit header")?
             .trim_matches(|c: char| c.is_ascii_whitespace());
         if header.is_empty() || !header.bytes().all(|c| c.is_ascii_digit()) {
             return Err("hit header must contain exactly one decimal count");
@@ -25,17 +27,23 @@ impl HitBuffer {
             }
             u64::from_str_radix(token, 16).map_err(|_| "hexadecimal hit word overflow")
         };
-        let addresses = lines.next().ok_or("missing hit addresses")?
-            .split_ascii_whitespace().map(hex).collect::<Result<Vec<_>, _>>()?;
+        let addresses = lines
+            .next()
+            .ok_or("missing hit addresses")?
+            .split_ascii_whitespace()
+            .map(hex)
+            .collect::<Result<Vec<_>, _>>()?;
         if addresses.is_empty() || addresses.iter().any(|a| a & 3 != 0) {
             return Err("hit addresses must be nonempty and 4-byte aligned");
         }
         let mut rows = Vec::with_capacity(count);
         for _ in 0..count {
-            let row = lines.next().ok_or("missing hit row")?
-                .split_ascii_whitespace().map(|token| {
-                    u32::try_from(hex(token)?).map_err(|_| "hit value exceeds u32")
-                }).collect::<Result<Vec<_>, _>>()?;
+            let row = lines
+                .next()
+                .ok_or("missing hit row")?
+                .split_ascii_whitespace()
+                .map(|token| u32::try_from(hex(token)?).map_err(|_| "hit value exceeds u32"))
+                .collect::<Result<Vec<_>, _>>()?;
             if row.len() != addresses.len() {
                 return Err("hit rows do not match the addresses");
             }
@@ -54,9 +62,17 @@ mod tests {
 
     #[test]
     fn rejects_legacy_cpu_card_parser_disagreements() {
-        for input in ["1 2\n1000\n0\n", "1\n\n\n", "1\n1001\n0\n",
-            "1\n1000\n0\n1\n", "+1\n1000\n0\n", "1\n0x1000\n0\n",
-            "1\n1000\n100000000\n", "2\n1000\n0 1\n", "0\n1000\n"] {
+        for input in [
+            "1 2\n1000\n0\n",
+            "1\n\n\n",
+            "1\n1001\n0\n",
+            "1\n1000\n0\n1\n",
+            "+1\n1000\n0\n",
+            "1\n0x1000\n0\n",
+            "1\n1000\n100000000\n",
+            "2\n1000\n0 1\n",
+            "0\n1000\n",
+        ] {
             assert!(HitBuffer::parse(input).is_err(), "{input:?}");
         }
         assert!(HitBuffer::parse(&format!("64\n1000\n{}", "0\n".repeat(64))).is_err());
