@@ -28,6 +28,8 @@ pub mod contract;
 pub mod equipment_rules;
 pub mod equipment_seeds;
 pub mod error;
+#[cfg(feature = "first-use-acceptance")]
+pub mod first_use_acceptance;
 pub mod grace_capture;
 pub mod host;
 pub mod item_kinds;
@@ -35,6 +37,7 @@ pub mod jobs;
 pub mod loadout;
 pub mod loadout_context;
 mod loadout_epoch;
+mod loadout_first_use;
 mod loadout_live;
 mod loadout_numeric;
 pub mod loadout_observation;

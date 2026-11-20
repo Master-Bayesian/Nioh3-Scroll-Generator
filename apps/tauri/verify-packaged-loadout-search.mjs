@@ -16,9 +16,9 @@ assert(configPath && outputPath, 'Usage: CONFIG.json OUTPUT');
 assert.equal(process.platform, 'win32', 'This acceptance must run on Windows');
 const config = JSON.parse(await readFile(configPath, 'utf8'));
 const mode = config.mode ?? 'player';
-assert(['player', 'engineering-fixture'].includes(mode));
+assert(['player', 'fresh-diagnostic', 'engineering-fixture'].includes(mode));
 assert(!config.profile_template, 'A legacy template cannot establish the prepared dynamic-source path; use an explicitly bound live_epoch_fixture in engineering mode');
-if (mode === 'player') assert(!config.live_epoch_fixture, 'Player release acceptance forbids injecting private research resources');
+if (mode !== 'engineering-fixture') assert(!config.live_epoch_fixture, 'Fresh profile acceptance forbids injecting private research resources');
 else assert(config.live_epoch_fixture, 'Engineering mode requires the complete currently bound live epoch fixture');
 const output = resolve(outputPath);
 await mkdir(output, {recursive: true});
@@ -83,7 +83,7 @@ function observeModules(root, stopFile, logFile) {
       } catch { @{error=$_.Exception.Message} | ConvertTo-Json -Compress | Add-Content -LiteralPath $env:NIOH3_OBSERVER_LOG -Encoding UTF8 }
     }; Start-Sleep -Milliseconds 100
   }`;
-  return spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
+  return spawn('pwsh.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
     {windowsHide: true, stdio: 'ignore', env: {...process.env, NIOH3_OBSERVER_ROOT: root, NIOH3_OBSERVER_STOP: stopFile, NIOH3_OBSERVER_LOG: logFile}});
 }
 
@@ -179,11 +179,17 @@ async function run(backend, withProfile) {
     const first = contexts.at(-1);
     evidence.first_read = first;
     if (!withProfile) {
-      assert(first.state === 'failed' || first.result?.state === 'unavailable', 'Fresh profile unexpectedly acquired a context; review provisioning separately');
+      const freshReady = first.result?.state === 'ready';
+      if (freshReady) {
+        assert.equal(first.result.source,'live');
+        assert.equal(first.result.source_sha256.toLowerCase(),sourceSha);
+      } else {
+        assert(first.state === 'failed' || first.result?.state === 'unavailable' || first.result?.state === 'sources_read');
+      }
       assert.equal(await page.getByTestId('loadout-result-coverage').count(), 0);
       const start = page.getByTestId('loadout-search-start');
       assert((await start.count()) === 0 || await start.isDisabled());
-      report.no_private_profile = {ran: true, false_complete: false, job_state: first.state, reason: first.result?.reason ?? first.error?.message};
+      report.no_private_profile = {ran: true, false_complete: false, ready:freshReady, job_state: first.state, reason: first.result?.reason ?? first.result?.detail ?? first.error?.message};
       evidence.passed = true;
       return;
     }

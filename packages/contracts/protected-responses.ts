@@ -71,6 +71,7 @@ export type EnemyStatePreviews = {
   expedition: EnemyStatePreview;
 } | null;
 export type LoadoutContext =
+  | LoadoutSourcesRead
   | LoadoutContextReady
   | {
       state: "unavailable";
@@ -1304,6 +1305,25 @@ export interface LoadoutCatalogSelection {
    * @maxItems 64
    */
   missing_facts: string[];
+}
+export interface LoadoutSourcesRead {
+  state: "sources_read";
+  save_id: string;
+  source_sha256: string;
+  bundle: string;
+  source: "live" | "captured";
+  school: "samurai" | "ninja";
+  level: number;
+  /**
+   * @minItems 7
+   * @maxItems 7
+   */
+  attrs: [number, number, number, number, number, number, number];
+  submissions: number;
+  source_state: "current_maps_matched" | "current_maps_differ";
+  source_digest: string;
+  detail?: string;
+  missing: "damage_context";
 }
 export interface LoadoutContextReady {
   state: "ready";

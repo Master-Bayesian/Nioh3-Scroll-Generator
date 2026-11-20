@@ -98,6 +98,10 @@ private template cannot satisfy it.
 
 ### Engineering fixture mode: useful diagnosis, never release acceptance
 
+Use `fresh-diagnostic` for a real player whose inventory lacks a previously
+independently verified ranking. It runs the same empty-profile CPU/card legs
+and checks the configured reference, but cannot issue a release receipt.
+
 Use the same config with `"mode": "engineering-fixture"` plus
 `"live_epoch_fixture": "C:/host/current-live-epoch"`. This path must contain
 `active.json` and the active SHA-named generation with `LIVE_BINDING.json`,

@@ -21,6 +21,11 @@ path = "src/main.rs"
 # cross-language gate can drive the real scan loops over fixed rows without a
 # game. Off by default; the packaged host never builds it.
 test-fake = []
+first-use-acceptance = []
+
+[[example]]
+name = "first_use_export"
+required-features = ["first-use-acceptance"]
 
 [dependencies]
 # Reuse, not copy: the read-only worker crate owns the shipped stdio framing and

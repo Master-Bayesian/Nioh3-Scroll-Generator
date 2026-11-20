@@ -7,6 +7,31 @@ pub fn enabled() -> bool {
     std::env::var("NIOH3_E2E_NO_GAME").as_deref() == Ok("1")
 }
 
+pub fn first_use_memory() -> Result<Option<nioh3_runtime::FixtureMemory>, HostError> {
+    let Some(path) = std::env::var_os("NIOH3_E2E_FIRST_USE_MEMORY") else {
+        return Ok(None);
+    };
+    let root = PathBuf::from(
+        std::env::var_os("NIOH3_E2E_CAPTURE_ROOT")
+            .ok_or_else(|| HostError::rejected("OFFLINE_E2E_CAPTURE_ROOT_REQUIRED"))?,
+    )
+    .canonicalize()
+    .map_err(|e| HostError::rejected(e.to_string()))?;
+    let path = PathBuf::from(path)
+        .canonicalize()
+        .map_err(|e| HostError::rejected(e.to_string()))?;
+    if !path.starts_with(root) {
+        return Err(HostError::rejected(
+            "OFFLINE_E2E_CAPSULE_OUTSIDE_OWNED_ROOT",
+        ));
+    }
+    let bytes = std::fs::read(path).map_err(|e| HostError::rejected(e.to_string()))?;
+    let json = serde_json::from_slice(&bytes).map_err(|e| HostError::rejected(e.to_string()))?;
+    nioh3_runtime::FixtureMemory::from_json(&json)
+        .map(Some)
+        .map_err(HostError::from_runtime)
+}
+
 pub fn snapshot() -> Result<Option<SnapshotOutcome>, HostError> {
     let root = PathBuf::from(
         std::env::var_os("NIOH3_E2E_CAPTURE_ROOT")

@@ -7255,6 +7255,18 @@
     "伤害复核与排名分数不一致，本次结果已作废。请重新读取角色后搜索；仍然出现请反馈。": [
       "Damage verification disagrees with the ranking score. These results have been discarded. Refresh the character and search again; report the issue if it persists.",
       "ダメージ検証と順位のスコアが一致しないため、今回の結果を無効にしました。キャラクターを読み直して再検索し、問題が続く場合は報告してください。"
+    ],
+    "当前装备的加成已与游戏核对。此攻击仍缺少计算伤害所需的数据。": [
+      "The current equipment bonuses match the game. Damage inputs for this attack are still missing.",
+      "現在装備の補正がゲーム内の値と一致しました。この攻撃のダメージ計算に必要な情報はまだ揃っていません。"
+    ],
+    "重算的装备加成与游戏读数有差异，目前无法给出可靠排名。": [
+      "The recalculated equipment bonuses differ from the game. A reliable ranking is unavailable.",
+      "装備補正の再計算結果がゲーム内の値と一致しないため、順位を表示できません。"
+    ],
+    "普通技能分支，按训练武士正面承受锁镰力攻击首击计算。": [
+      "Normal skill configuration, first kusarigama strong hit against the reference training warrior.",
+      "通常のスキル構成で、訓練武士に対する鎖鎌の強攻撃初段を計算します。"
     ]
   },
   "game": {

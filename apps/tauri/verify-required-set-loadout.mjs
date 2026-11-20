@@ -8,7 +8,8 @@ import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 
-const [rootPath, targetPath, backend = 'card'] = process.argv.slice(2);
+const [rootPath, targetPath, backend = 'card', sourceMode = 'epoch'] = process.argv.slice(2);
+assert(['epoch','first-use'].includes(sourceMode));
 assert(rootPath && targetPath && ['card', 'cpu'].includes(backend),
   'Usage: node verify-required-set-loadout.mjs FIXTURE BUILD_TARGET [card|cpu]');
 const root = resolve(rootPath), target = resolve(targetPath);
@@ -47,12 +48,14 @@ const child = spawn(host, ['--user-data-dir', profile], {
     NIOH3_LOADOUT_GPU: backend === 'card' ? '1' : '0',
     NIOH3_E2E_NO_GAME: '1',
     NIOH3_E2E_CAPTURE_ROOT: root,
-    NIOH3_E2E_SOURCE_EPOCH: join(root, 'EPOCH_INPUT.json'),
+    ...(sourceMode === 'first-use'
+      ? {NIOH3_E2E_FIRST_USE_MEMORY: join(root, 'memory.json')}
+      : {NIOH3_E2E_SOURCE_EPOCH: join(root, 'EPOCH_INPUT.json')}),
   },
 });
 let stderr = '';
 child.stderr.on('data', bytes => { stderr = (stderr + bytes).slice(-24_000); });
-const evidence = { passed: false, backend, context: 'retained replay', gameAccess: 'none', saveWrites: 0, pageErrors: [] };
+const evidence = { passed: false, backend, context: sourceMode === 'first-use' ? 'empty profile / ordinary reader on retained bytes, controlled unarmed inputs' : 'retained replay', gameAccess: 'none', saveWrites: 0, pageErrors: [] };
 let browser, page;
 try {
   const until = Date.now() + 45_000;

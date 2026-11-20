@@ -61,7 +61,7 @@ def scene_files() -> dict[str, bytes]:
         return struct.pack("<I", len(name)) + name.encode() + struct.pack("<I", len(data)) + data
     frame = b"".join(section(name, value) for name, value in {
         "stat": bytes(0x900), "d0": bytes(0xb00), "s_base": bytes(0x900), "d_base": bytes(0xb00),
-        "addresses": struct.pack("<9Q", 0x10000, 0x20000, 0x30000, 0x10000, 1, 2, 3, 4, 5),
+        "addresses": struct.pack("<9Q", 0x10000, 0x20000, 0x30000, 0x10000, 1, 2, 3, 0, 0),
     }.items())
     files = {name: b"fixture" for name in gate.REQUIRED}
     files["bundle.json"] = json.dumps({"id": "kusarigama-strong"}).encode()
@@ -108,6 +108,7 @@ class LoadoutReleaseTests(unittest.TestCase):
     def test_layout_export_keeps_addresses_and_removes_character_evidence(self):
         files = scene_files()
         original = gate.sections(files["frame.bin"])
+        original["addresses"] = original["addresses"][:56] + struct.pack("<QQ",2335,2876)
         original["stat"] = b"P" * 0x900
         original["source_rebuild"] = b'{"reference_inventory":[12,34]}'
         files["frame.bin"] = b"".join(
@@ -120,7 +121,8 @@ class LoadoutReleaseTests(unittest.TestCase):
         write_files(self.root / "captured", files)
         gate.export_layout(self.root / "captured", self.root / "export")
         public = gate.sections((self.root / "export/frame.bin").read_bytes())
-        self.assertEqual(public["addresses"], original["addresses"])
+        self.assertEqual(public["addresses"][:56], original["addresses"][:56])
+        self.assertEqual(public["addresses"][56:], bytes(16))
         self.assertEqual(public["stat"], bytes(0x900))
         self.assertNotIn("source_rebuild", public)
         self.assertEqual((self.root / "captured/frame.bin").read_bytes(), files["frame.bin"])
@@ -244,6 +246,10 @@ class LoadoutReleaseTests(unittest.TestCase):
         captured["scenes"][0]["layout"]["frame_sections"].append("source_rebuild")
         with self.assertRaisesRegex(ValueError, "character-bound source program"):
             gate.verify_host_receipt(captured, receipt)
+        with_seeds=copy.deepcopy(artifact)
+        with_seeds["scenes"][0]["layout"]["empty_actor_buffers_and_seeds"]=False
+        with self.assertRaisesRegex(ValueError,"character stat, damage or seed"):
+            gate.verify_host_receipt(with_seeds,receipt)
         mutations = [
             ("engineering", lambda r: r.update(mode="engineering-fixture", private_resources_copied=True)),
             ("no-fresh-install", lambda r: r["fresh_install"].update(passed=False)),

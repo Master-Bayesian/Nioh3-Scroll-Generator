@@ -46,7 +46,11 @@ f.execute = async command => {
     case 'save.inventory': return { ...f.save, snapshot_id: 'snapshot-' + f.generation, source_sha256: f.sha(), empty_slots: 20, entries: [] };
     case 'save.operations': return { operations: [] };
     case 'save.character': return { save_id: f.save.save_id, source_sha256: f.sha(), currencies: {amrita:0,gold:0}, equipment_slots:2, equipment:structuredClone(f.items) };
-    case 'save.loadout_context': return { state:'ready', context_id:'context-' + ++f.contexts, save_id:params.save_id,
+    case 'save.loadout_context':
+      if(f.sourcesOnly)return {state:'sources_read',save_id:params.save_id,source_sha256:params.source_sha256,
+        bundle:params.bundle,source:'live',school:'samurai',level:71,attrs:[10,10,10,10,10,10,10],
+        submissions:3,source_digest:'a'.repeat(64),source_state:'current_maps_matched',missing:'damage_context'};
+      return { state:'ready', context_id:'context-' + ++f.contexts, save_id:params.save_id,
       source_sha256:params.source_sha256, bundle:params.bundle, captured_at:'2026-11-19T00:00:00Z', attrs:[10,10,10,10,10,10,10], level:71,
       school:'samurai', source:'live', skills:[], buffs:[], notes:[] };
     case 'save.loadout_sets': return { bundle:params.bundle, context_id:params.context_id, sets:[{key:123,item_ids:[141],count:2}], reduction_items:0 };
@@ -159,6 +163,19 @@ try {
     const old=await page.getByTestId('loadout-context').getAttribute('data-context-id');
     await page.getByRole('button',{name:'刷新角色状态',exact:true}).click();await ready();
     assert.notEqual(await page.getByTestId('loadout-context').getAttribute('data-context-id'),old);
+  });
+  await checks('source-only-refresh-retires-damage-context',async()=>{
+    await page.evaluate(()=>{window.__fixture.sourcesOnly=true;});
+    await page.getByRole('button',{name:'刷新角色状态',exact:true}).click();
+    await page.waitForFunction(()=>document.querySelector('[data-testid="loadout-context"]')?.dataset.state==='SourcesRead');
+    const panel=page.getByTestId('loadout-context');
+    assert.match(await panel.innerText(),/71/);
+    assert.equal(await panel.getAttribute('data-context-id'),null);
+    const start=page.getByTestId('loadout-search-start');
+    assert((await start.count())===0 || await start.isDisabled());
+    assert.equal(await page.getByTestId('loadout-result-coverage').count(),0);
+    await page.evaluate(()=>{window.__fixture.sourcesOnly=false;});
+    await page.getByRole('button',{name:'刷新角色状态',exact:true}).click();await ready();
   });
   await checks('required-set-controls-search-admission',async()=>{
     assert(await page.getByTestId('loadout-search-start').isDisabled());

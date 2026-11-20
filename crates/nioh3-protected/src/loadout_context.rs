@@ -22,6 +22,7 @@ use std::{
 pub(crate) enum SearchAuthority {
     BundleDefault,
     VerifiedNativeEpoch,
+    CurrentProgressBranch,
 }
 
 struct BoundContext {
@@ -83,6 +84,16 @@ impl Contexts {
     ) -> Result<Value, HostError> {
         #[cfg(debug_assertions)]
         if crate::offline_e2e::enabled() {
+            if let Some(memory) = crate::offline_e2e::first_use_memory()? {
+                return self.read_from_memory(
+                    state_root,
+                    data_root,
+                    plain,
+                    params,
+                    Some(&memory),
+                    crate::loadout_observation::ObservationOrigin::ControlledRetainedInput,
+                );
+            }
             if std::env::var_os("NIOH3_E2E_SOURCE_EPOCH").is_some() {
                 return self.read_replayed_epoch(
                     data_root,
@@ -101,19 +112,52 @@ impl Contexts {
                 crate::offline_e2e::snapshot,
             );
         }
-        self.read_with_snapshot_source(
+        let owner = (
+            text(params, "save_id")?.to_owned(),
+            text(params, "bundle")?.to_owned(),
+        );
+        self.current.remove(&owner);
+        crate::loadout_live::with_memory(|memory| {
+            self.read_from_memory(
+                state_root,
+                data_root,
+                plain,
+                params,
+                memory,
+                crate::loadout_observation::ObservationOrigin::VerifiedProcessRead,
+            )
+        })
+    }
+
+    fn read_from_memory(
+        &mut self,
+        state_root: &Path,
+        data_root: &Path,
+        plain: &[u8],
+        params: &Value,
+        memory: Option<&dyn nioh3_runtime::InventoryMemory>,
+        origin: crate::loadout_observation::ObservationOrigin,
+    ) -> Result<Value, HostError> {
+        self.read_inputs(
             state_root,
             data_root,
             plain,
             params,
-            crate::loadout_observation::ObservationOrigin::VerifiedProcessRead,
+            origin,
             crate::loadout_live::SnapshotUse::CurrentProcess,
-            crate::loadout_live::read,
+            memory,
+            || {
+                memory
+                    .map(nioh3_runtime::combat_context::read_combat_snapshot)
+                    .transpose()
+                    .map_err(HostError::from_runtime)
+            },
         )
     }
 
     // Evidence origin and admission policy are independent. Only read() selects
     // the production source; this private seam also exercises its policy on retained bytes.
+    #[cfg(any(debug_assertions, test))]
     #[allow(clippy::too_many_arguments)]
     fn read_with_snapshot_source(
         &mut self,
@@ -123,6 +167,29 @@ impl Contexts {
         params: &Value,
         origin: crate::loadout_observation::ObservationOrigin,
         usage: crate::loadout_live::SnapshotUse,
+        snapshot_source: impl FnOnce() -> Result<Option<SnapshotOutcome>, HostError>,
+    ) -> Result<Value, HostError> {
+        self.read_inputs(
+            state_root,
+            data_root,
+            plain,
+            params,
+            origin,
+            usage,
+            None,
+            snapshot_source,
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn read_inputs(
+        &mut self,
+        state_root: &Path,
+        data_root: &Path,
+        plain: &[u8],
+        params: &Value,
+        origin: crate::loadout_observation::ObservationOrigin,
+        usage: crate::loadout_live::SnapshotUse,
+        memory: Option<&dyn nioh3_runtime::InventoryMemory>,
         snapshot_source: impl FnOnce() -> Result<Option<SnapshotOutcome>, HostError>,
     ) -> Result<Value, HostError> {
         let save_id = text(params, "save_id")?;
@@ -154,6 +221,93 @@ impl Contexts {
             }
             None => None,
         };
+        let first_use = |contexts: &mut Self,
+                         memory: &dyn nioh3_runtime::InventoryMemory,
+                         snap: &nioh3_runtime::combat_context::CombatSnapshot|
+         -> Result<Value, HostError> {
+            snap.validate().map_err(HostError::from_runtime)?;
+            let bank = snap.inputs.active_bank as usize * 0xf70;
+            let school = if snap.inputs.mode == 1 {
+                "ninja"
+            } else {
+                "samurai"
+            };
+            if bundle.school != school {
+                return Ok(
+                    json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_SCHOOL_MISMATCH"}),
+                );
+            }
+            let at = bank + snap.inputs.held_weapon_slot as usize * 0xe8;
+            let item =
+                u16::from_le_bytes([snap.inputs.inventory[at], snap.inputs.inventory[at + 1]]);
+            if bundle
+                .selection_weapon_class
+                .or(bundle.weapon_class)
+                .is_some_and(|c| crate::item_kinds::type_class(data_root, item) != Some(c))
+            {
+                return Ok(
+                    json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_WEAPON_MISMATCH"}),
+                );
+            }
+            if !outfit_is_owned(&snap.inputs.inventory, bank, plain)? {
+                return Ok(
+                    json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_CHARACTER_MISMATCH"}),
+                );
+            }
+            let dir = bundle.directory(data_root);
+            let sources = crate::loadout_first_use::read(memory, snap, &dir)?;
+            let source = if matches!(
+                origin,
+                crate::loadout_observation::ObservationOrigin::VerifiedProcessRead
+            ) {
+                "live"
+            } else {
+                "captured"
+            };
+            let partial = |reason: &str| {
+                let mut summary = sources.summary(save_id, source_sha256, bundle_id, snap, reason);
+                summary["source"] = json!(source);
+                Ok(summary)
+            };
+            if !sources.matched() {
+                return partial("source_maps_differ");
+            }
+            if bundle_id != "kusarigama-strong"
+                || snap.inputs.held_weapon_slot != 0
+                || !snap.inputs.status_keys.is_empty()
+                || !matches!(bundle.buff_scene(), crate::loadout::BuffScene::Current)
+            {
+                return partial("reference_encounter_unsupported");
+            }
+            let context = match sources.context(memory, snap, data_root, &dir) {
+                Ok(context) => context,
+                Err(error) => return partial(&error.to_string()),
+            };
+            let catalog: Value = serde_json::from_str(include_str!("pc202_skill_names.json"))
+                .map_err(|e| HostError::rejected(e.to_string()))?;
+            let skills = crate::loadout_live::displayed_skills(&snap.inputs, &catalog);
+            let profile = json!({"captured_at":crate::loadout_live::snapshot_time(),"skills":skills,"buffs":[],
+              "notes":["普通技能分支，按训练武士正面承受锁镰力攻击首击计算。"]});
+            contexts.publish(
+                BindingOwner {
+                    save_id,
+                    source_sha256,
+                    bundle_id,
+                    bundle_path: &dir,
+                    school: &bundle.school,
+                    plain,
+                },
+                PendingBinding {
+                    context,
+                    metadata: profile,
+                    source,
+                    authority: SearchAuthority::CurrentProgressBranch,
+                    recording: None,
+                    expected_bundle_digest: None,
+                },
+                |engine| crate::loadout_first_use::verify_equipped(engine, snap),
+            )
+        };
         if let Some(current) = &snapshot {
             if matches!(
                 origin,
@@ -161,35 +315,51 @@ impl Contexts {
             ) && usage == crate::loadout_live::SnapshotUse::CurrentProcess
                 && matches!(bundle.buff_scene(), crate::loadout::BuffScene::Current)
             {
-                if let Some(epoch) = crate::loadout_epoch::BoundLiveEpoch::acquire(
+                use crate::loadout_epoch::EpochLookup;
+                match crate::loadout_epoch::BoundLiveEpoch::acquire(
                     state_root,
                     bundle_id,
                     bundle.directory(data_root),
                     current,
                 )? {
-                    return self.publish(
-                        BindingOwner {
-                            save_id,
-                            source_sha256,
-                            bundle_id,
-                            bundle_path: &epoch.bundle_path,
-                            school: &bundle.school,
-                            plain,
-                        },
-                        PendingBinding {
-                            context: epoch.context,
-                            metadata: epoch.profile,
-                            source: "live",
-                            authority: SearchAuthority::VerifiedNativeEpoch,
-                            recording: None,
-                            expected_bundle_digest: None,
-                        },
-                        |engine| epoch.verification.verify(engine),
-                    );
+                    EpochLookup::Unstaged => {}
+                    EpochLookup::Changed => {
+                        if let Some(memory) = memory {
+                            return first_use(self, memory, current);
+                        }
+                        return Err(HostError::rejected(
+                            "LOADOUT_SOURCE_EPOCH_CURRENT_INPUT_CHANGED",
+                        ));
+                    }
+                    EpochLookup::Bound(epoch) => {
+                        let epoch = *epoch;
+                        return self.publish(
+                            BindingOwner {
+                                save_id,
+                                source_sha256,
+                                bundle_id,
+                                bundle_path: &epoch.bundle_path,
+                                school: &bundle.school,
+                                plain,
+                            },
+                            PendingBinding {
+                                context: epoch.context,
+                                metadata: epoch.profile,
+                                source: "live",
+                                authority: SearchAuthority::VerifiedNativeEpoch,
+                                recording: None,
+                                expected_bundle_digest: None,
+                            },
+                            |engine| epoch.verification.verify(engine),
+                        );
+                    }
                 }
             }
         }
         let Some(template_directory) = template_directory(state_root, data_root, bundle_id) else {
+            if let (Some(memory), Some(snap)) = (memory, snapshot.as_deref()) {
+                return first_use(self, memory, snap);
+            }
             return Ok(json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_MISSING"}));
         };
         let context = LoadoutContext::load(&template_directory)
@@ -380,37 +550,10 @@ impl Contexts {
         // belong to the save and are not used to fabricate live-bank records.
         let inventory = context.inventory();
         let bank = manifest.character.active as usize * 0xF70;
-        for slot in [0usize, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15] {
-            let record = &inventory[bank + slot * 0xE8..bank + (slot + 1) * 0xE8];
-            if equipment_slot_is_empty(record) {
-                continue;
-            }
-            let mut found = false;
-            if slot == 15 {
-                // Native slot 15 is the equipped scroll. Its exact E8 body
-                // belongs to the separate scroll bank, not the F0 gear array.
-                for index in 0..nioh3_save::layout::SCROLL_SLOT_COUNT {
-                    if let Some(offset) = nioh3_save::layout::slot_offset(index) {
-                        if plain.get(offset..offset + 0xE8) == Some(record) {
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-            } else {
-                for index in 0..EQUIPMENT_SLOT_COUNT {
-                    let saved = equipment_record(plain, index).map_err(HostError::from_save)?;
-                    if saved.get(..0xE8) == Some(record) {
-                        found = true;
-                        break;
-                    }
-                }
-            }
-            if !found {
-                return Ok(
-                    json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_CHARACTER_MISMATCH"}),
-                );
-            }
+        if !outfit_is_owned(inventory, bank, plain)? {
+            return Ok(
+                json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_CHARACTER_MISMATCH"}),
+            );
         }
         let engine = Arc::new(
             Engine::open_with_context(bundle_path, &context)
@@ -513,4 +656,42 @@ pub fn prepare_live_epoch_binding(
         .map_err(|e| HostError::rejected(e.to_string()))?;
     prepared.receipt.verify_engine(&engine)?;
     Ok(binding)
+}
+
+pub(crate) fn outfit_is_owned(
+    inventory: &[u8],
+    bank: usize,
+    plain: &[u8],
+) -> Result<bool, HostError> {
+    for slot in [0usize, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15] {
+        let record = &inventory[bank + slot * 0xE8..bank + (slot + 1) * 0xE8];
+        if equipment_slot_is_empty(record) {
+            continue;
+        }
+        let mut found = false;
+        if slot == 15 {
+            // Native slot 15 is the equipped scroll. Its exact E8 body
+            // belongs to the separate scroll bank, not the F0 gear array.
+            for index in 0..nioh3_save::layout::SCROLL_SLOT_COUNT {
+                if let Some(offset) = nioh3_save::layout::slot_offset(index) {
+                    if plain.get(offset..offset + 0xE8) == Some(record) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        } else {
+            for index in 0..EQUIPMENT_SLOT_COUNT {
+                let saved = equipment_record(plain, index).map_err(HostError::from_save)?;
+                if saved.get(..0xE8) == Some(record) {
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if !found {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }

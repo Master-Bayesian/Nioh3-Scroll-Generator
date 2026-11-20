@@ -46,6 +46,103 @@ pub struct Seed {
     pub parameters_sha256: String,
 }
 impl Parameters {
+    pub fn rule_table_digest(&self) -> String {
+        let mut h = Sha256::new();
+        for body in [&self.guardian, &self.rank, &self.passive] {
+            let rows = &body[8..];
+            h.update((rows.len() as u64).to_le_bytes());
+            h.update(rows);
+        }
+        format!("{:x}", h.finalize())
+    }
+    /// Ordinary SOURCE submissions and core masks. Unlike the two numeric
+    /// core slots used by STAT, all eight records participate in this stage.
+    pub fn source_rules(
+        &self,
+        tables: &Tables,
+        source: &[u8],
+        progress: i32,
+        unlock: &[i32; 8],
+    ) -> R<(
+        Vec<super::source_rebuild::GuardianSubmission>,
+        Vec<super::source_rebuild::CoreInput>,
+    )> {
+        use super::source_rebuild::{CoreInput, GuardianSubmission};
+        if source.len() != 0x6000 {
+            return Err("complete core SOURCE required for ordinary rules");
+        }
+        let mut guardians = Vec::new();
+        for slot in 0..2 {
+            let key = u32_at(source, 0x58 + 8 * slot);
+            let level = usize::from(u16_at(source, 0x5c + 8 * slot));
+            let Some(row) = self.guardian[8..]
+                .as_chunks::<256>()
+                .0
+                .iter()
+                .find(|r| u32_at(*r, 0x24) == key && key != 1)
+            else {
+                continue;
+            };
+            for ordinal in 0..6 {
+                let at = 0x6c + 12 * ordinal;
+                let column = usize::from(u16_at(row, 0xc4 + 4 * ordinal));
+                let mut value = u32_at(row, at + 4);
+                if let Some(rank) = self.rank[8..].as_chunks::<64>().0.get(level) {
+                    let multiplier = if column <= 5 {
+                        u32::from(u16_at(rank, 0x2a + column * 2))
+                    } else {
+                        1
+                    };
+                    let scaled =
+                        u32_at(row, at + 8).wrapping_mul(multiplier) as f32 * tables.c_4688;
+                    value = value.wrapping_add(cvtt64(scaled) as u32);
+                }
+                guardians.push(GuardianSubmission {
+                    slot: slot as u8,
+                    ordinal: ordinal as u8,
+                    group: u16_at(row, at),
+                    value,
+                    requirement: u16_at(row, 0xc6 + 4 * ordinal),
+                });
+            }
+        }
+        let mut cores = Vec::with_capacity(8);
+        for (slot, record) in source[0x80..0x80 + 8 * 0xe8]
+            .as_chunks::<0xe8>()
+            .0
+            .iter()
+            .enumerate()
+        {
+            let passive = tables
+                .items
+                .row(u32::from(u16_at(record, 0)))
+                .map(|r| u16_at(r, 0x180));
+            let rule = self.passive[8..]
+                .as_chunks::<84>()
+                .0
+                .iter()
+                .find(|r| Some(u16_at(*r, 12)) == passive);
+            let mut effect_mask = 0;
+            if let Some(row) = rule {
+                for i in 0..7 {
+                    let required = if i < 2 {
+                        i32::from(u16_at(row, 0x4c + 2 * i))
+                    } else {
+                        0
+                    };
+                    if progress >= required && (slot < 2 || record[0x42 + i * 24] & 0x20 != 0) {
+                        effect_mask |= 1 << i;
+                    }
+                }
+            }
+            cores.push(CoreInput {
+                record: record.to_vec(),
+                unlocked: rule.is_some() && progress >= unlock[slot],
+                effect_mask,
+            });
+        }
+        Ok((guardians, cores))
+    }
     pub fn load(raw: &[u8]) -> R<Self> {
         let sections = Sections::parse(raw)?;
         if sections.get("version")?.as_slice() != 1u32.to_le_bytes() {
@@ -101,6 +198,15 @@ impl Parameters {
         &self,
         tables: &Tables,
         character: &Character,
+        inputs: Inputs<'_>,
+    ) -> R<Seed> {
+        self.derive_for_caps(tables, character.cap, character.plus_cap, inputs)
+    }
+    pub fn derive_for_caps(
+        &self,
+        tables: &Tables,
+        cap: u32,
+        plus_cap: u32,
         inputs: Inputs<'_>,
     ) -> R<Seed> {
         if inputs.guardian_records.len() != 16 || inputs.core_records.len() != 2 * 0xe8 {
@@ -175,9 +281,9 @@ impl Parameters {
                 continue;
             };
             // Original2FA2F0 normalization is shared with the equipment path.
-            let effective = tables.effective(character, item, true)?;
+            let effective = tables.effective(cap, item, true)?;
             let level = effective.level.min(190);
-            let plus = effective.plus.min(character.plus_cap);
+            let plus = effective.plus.min(plus_cap);
             if plus > 500 || level.max(plus) as usize >= tables.base70.len() / 148 {
                 return Err("source core level outside admitted level-table domain");
             }

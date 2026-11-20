@@ -5773,8 +5773,80 @@
         "bundle"
       ]
     },
+    "LoadoutSourcesRead": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "const": "sources_read"
+        },
+        "save_id": {
+          "type": "string"
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bundle": {
+          "type": "string"
+        },
+        "source": {"enum":["live","captured"]},
+        "school": {
+          "enum": [
+            "samurai",
+            "ninja"
+          ]
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attrs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "minItems": 7,
+          "maxItems": 7
+        },
+        "submissions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_state": {
+          "enum": [
+            "current_maps_matched",
+            "current_maps_differ"
+          ]
+        },
+        "source_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "detail": {"type":"string"},
+        "missing": {
+          "const": "damage_context"
+        }
+      },
+      "required": [
+        "state",
+        "save_id",
+        "source_sha256",
+        "bundle",
+        "school",
+        "level",
+        "attrs",
+        "source",
+        "submissions",
+        "source_state",
+        "source_digest",
+        "missing"
+      ]
+    },
     "LoadoutContext": {
       "oneOf": [
+        {"$ref":"#/definitions/LoadoutSourcesRead"},
         {
           "$ref": "#/definitions/LoadoutContextReady"
         },

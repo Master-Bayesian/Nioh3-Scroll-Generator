@@ -637,6 +637,13 @@ impl Tables {
         let idx = (index as usize).min(self.base70.len() / 0x94 - 1);
         u16_at(&self.base70, idx * 0x94 + off) as u32
     }
+    pub fn input_digest(&self) -> &str {
+        &self.source_digest
+    }
+    pub fn unarmed_attack(&self, levels: [u32; 2], plus_cap: u32) -> u32 {
+        (self.field70(levels[0].min(190), 0x22) + self.field70(levels[1].min(plus_cap), 0x24))
+            & 0xffff
+    }
 
     #[inline]
     fn field90(&self, index: i32, off: usize) -> u32 {
@@ -659,7 +666,7 @@ impl Tables {
         Ok(self.fam[6 * self.fam_steps + r * self.fam_bonus_steps + steps - 1])
     }
 
-    fn effective(&self, c: &Character, item: &[u8], familiarity: bool) -> R<Effective> {
+    fn effective(&self, cap: u32, item: &[u8], familiarity: bool) -> R<Effective> {
         let rarity = item[0x30];
         let flags = u32_at(item, 0x18);
         let base = if flags & 0x200000 != 0 {
@@ -672,7 +679,7 @@ impl Tables {
         } else {
             0
         };
-        let mut plus = (u16_at(item, 0xA) as u32).min(c.cap);
+        let mut plus = (u16_at(item, 0xA) as u32).min(cap);
         let mut add = 0;
         if rarity <= 5 {
             if let Some(row) = self.rarity.row(rarity as u32) {
@@ -723,20 +730,20 @@ impl Tables {
         total
     }
 
-    fn requirement_delta(&self, c: &Character, item: &[u8]) -> u32 {
+    fn requirement_delta(&self, cap: u32, item: &[u8]) -> u32 {
         if (item[0x30] as i8) < 3 {
             return 0;
         }
         let count = (item[0x31] == 1) as i32 + (item[0x32] == 1) as i32;
         let coefficient = count as f32 * self.c_half;
-        let plus = (u16_at(item, 0xA) as u32).min(c.cap);
+        let plus = (u16_at(item, 0xA) as u32).min(cap);
         cvtt64(self.field70(plus, 0x62) as f32 * coefficient) as u32
     }
 
-    fn requirements(&self, c: &Character, raw: &[i32; 7], original: &[u8], item: &[u8]) -> bool {
+    fn requirements(&self, cap: u32, raw: &[i32; 7], original: &[u8], item: &[u8]) -> bool {
         let kind = u32_at(original, 0x60);
         let column = ((item[0x30] as i8) >= 5 && kind != 0x2D32) as usize;
-        let delta = self.requirement_delta(c, item);
+        let delta = self.requirement_delta(cap, item);
         (0..7).all(|i| {
             let b = original[0x18C + i * 2 + column] as u32;
             let needed = if b != 0 {
@@ -824,7 +831,7 @@ impl Tables {
             }
             bounded = self.special_bound(item, base, reference, category, 4, 0x10)?;
         }
-        let e = self.effective(c, item, true)?;
+        let e = self.effective(c.cap, item, true)?;
         let level = e.level.min(190);
         let plus = e.plus.min(c.plus_cap);
         let product = (self.field70(level, level_field) + self.field70(plus, 0x20))
@@ -1237,7 +1244,7 @@ impl Tables {
             else {
                 continue;
             };
-            let admitted = self.requirements(c, attrs, original, item);
+            let admitted = self.requirements(c.cap, attrs, original, item);
             let (first, second) =
                 self.prepared_attack_pair(c, &s.transformed, item, original, slot, admitted)?;
             put_u32(&mut s.stat, 0x24 + 64 * rec, first);
@@ -1279,7 +1286,7 @@ impl Tables {
                 continue;
             }
             let original = self.items.row(key).ok_or("weapon outside the item table")?;
-            let admitted = self.requirements(c, attrs, original, item);
+            let admitted = self.requirements(c.cap, attrs, original, item);
             let (first, second) =
                 self.prepared_attack_pair(c, &s.transformed, item, original, slot, admitted)?;
             let aux0 = self.auxiliary(item, c.style, false)?;
@@ -1325,7 +1332,7 @@ impl Tables {
             let Some(p) = self.items.row(key) else {
                 continue;
             };
-            if self.requirements(c, attrs, p, item) {
+            if self.requirements(c.cap, attrs, p, item) {
                 self.collect(&mut s.source, item, true, (bank ^ 1) as i32, 255)?;
             }
         }
@@ -1419,13 +1426,13 @@ impl Tables {
                 let Some(original) = self.items.row(key) else {
                     continue;
                 };
-                let qualifies = self.requirements(c, attrs, original, item);
+                let qualifies = self.requirements(c.cap, attrs, original, item);
                 if !reserve {
                     let (_, selected) = self.selection(item)?;
                     if u32_at(item, 0x18) & 0x40000 != 0 {
                         return Err("toughness flag 40000 needs the category row");
                     }
-                    let e = self.effective(c, item, true)?;
+                    let e = self.effective(c.cap, item, true)?;
                     let defense = self.defense(c, item, qualifies, e)?;
                     put_u32(stat, 0x1F4 + 4 * (slot - 4), defense);
                     let weight = self.weight(c, item, selected);
@@ -1464,7 +1471,7 @@ impl Tables {
         let item = &c.inv[c.active * BANK + 15 * ITEM..][..ITEM];
         let key = u16_at(item, 0) as u32;
         if let Some(parameter) = self.items.row(key).filter(|_| key != 0) {
-            let e = self.effective(c, item, false)?;
+            let e = self.effective(c.cap, item, false)?;
             let level = e.level.min(190);
             let plus = e.plus.min(c.plus_cap);
             if plus > 500 || level.max(plus) as usize >= self.base70.len() / 0x94 {
@@ -1531,8 +1538,7 @@ impl Tables {
         u32_at(reward, 16).wrapping_add((product / 1000) as u32)
     }
 
-    fn set_rewards(&self, c: &Character, source: &mut Source) -> R<()> {
-        let mode = c.mode;
+    fn set_rewards(&self, mode: i32, source: &mut Source) -> R<()> {
         for family in self.families {
             let bank = selected_map(family, source.mode);
             let reduction = source.maps[bank]
@@ -1644,7 +1650,7 @@ impl Tables {
             .filter(|class| *class <= 64)
     }
 
-    fn category(&self, key: u16) -> Option<u32> {
+    pub fn category(&self, key: u16) -> Option<u32> {
         self.items.row(key as u32).map(|r| u32_at(r, 0x58))
     }
 
@@ -1921,7 +1927,7 @@ impl Tables {
         let Some(original) = self.items.row(u32::from(key)).filter(|_| key != 0) else {
             return;
         };
-        if requires_attributes && !self.requirements(c, attrs, original, item) {
+        if requires_attributes && !self.requirements(c.cap, attrs, original, item) {
             return;
         }
         for (_, group, side, _) in self.effect_lines(item) {
@@ -1964,7 +1970,7 @@ impl Tables {
         live: &std::collections::HashSet<u16>,
     ) -> Option<Profile> {
         let (original, selected) = self.selection(item).ok()?;
-        let qualified = self.requirements(c, attrs, original, item);
+        let qualified = self.requirements(c.cap, attrs, original, item);
         let weight = self.weight(c, item, selected) as i64;
         let mut values: Vec<(u16, u64)> = Vec::new();
         let mut sides: Vec<u32> = Vec::new();
@@ -2007,7 +2013,7 @@ impl Tables {
         // Keep known effects and set memberships even if defense is unknown:
         // those fields also classify the search space before dominance.
         let defense = self
-            .effective(c, item, true)
+            .effective(c.cap, item, true)
             .and_then(|effective| self.defense(c, item, qualified, effective))
             .ok()
             .map(u64::from);
@@ -2134,7 +2140,7 @@ impl Tables {
         // Original817515 skips only the active contribution. Reserve slot15
         // remains eligible when the active slot is empty (81751E onward).
         self.slot15(c, s)?;
-        self.set_rewards(c, &mut s.source)?;
+        self.set_rewards(c.mode, &mut s.source)?;
         if program.is_none() {
             s.legacy_source_signature = Some(self.legacy_source_signature(c, attrs, &s.source)?);
         }
@@ -2341,6 +2347,63 @@ fn selected_map(context: i32, mode: i32) -> usize {
 }
 
 impl Frame {
+    pub fn private_stat_digest(frame: &[u8]) -> R<String> {
+        use sha2::{Digest, Sha256};
+        Ok(format!(
+            "{:x}",
+            Sha256::digest(Sections::parse(frame)?.get("stat")?)
+        ))
+    }
+    /// The public layout contains only canonical addresses and frame shape.
+    /// Rebind this role's four buffers and numerical seeds in one private frame.
+    pub fn first_use_frame(
+        layout: &[u8],
+        stat: &[u8],
+        reset_stat: &[u8],
+        damage: &[u8],
+        reset_damage: &[u8],
+        seeds: [u32; 3],
+        resource: [u32; 2],
+    ) -> R<Vec<u8>> {
+        let s = Sections::parse(layout)?;
+        let mut addresses = s.get("addresses")?.clone();
+        if addresses.len() != 72
+            || stat.len() != 0x900
+            || reset_stat.len() != 0x900
+            || damage.len() != 0xb00
+            || reset_damage.len() != 0xb00
+        {
+            return Err("live direct-contact frame shape differs");
+        }
+        // Rebase the three typed role links in each STAT buffer. Other bytes
+        // remain owned by this read, including preserved native padding.
+        let mut current = stat.to_vec();
+        let mut reset = reset_stat.to_vec();
+        for buf in [&mut current, &mut reset] {
+            for (at, index) in [(8usize, 4usize), (0x7c0, 6), (0x7d8, 5)] {
+                buf[at..at + 8].copy_from_slice(&addresses[index * 8..index * 8 + 8]);
+            }
+        }
+        addresses[56..64].copy_from_slice(&u64::from(seeds[0]).to_le_bytes());
+        addresses[64..72].copy_from_slice(&u64::from(seeds[1]).to_le_bytes());
+        let mut out = Vec::new();
+        let mut section = |name: &str, data: &[u8]| {
+            out.extend((name.len() as u32).to_le_bytes());
+            out.extend(name.as_bytes());
+            out.extend((data.len() as u32).to_le_bytes());
+            out.extend(data);
+        };
+        section("addresses", &addresses);
+        section("stat", &current);
+        section("s_base", &reset);
+        section("d0", reset_damage);
+        section("d_base", damage);
+        section("baseline_sources", &seeds[2].to_le_bytes());
+        if let Some(ki) = s.0.get("identity_ki_seed") {
+            section("identity_ki_seed", &ki.bytes);
+        }
+        Self::with_owner_resource(&out, resource)
+    }
     /// Rebuild the predictor reference at the immutable context's attributes.
     /// The observed STAT stays untouched. This prevents adding a newly owned
     /// source program on top of an equipment-only comparison baseline.

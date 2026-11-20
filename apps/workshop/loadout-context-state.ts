@@ -1,4 +1,4 @@
-import type { LoadoutContextReady, LoadoutSearch, SaveCharacter } from "../../packages/contracts/protected-responses";
+import type { LoadoutSourcesRead, LoadoutContextReady, LoadoutSearch, SaveCharacter } from "../../packages/contracts/protected-responses";
 
 /** Every result belongs to the exact save bytes, bundle and player context that produced it. */
 export interface LoadoutScope {
@@ -18,6 +18,7 @@ type WithContext = Base & { scope: LoadoutScope; context: LoadoutContextReady };
 export type LoadoutContextState =
   | (Base & { kind: "Missing" })
   | (Base & { kind: "Reading"; scope: LoadoutScope; requestId: number })
+  | (Base & { kind: "SourcesRead"; scope: LoadoutScope; sources: LoadoutSourcesRead })
   | (WithContext & { kind: "Ready" })
   | (WithContext & { kind: "Searching" | "Cancelling"; requestId: number; requestInputKey: string })
   | (WithContext & { kind: "Interrupted"; requestId: number; requestInputKey: string; intent: "resume" | "stop"; message: string })
@@ -30,6 +31,7 @@ export type LoadoutContextEvent =
   | { type: "InputsChanged"; inputKey: string }
   | { type: "ReadStarted"; scope: LoadoutScope; requestId: number; inputKey: string }
   | { type: "ReadReady"; scope: LoadoutScope; requestId: number; context: LoadoutContextReady }
+  | { type: "SourcesRead"; scope: LoadoutScope; requestId: number; sources: LoadoutSourcesRead }
   | { type: "ReadFailed"; scope: LoadoutScope; requestId: number; message: string }
   | { type: "SearchStarted"; scope: LoadoutScope; contextId: string; requestId: number; inputKey: string }
   | { type: "SearchCancelRequested"; scope: LoadoutScope; contextId: string; requestId: number; inputKey: string }
@@ -78,6 +80,11 @@ export function loadoutContextReducer(state: LoadoutContextState, event: Loadout
     }
     case "ReadStarted":
       return { kind: "Reading", scope: event.scope, requestId: event.requestId, inputKey: event.inputKey };
+    case "SourcesRead":
+      if (state.kind !== "Reading" || state.requestId !== event.requestId || !sameLoadoutScope(state.scope, event.scope) ||
+          event.sources.save_id !== event.scope.saveId || event.sources.source_sha256 !== event.scope.sourceSha256 ||
+          event.sources.bundle !== event.scope.bundleId) return state;
+      return { kind: "SourcesRead", scope: event.scope, inputKey: state.inputKey, sources: event.sources };
     case "ReadReady":
       if (state.kind !== "Reading" || state.requestId !== event.requestId || !sameLoadoutScope(state.scope, event.scope)) return state;
       if (!contextMatchesScope(event.context, event.scope))

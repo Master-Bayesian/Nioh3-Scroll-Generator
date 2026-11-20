@@ -7,9 +7,7 @@ use nioh3_loadout::{
     },
     engine::{Backpack, Candidate, Engine, SLOTS},
 };
-use nioh3_runtime::combat_context::{
-    AggregateEntry, CombatInputs, CombatSnapshot, SnapshotOutcome,
-};
+use nioh3_runtime::combat_context::{AggregateEntry, CombatInputs, CombatSnapshot};
 use serde_json::{json, Value};
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 
@@ -18,7 +16,9 @@ fn invalid(detail: impl std::fmt::Display) -> HostError {
 }
 
 #[cfg(windows)]
-pub fn read() -> Result<Option<SnapshotOutcome>, HostError> {
+pub fn with_memory<T>(
+    action: impl FnOnce(Option<&dyn nioh3_runtime::InventoryMemory>) -> Result<T, HostError>,
+) -> Result<T, HostError> {
     #[cfg(debug_assertions)]
     if crate::offline_e2e::enabled() {
         return Err(HostError::rejected("OFFLINE_E2E_GAME_ACCESS_FORBIDDEN"));
@@ -30,7 +30,7 @@ pub fn read() -> Result<Option<SnapshotOutcome>, HostError> {
     };
     let pid = match single_process_id(GAME_IMAGE_NAME) {
         Ok(pid) => pid,
-        Err(RuntimeError::ProcessAbsent { .. }) => return Ok(None),
+        Err(RuntimeError::ProcessAbsent { .. }) => return action(None),
         Err(error) => return Err(HostError::from_runtime(error)),
     };
     let creation = process_creation_filetime(pid).map_err(HostError::from_runtime)?;
@@ -43,14 +43,14 @@ pub fn read() -> Result<Option<SnapshotOutcome>, HostError> {
     {
         return Err(HostError::rejected("LOADOUT_CONTEXT_VERSION_UNSUPPORTED"));
     }
-    nioh3_runtime::combat_context::read_combat_snapshot(&ProcessInventoryMemory::new(&process))
-        .map(Some)
-        .map_err(HostError::from_runtime)
+    action(Some(&ProcessInventoryMemory::new(&process)))
 }
 
 #[cfg(not(windows))]
-pub fn read() -> Result<Option<SnapshotOutcome>, HostError> {
-    Ok(None)
+pub fn with_memory<T>(
+    action: impl FnOnce(Option<&dyn nioh3_runtime::InventoryMemory>) -> Result<T, HostError>,
+) -> Result<T, HostError> {
+    action(None)
 }
 
 fn total(base: u32, dup: u16) -> u32 {
@@ -1097,12 +1097,7 @@ fn refresh_with_projection(
         attack_weapon_slot,
         main_flags_298,
     };
-    let names = &metadata["skill_catalog"];
-    let forms = &metadata["skill_forms"];
-    let skills: Vec<_> = input.configured_skills.iter().filter(|skill| {
-        let category = forms[skill.key.to_string()].as_u64();
-        skill.enabled != 0 && (category == Some(0x17) || category == Some(0x15 + form as u64))
-    }).map(|skill| json!({"key":skill.key,"rank":skill.rank,"name":names[skill.key.to_string()].as_str().map(str::to_owned).unwrap_or_else(||format!("Skill {:04X}",skill.key))})).collect();
+    let skills = displayed_skills(input, metadata);
     let buffs: Vec<_> = input.status_keys.iter().map(|&key| json!({"key":key,"name":metadata["buff_catalog"][key.to_string()].as_str().map(str::to_owned).unwrap_or_else(||format!("Status {key:04X}"))})).collect();
     metadata["skills"] = json!(skills);
     metadata["buffs"] = json!(buffs);
@@ -1145,7 +1140,17 @@ fn refresh_with_projection(
     })
 }
 
-fn snapshot_time() -> String {
+pub(crate) fn displayed_skills(input: &CombatInputs, metadata: &Value) -> Vec<Value> {
+    let form = input.mode;
+    let names = &metadata["skill_catalog"];
+    let forms = &metadata["skill_forms"];
+    input.configured_skills.iter().filter(|skill| {
+        let category = forms[skill.key.to_string()].as_u64();
+        skill.enabled != 0 && (category == Some(0x17) || category == Some(0x15 + form as u64))
+    }).map(|skill| json!({"key":skill.key,"rank":skill.rank,"name":names[skill.key.to_string()].as_str().map(str::to_owned).unwrap_or_else(||format!("Skill {:04X}",skill.key))})).collect()
+}
+
+pub(crate) fn snapshot_time() -> String {
     let seconds = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()

@@ -76,7 +76,9 @@ def export_layout(source: Path, target: Path) -> None:
          "layout export requires the default weapon packet")
     layout = {name: bytes(len(frame[name])) for name in ("stat", "d0", "s_base", "d_base")}
     need(len(frame["addresses"]) == 72, "unexpected frame address layout")
-    layout["addresses"] = frame["addresses"]
+    # Frame::same_layout uses seven canonical addresses. The last two
+    # u64 words are character values (packet attack and starting health).
+    layout["addresses"] = frame["addresses"][:56] + bytes(16)
     if "identity_ki_seed" in frame:
         need(frame["identity_ki_seed"] == struct.pack("<4I", 1, 0, 0, 0x3f800000), "unknown Ki layout")
         layout["identity_ki_seed"] = frame["identity_ki_seed"]
@@ -144,7 +146,11 @@ def check_scene_layout(files: dict[str, bytes], layout: dict) -> dict:
     plan = json.loads(files["event_plan.json"])
     need(plan.get("main_address") == main, "event plan MAIN differs from frame")
     need(plan.get("hit_values_sha256") == digest(files["hits.txt"]), "event plan hit values are stale")
-    return {"stat_address": stat, "damage_address": damage, "main_address": main, "hit_write_addresses": len(addresses_hit), "frame_sections": sorted(frame)}
+    empty_actor_buffers = (len(addresses) == 72 and not any(addresses[56:])
+                           and all(name in frame and not any(frame[name])
+                                   for name in ("stat", "d0", "s_base", "d_base")))
+    return {"stat_address": stat, "damage_address": damage, "main_address": main, "hit_write_addresses": len(addresses_hit), "frame_sections": sorted(frame),
+            "empty_actor_buffers_and_seeds": empty_actor_buffers}
 
 
 def pe_exports(raw: bytes) -> set[str]:
@@ -247,6 +253,8 @@ def verify_host_receipt(artifact: dict, receipt: dict) -> None:
         expected = actual_scenes[entry["scene_id"]]
         need("source_rebuild" not in expected["layout"]["frame_sections"],
              "public frame contains a character-bound source program and reference inventory")
+        need(expected["layout"].get("empty_actor_buffers_and_seeds") is True,
+             "public frame contains character stat, damage or seed values")
         need(entry.get("files") == expected["files"], "host receipt scene bytes differ from EXE")
         runs = entry.get("runs", [])
         need(len(runs) == 2 and {run.get("requested_backend") for run in runs} == {"cpu", "card"}, "host receipt must cover CPU and actual CUDA")

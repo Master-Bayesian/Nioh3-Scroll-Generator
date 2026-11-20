@@ -9,6 +9,9 @@ use crate::{
     inventory::{InventoryMemory, InventoryProcess},
 };
 use std::collections::{BTreeMap, BTreeSet};
+pub mod encounter;
+pub mod progression;
+mod reset;
 
 pub const COMBAT_GAME_VERSION: &str = "2.0.2.0";
 pub const INVENTORY_BYTES: usize = 0x2018;

@@ -9,6 +9,213 @@ use nioh3_loadout::{
 use nioh3_save::character::{equipment_offset, EQUIPMENT_REGION_END};
 use std::fs;
 
+#[test]
+#[ignore = "Requires retained PC202 ordinary-memory images and independent original compiler records"]
+fn first_use_sources_from_ordinary_memory() {
+    use nioh3_runtime::{
+        combat_context::{read_combat_snapshot, SnapshotOutcome},
+        FixtureMemory,
+    };
+    let dir = PathBuf::from(std::env::var_os("NIOH3_FIRST_USE_CASE").unwrap());
+    let read_json = |p: &Path| serde_json::from_slice::<Value>(&fs::read(p).unwrap()).unwrap();
+    let case = read_json(&dir.join("case.json"));
+    let path = |key: &str| PathBuf::from(case[key].as_str().unwrap());
+    let memory = FixtureMemory::from_json(&read_json(&path("memory"))).unwrap();
+    let snapshot = match read_combat_snapshot(&memory).unwrap() {
+        SnapshotOutcome::Ready(role) => Some(role),
+        SnapshotOutcome::Changed(_) | SnapshotOutcome::NotLoaded(_) => None,
+    }
+    .expect("retained character unavailable");
+    let data = path("data");
+    let projected =
+        crate::loadout_first_use::read(&memory, &snapshot, &data.join("loadout/kusarigama-strong"))
+            .unwrap();
+    if case["expected_status"] == "ready" {
+        let current = projected
+            .context(
+                &memory,
+                &snapshot,
+                &data,
+                &data.join("loadout/kusarigama-strong"),
+            )
+            .unwrap();
+        let dest = dir.join("reconstructed-context");
+        fs::create_dir_all(&dest).unwrap();
+        fs::write(
+            dest.join("context.json"),
+            serde_json::to_vec_pretty(current.manifest()).unwrap(),
+        )
+        .unwrap();
+        fs::write(dest.join("inventory.bin"), current.inventory()).unwrap();
+        fs::write(dest.join("frame.bin"), current.frame()).unwrap();
+        let encoded = current.encode(&[]);
+        for name in ["image.bin", "image_known.bin", "scene_entry.bin"] {
+            fs::write(dest.join(name), encoded.file(name).unwrap()).unwrap();
+        }
+        assert_eq!(
+            LoadoutContext::load(&dest).unwrap().digest(),
+            current.digest()
+        );
+    }
+    let native = read_json(&path("program"));
+    fs::write(
+        dir.join("produced.json"),
+        serde_json::to_vec(&projected.report()).unwrap(),
+    )
+    .unwrap();
+    let projected = projected.report();
+    for field in [
+        "prefix",
+        "guardians",
+        "cores",
+        "late_clan",
+        "active_guardian",
+        "guardian_requirement",
+        "post_record_present",
+    ] {
+        assert_eq!(projected[field], native[field], "source operand {field}");
+    }
+    assert_eq!(projected["state"], "current_maps_matched");
+    assert_eq!(projected["numeric_basis"], case["expected_numeric"]);
+    let mut plain = vec![
+        0;
+        EQUIPMENT_REGION_END.max(
+            nioh3_save::layout::slot_offset(nioh3_save::layout::SCROLL_SLOT_COUNT - 1).unwrap()
+                + 0xe8
+        )
+    ];
+    let bank = snapshot.inputs.active_bank as usize * 0xf70;
+    for slot in [0usize, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15] {
+        let at = if slot == 15 {
+            nioh3_save::layout::slot_offset(0).unwrap()
+        } else {
+            equipment_offset(slot).unwrap()
+        };
+        plain[at..at + 0xe8].copy_from_slice(
+            &snapshot.inputs.inventory[bank + slot * 0xe8..bank + (slot + 1) * 0xe8],
+        );
+    }
+    if let Some(save) = case["owned_save"].as_str() {
+        plain = nioh3_save::decrypt_container(&fs::read(save).unwrap()).unwrap();
+    }
+    let state = dir.join(format!("empty-{}", std::process::id()));
+    fs::create_dir(&state).unwrap();
+    let mut contexts = Contexts::default();
+    let params = json!({"save_id":"c".repeat(64),"source_sha256":nioh3_loadout::context::sha256(&plain),"bundle":"kusarigama-strong"});
+    let reply = contexts
+        .read_from_memory(
+            &state,
+            &data,
+            &plain,
+            &params,
+            Some(&memory),
+            crate::loadout_observation::ObservationOrigin::ControlledRetainedInput,
+        )
+        .unwrap();
+    fs::write(
+        dir.join("first-read.json"),
+        serde_json::to_vec_pretty(&reply).unwrap(),
+    )
+    .unwrap();
+    if case["expected_status"] == "ready" {
+        assert_eq!(reply["state"], "ready", "{reply}");
+        let mut search = params.clone();
+        search["context_id"] = reply["context_id"].clone();
+        let (engine, authority) = contexts.search_binding(&search).unwrap();
+        assert!(matches!(authority, SearchAuthority::CurrentProgressBranch));
+        let result = engine.damage_details(
+            &Candidate {
+                attrs: engine.start_attrs,
+                items: [None; SLOTS],
+            },
+            &Backpack::from_slots(&[]).unwrap(),
+            &mut engine.work(),
+        );
+        let components = serde_json::to_value(result).unwrap();
+        assert_eq!(components["total"], 629.0);
+        assert_eq!(components["physical"], 610.0);
+        assert_eq!(components["elemental"], 19.0);
+        let context = engine.encoded_context().unwrap();
+        let evidence = dir.join("private-output");
+        fs::create_dir_all(&evidence).unwrap();
+        for name in [
+            "frame.bin",
+            "image.bin",
+            "image_known.bin",
+            "scene_entry.bin",
+            "characters.bin",
+            "gpu_setup.txt",
+        ] {
+            fs::write(evidence.join(name), context.file(name).unwrap()).unwrap();
+        }
+        fs::write(
+            dir.join("baseline.json"),
+            serde_json::to_vec_pretty(&components).unwrap(),
+        )
+        .unwrap();
+        // A and B have the same equipment and process identity. Change one
+        // independently observed native group value without changing the
+        // source inputs. Neither a live handle nor a stale result may survive.
+        let mut altered = read_json(&path("memory"));
+        let at = snapshot.roots.source + 0x4728 + 4;
+        let mut changed = false;
+        for region in altered["regions"].as_array_mut().unwrap() {
+            let start = region["address"].as_u64().unwrap();
+            let raw = region["bytes"].as_str().unwrap();
+            if at >= start && at - start < (raw.len() / 2) as u64 {
+                let pos = (at - start) as usize * 2;
+                let mut body = raw.to_owned();
+                let byte = u8::from_str_radix(&body[pos..pos + 2], 16).unwrap();
+                body.replace_range(pos..pos + 2, &format!("{:02x}", byte ^ 1));
+                region["bytes"] = json!(body);
+                changed = true;
+            }
+        }
+        assert!(changed);
+        let conflict = FixtureMemory::from_json(&altered).unwrap();
+        let rejected = contexts
+            .read_from_memory(
+                &state,
+                &data,
+                &plain,
+                &params,
+                Some(&conflict),
+                crate::loadout_observation::ObservationOrigin::ControlledRetainedInput,
+            )
+            .unwrap();
+        assert_eq!(rejected["state"], "sources_read");
+        assert_eq!(rejected["source_state"], "current_maps_differ");
+        assert!(contexts.engine(&search).is_err());
+        let restored = contexts
+            .read_from_memory(
+                &state,
+                &data,
+                &plain,
+                &params,
+                Some(&memory),
+                crate::loadout_observation::ObservationOrigin::ControlledRetainedInput,
+            )
+            .unwrap();
+        assert_eq!(restored["context_id"], reply["context_id"]);
+        fs::write(
+            dir.join("source-change-control.json"),
+            serde_json::to_vec_pretty(
+                &json!({"changed":rejected,"restored":restored["context_id"],"stale_retired":true}),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    } else {
+        assert_eq!(reply["state"], "sources_read");
+        assert_eq!(
+            reply["submissions"],
+            native["prefix"].as_array().unwrap().len()
+        );
+        assert_eq!(reply["source_state"], "current_maps_matched");
+        assert!(contexts.engine(&params).is_err());
+    }
+}
+
 fn owned_fixture(context: &LoadoutContext) -> Vec<u8> {
     let scroll_end = nioh3_save::layout::slot_offset(nioh3_save::layout::SCROLL_SLOT_COUNT - 1)
         .expect("scroll at bounded slot")

@@ -362,6 +362,7 @@ export function LoadoutOptimizer({ bundles, catalog }: { bundles: VerifiedBundle
   const liveView = useRef({ scope, inputKey });
   liveView.current = { scope, inputKey };
   const context = currentLoadoutContext(contextState, scope);
+  const readSources = contextState.kind === "SourcesRead" && sameLoadoutScope(contextState.scope, scope) ? contextState.sources : null;
   const result = contextState.kind === "Results" && context && contextState.inputKey === inputKey ?
     { ...contextState.result, source: contextState.source, bundleId: contextState.scope.bundleId } : null;
   // A prepared plan is displayable only while the exact result and service plan
@@ -469,6 +470,15 @@ export function LoadoutOptimizer({ bundles, catalog }: { bundles: VerifiedBundle
         if (!currentRead()) return;
         if (!rawContext || !("state" in rawContext)) throw new Error("UNEXPECTED_LOADOUT_CONTEXT");
         const nextContext = rawContext as LoadoutContext;
+        if (nextContext.state === "sources_read") {
+          if (nextContext.save_id !== next.save_id || nextContext.source_sha256 !== next.source_sha256 ||
+              nextContext.bundle !== bundle.id || nextContext.school !== bundle.school) throw new Error("OPTIMIZER_CONTEXT_STALE");
+          const latest = saveSession!.getSnapshot().inventory;
+          if (!latest || !sameSource(next, latest)) throw new Error("SAVE_VIEW_STALE");
+          setCharacter(next);
+          transition({type:"SourcesRead", scope:requestScope, requestId, sources:nextContext});
+          return;
+        }
         if (nextContext.state === "unavailable") {
           setCharacter(next);
           transition({ type: "ReadFailed", scope: requestScope, requestId, message: loadoutError(nextContext.reason) });
@@ -730,11 +740,11 @@ export function LoadoutOptimizer({ bundles, catalog }: { bundles: VerifiedBundle
   if (!bundle) return null;
   return (
     <main className="equipment-page loadout-page">
-      {!context && <p className="loadout-beta">
+      {!context && !readSources && <p className="loadout-beta">
         角色上下文尚未就绪，暂不能搜索。不会使用样本角色代替。
       </p>}
       <section className="character-hint" data-testid="loadout-context" data-state={contextState.kind} data-context-save-id={context?.save_id} data-context-id={context?.context_id} aria-label="角色计算上下文">
-        <strong>{context ? "已读取角色状态" : "请先读取角色状态"}</strong>
+        <strong>{context || readSources ? "已读取角色状态" : "请先读取角色状态"}</strong>
         {context ? <>
           <p>{context.source === "live" ? "来源：当前游戏" : "来源：已验证的角色快照"} · <span>等级 {context.level}</span> · <span>{context.school === "ninja" ? "忍者" : "武士"}</span></p>
           <p>{ATTRIBUTE_NAMES.map((name, index) => <span className="loadout-count" key={name}>{name} {context.attrs[index]}</span>)}</p>
@@ -744,6 +754,10 @@ export function LoadoutOptimizer({ bundles, catalog }: { bundles: VerifiedBundle
           <p>增益：{context.buffs.length ? context.buffs.map(buff => buff.name).join("、") : context.source === "live" ? "未检测到临时增益" : "未记录"}</p>
           <LoadoutSourceCheck context={context} />
           {context.notes.length > 0 && <ul>{context.notes.map((note, index) => <li key={index}>{note}</li>)}</ul>}
+        </> : readSources ? <>
+          <p>{readSources.source === "live" ? "来源：当前游戏" : "来源：已验证的角色快照"} · <span>等级 {readSources.level}</span> · <span>{readSources.school === "ninja" ? "忍者" : "武士"}</span></p>
+          <p>{ATTRIBUTE_NAMES.map((name, i) => <span className="loadout-count" key={name}>{name} {readSources.attrs[i]}</span>)}</p>
+          <p>{readSources.source_state === "current_maps_matched" ? "当前装备的加成已与游戏核对。此攻击仍缺少计算伤害所需的数据。" : "重算的装备加成与游戏读数有差异，目前无法给出可靠排名。"}</p>
         </> : <p>读取成功后才能使用当前角色搜索。</p>}
         <button className="link-button" onClick={read} disabled={!!busy || !save.selected}>刷新角色状态</button>
       </section>

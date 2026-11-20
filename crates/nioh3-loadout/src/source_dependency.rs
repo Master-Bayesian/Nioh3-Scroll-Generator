@@ -6,6 +6,7 @@
 //! source model remains `legacy_unverified`: unknown prefix ownership, raw tail
 //! records and the numeric baseline are not proved by an equal signature.
 
+use super::source_rebuild::SourceOutfit;
 use super::*;
 
 pub(crate) const CHANGED: &str =
@@ -79,6 +80,52 @@ fn empty_source(c: &Character, attrs: &[i32; 7]) -> Source {
 }
 
 impl Tables {
+    pub(super) fn collect_source_slot(
+        &self,
+        source: &mut Source,
+        outfit: &SourceOutfit<'_>,
+        attrs: &[i32; 7],
+        bank: usize,
+        slot: usize,
+        item: &[u8],
+    ) -> R<()> {
+        let key = u16_at(item, 0);
+        let original = (key != 0).then(|| self.items.row(u32::from(key))).flatten();
+        if let Some(row) = original {
+            let reserve = bank != outfit.active;
+            match slot {
+                0..=3 | 13 if self.requirements(outfit.cap, attrs, row, item) => {
+                    let held = usize::from(outfit.inventory[bank * BANK + 0xF68] == 0);
+                    let mask = if reserve || slot == held || slot == 13 {
+                        255
+                    } else {
+                        0
+                    };
+                    self.collect(source, item, reserve, bank as i32, mask)?;
+                }
+                4..=12 if self.requirements(outfit.cap, attrs, row, item) => {
+                    self.collect(
+                        source,
+                        item,
+                        reserve,
+                        bank as i32,
+                        if reserve { 0 } else { 255 },
+                    )?;
+                }
+                15 if !reserve => self.collect(source, item, false, outfit.mode, 255)?,
+                15 => {
+                    for (_, group, _, value) in self.effect_lines(item) {
+                        if matches!(group, 0xF79F | 0x62CB | 0x17B4) {
+                            self.aggregate(source, outfit.mode, group, value);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
     /// Structural contribution before any other row is merged. The planner
     /// compares this for every possible placement, including both accessory
     /// orientations, so jointly activated set tiers cannot hide behind an
@@ -96,39 +143,7 @@ impl Tables {
         }
         let mut source = empty_source(c, attrs);
         let key = u16_at(item, 0);
-        let original = (key != 0).then(|| self.items.row(u32::from(key))).flatten();
-        if let Some(row) = original {
-            let reserve = bank != c.active;
-            match slot {
-                0..=3 | 13 if self.requirements(c, attrs, row, item) => {
-                    let held = usize::from(c.inv[bank * BANK + 0xF68] == 0);
-                    let mask = if reserve || slot == held || slot == 13 {
-                        255
-                    } else {
-                        0
-                    };
-                    self.collect(&mut source, item, reserve, bank as i32, mask)?;
-                }
-                4..=12 if self.requirements(c, attrs, row, item) => {
-                    self.collect(
-                        &mut source,
-                        item,
-                        reserve,
-                        bank as i32,
-                        if reserve { 0 } else { 255 },
-                    )?;
-                }
-                15 if !reserve => self.collect(&mut source, item, false, c.mode, 255)?,
-                15 => {
-                    for (_, group, _, value) in self.effect_lines(item) {
-                        if matches!(group, 0xF79F | 0x62CB | 0x17B4) {
-                            self.aggregate(&mut source, c.mode, group, value);
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
+        self.collect_source_slot(&mut source, &SourceOutfit::from(c), attrs, bank, slot, item)?;
         let lines = self.effect_lines(item);
         Ok(ItemDependency {
             category: if matches!(slot, 0..=3 | 13) {

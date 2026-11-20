@@ -297,6 +297,12 @@ fn read_limited(path: &Path, size: u64) -> Result<Vec<u8>, HostError> {
     Ok(raw)
 }
 
+pub(crate) enum EpochLookup {
+    Unstaged,
+    Changed,
+    Bound(Box<BoundLiveEpoch>),
+}
+
 impl BoundLiveEpoch {
     // Called with the current verified two-read game snapshot. A recording
     // alone cannot enter this path or acquire the app's live source label.
@@ -305,11 +311,13 @@ impl BoundLiveEpoch {
         bundle_id: &str,
         bundle_path: std::path::PathBuf,
         snapshot: &CombatSnapshot,
-    ) -> Result<Option<Self>, HostError> {
+    ) -> Result<EpochLookup, HostError> {
         let root = state_root.join("loadout-live-epochs").join(bundle_id);
         let marker = root.join("active.json");
         match fs::metadata(&marker) {
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(EpochLookup::Unstaged)
+            }
             Err(error) => return Err(rejected(error)),
             Ok(_) => {}
         }
@@ -329,9 +337,7 @@ impl BoundLiveEpoch {
             ));
         }
         if SnapshotBinding::from_snapshot(snapshot)? != binding.snapshot {
-            return Err(HostError::rejected(
-                "LOADOUT_SOURCE_EPOCH_CURRENT_INPUT_CHANGED",
-            ));
+            return Ok(EpochLookup::Changed);
         }
         // The player generation owns the private context and original receipt.
         // The installed scene owns every executable and shared scoring input.
@@ -378,12 +384,12 @@ impl BoundLiveEpoch {
         } else {
             EpochVerification::VerifyAtPublication(Box::new(receipt))
         };
-        Ok(Some(Self {
+        Ok(EpochLookup::Bound(Box::new(Self {
             bundle_path,
             context,
             profile,
             verification,
-        }))
+        })))
     }
 }
 

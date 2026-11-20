@@ -49,6 +49,10 @@ pub struct CoreInput {
 pub enum EvidenceScope {
     /// Executable, explicit conditional inputs. Never licenses app TYPE.
     OfflineConditional,
+    /// The declared normal progress branch computed from ordinary live reads.
+    /// Only the protected caller that compared both current maps and the
+    /// independent character stats can grant its restricted search authority.
+    CurrentProgress,
     /// Compiler/copy/core/selected captured in one process/thread generation.
     RebuildEpoch,
 }
@@ -197,6 +201,11 @@ impl Program {
             // trace are ingested together, this transition remains closed.
             return Err("runtime source epoch ingestion is not implemented; conditional evidence cannot authorize TYPE");
         }
+        if b.scope == EvidenceScope::CurrentProgress
+            && b.runtime_input_sha256.as_deref() != Some(&b.input_sha256)
+        {
+            return Err("current progress source program lost its input identity");
+        }
         Ok(())
     }
 
@@ -288,107 +297,27 @@ impl Program {
         }
     }
 
+    pub fn rules(&self) -> SourceRules<'_> {
+        SourceRules {
+            prefix: &self.prefix,
+            guardians: &self.guardians,
+            active_guardian: self.active_guardian,
+            guardian_requirement: self.guardian_requirement,
+            cores: &self.cores,
+            late_clan: &self.late_clan,
+            reference_inventory: &self.reference_inventory,
+            post_record_present: self.post_record_present,
+        }
+    }
     pub(super) fn after_sets(&self, tables: &Tables, c: &Character, s: &mut Scratch) -> R<()> {
-        let bank = selected_map(c.mode, c.mode);
-        for op in &self.guardians {
-            if op.group == 0 || self.guardian_requirement < op.requirement {
-                continue;
-            }
-            let other_enabled = s.source.maps[bank]
-                .iter()
-                .find(|e| e.key == 0x8508)
-                .is_some_and(|e| e.base.wrapping_add(u32::from(e.dup)) as i32 >= 0);
-            if op.slot != self.active_guardian && !other_enabled {
-                continue;
-            }
-            tables.aggregate(&mut s.source, c.mode, op.group, op.value);
-        }
-        for core in &self.cores {
-            if core.unlocked {
-                // Native side entries are collected before the effect mask.
-                // They may affect late3FAD08 but do not replay earlier sets.
-                tables.collect(&mut s.source, &core.record, false, c.mode, core.effect_mask)?;
-            }
-        }
-        Ok(())
+        self.rules().after_sets(tables, c.mode, &mut s.source)
     }
-
-    fn inventory_max(&self, tables: &Tables, c: &Character, group: u16) -> u32 {
-        let mut maximum = 0i32;
-        for bank in 0..2 {
-            let mut sum = 0u32;
-            for (ordinal, slot) in [13, 9, 10, 15].into_iter().enumerate() {
-                let at = bank * BANK + slot * ITEM;
-                let item = &c.inv[at..][..ITEM];
-                let changed = item != &self.reference_inventory[at..][..ITEM];
-                if !self.post_record_present[bank][ordinal] && !changed {
-                    continue;
-                }
-                // Original1075ED0 reads raw affixes, without item qualification,
-                // ordinary masks, side exclusions, or aggregate caps.
-                for ordinal in 0..7 {
-                    let effect = u32_at(item, 0x38 + ordinal * 24);
-                    if effect != u32::MAX
-                        && tables
-                            .effects
-                            .row(effect)
-                            .is_some_and(|row| u16_at(row, 2) == group)
-                    {
-                        sum = sum.wrapping_add(u32_at(item, 0x3c + ordinal * 24));
-                    }
-                }
-            }
-            maximum = maximum.max(sum as i32);
-        }
-        maximum as u32
-    }
-
     pub(super) fn finish(&self, tables: &Tables, c: &Character, source: &mut Source) -> R<()> {
         if !self.post_inventory_projection {
             return Err("post-source inventory selectors have not been bound to the candidate");
         }
-        let bank = selected_map(i32_at(&c.inv, 0x1ee0), c.mode);
-        for group in LATE_GROUPS {
-            let mut amount = self.inventory_max(tables, c, group);
-            for side in &source.sides[bank] {
-                let count = u32::from(u16_at(side, 4)).wrapping_add(u32_at(side, 8));
-                if count <= 1 {
-                    continue;
-                }
-                let Some(parameter) = tables.sides.row(u32_at(side, 0)) else {
-                    continue;
-                };
-                for index in 0..7 {
-                    let reward = &parameter[0x30 + index * 24..][..24];
-                    let threshold = u32_at(reward, 0);
-                    if u16_at(reward, 8) != group || count < threshold {
-                        continue;
-                    }
-                    let coordinate = threshold.wrapping_sub(u32_at(side, 8)) as i32;
-                    let offset = if coordinate > 0 {
-                        0x1c + 2 * coordinate as i64
-                    } else {
-                        0x1e
-                    };
-                    if !(0..=66).contains(&offset) {
-                        return Err("late set reward leaves its side record");
-                    }
-                    amount =
-                        amount.wrapping_add(tables.curve(reward, u16_at(side, offset as usize)));
-                }
-            }
-            if tables.groups.row(u32::from(group)).is_some() {
-                if let Some(clan) = self.late_clan.iter().find(|op| op.group == group) {
-                    amount = amount.wrapping_add(clan.value);
-                }
-            }
-            if amount as i32 > 0 {
-                late_max(&mut source.maps[bank], group, amount, tables);
-            }
-        }
-        Ok(())
+        self.rules().finish(tables, &c.inv, c.mode, source)
     }
-
     pub(super) fn pipeline(
         &self,
         tables: &Tables,
@@ -461,3 +390,184 @@ pub struct Trace {
 #[cfg(test)]
 #[path = "late_source_native_control.rs"]
 mod late_native_control;
+
+/// SOURCE-only operands. Numerical caps used solely by attack/STAT evaluation
+/// are intentionally absent from this view.
+pub struct SourceOutfit<'a> {
+    pub inventory: &'a [u8],
+    pub mode: i32,
+    pub active: usize,
+    pub cap: u32,
+}
+impl<'a> From<&'a Character> for SourceOutfit<'a> {
+    fn from(c: &'a Character) -> Self {
+        Self {
+            inventory: &c.inv,
+            mode: c.mode,
+            active: c.active,
+            cap: c.cap,
+        }
+    }
+}
+
+pub struct SourceRules<'a> {
+    pub prefix: &'a [Submission],
+    pub guardians: &'a [GuardianSubmission],
+    pub active_guardian: u8,
+    pub guardian_requirement: u16,
+    pub cores: &'a [CoreInput],
+    pub late_clan: &'a [Submission],
+    pub reference_inventory: &'a [u8],
+    pub post_record_present: [[bool; 4]; 2],
+}
+
+impl SourceRules<'_> {
+    /// Reconstruct the maps in their native submission order without any
+    /// private attack image, damage frame, or fitted STAT baseline.
+    pub fn rebuild_maps(
+        &self,
+        tables: &Tables,
+        outfit: SourceOutfit<'_>,
+        attrs: &[i32; 7],
+    ) -> R<[Vec<Entry>; 2]> {
+        if outfit.inventory.len() != 0x2018
+            || self.reference_inventory.len() != 0x2018
+            || outfit.active > 1
+            || !matches!(outfit.mode, 0 | 1)
+            || self.cores.iter().any(|core| core.record.len() != ITEM)
+        {
+            return Err("invalid source equipment layout");
+        }
+        let mut source = Source {
+            mode: outfit.mode,
+            thresholds: attrs.map(|a| a as u32),
+            maps: Default::default(),
+            sides: Default::default(),
+            set_reduction: [false; 2],
+            set_pieces: Default::default(),
+        };
+        for entry in self.prefix {
+            tables.aggregate(&mut source, outfit.mode, entry.group, entry.value);
+        }
+        for slots in [
+            &[0usize, 1, 2, 3, 13][..],
+            &[4, 5, 6, 7, 8, 9, 10, 11, 12],
+            &[15],
+        ] {
+            for bank in [outfit.active, outfit.active ^ 1] {
+                for slot in slots {
+                    let at = bank * BANK + slot * ITEM;
+                    tables.collect_source_slot(
+                        &mut source,
+                        &outfit,
+                        attrs,
+                        bank,
+                        *slot,
+                        &outfit.inventory[at..at + ITEM],
+                    )?;
+                }
+            }
+        }
+        tables.set_rewards(outfit.mode, &mut source)?;
+        self.after_sets(tables, outfit.mode, &mut source)?;
+        self.finish(tables, outfit.inventory, outfit.mode, &mut source)?;
+        Ok(source.maps)
+    }
+    fn after_sets(&self, tables: &Tables, mode: i32, source: &mut Source) -> R<()> {
+        let bank = selected_map(mode, mode);
+        for op in self.guardians {
+            if op.group == 0 || self.guardian_requirement < op.requirement {
+                continue;
+            }
+            let other_enabled = source.maps[bank]
+                .iter()
+                .find(|e| e.key == 0x8508)
+                .is_some_and(|e| e.base.wrapping_add(u32::from(e.dup)) as i32 >= 0);
+            if op.slot != self.active_guardian && !other_enabled {
+                continue;
+            }
+            tables.aggregate(source, mode, op.group, op.value);
+        }
+        for core in self.cores {
+            if core.unlocked {
+                // Native side entries are collected before the effect mask.
+                // They may affect late3FAD08 but do not replay earlier sets.
+                tables.collect(source, &core.record, false, mode, core.effect_mask)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn inventory_max(&self, tables: &Tables, inv: &[u8], group: u16) -> u32 {
+        let mut maximum = 0i32;
+        for bank in 0..2 {
+            let mut sum = 0u32;
+            for (ordinal, slot) in [13, 9, 10, 15].into_iter().enumerate() {
+                let at = bank * BANK + slot * ITEM;
+                let item = &inv[at..][..ITEM];
+                let changed = item != &self.reference_inventory[at..][..ITEM];
+                if !self.post_record_present[bank][ordinal] && !changed {
+                    continue;
+                }
+                // Original1075ED0 reads raw affixes, without item qualification,
+                // ordinary masks, side exclusions, or aggregate caps.
+                for ordinal in 0..7 {
+                    let effect = u32_at(item, 0x38 + ordinal * 24);
+                    if effect != u32::MAX
+                        && tables
+                            .effects
+                            .row(effect)
+                            .is_some_and(|row| u16_at(row, 2) == group)
+                    {
+                        sum = sum.wrapping_add(u32_at(item, 0x3c + ordinal * 24));
+                    }
+                }
+            }
+            maximum = maximum.max(sum as i32);
+        }
+        maximum as u32
+    }
+
+    fn finish(&self, tables: &Tables, inv: &[u8], mode: i32, source: &mut Source) -> R<()> {
+        let bank = selected_map(i32_at(inv, 0x1ee0), mode);
+        for group in LATE_GROUPS {
+            let mut amount = self.inventory_max(tables, inv, group);
+            for side in &source.sides[bank] {
+                let count = u32::from(u16_at(side, 4)).wrapping_add(u32_at(side, 8));
+                if count <= 1 {
+                    continue;
+                }
+                let Some(parameter) = tables.sides.row(u32_at(side, 0)) else {
+                    continue;
+                };
+                for index in 0..7 {
+                    let reward = &parameter[0x30 + index * 24..][..24];
+                    let threshold = u32_at(reward, 0);
+                    if u16_at(reward, 8) != group || count < threshold {
+                        continue;
+                    }
+                    let coordinate = threshold.wrapping_sub(u32_at(side, 8)) as i32;
+                    let offset = if coordinate > 0 {
+                        0x1c + 2 * coordinate as i64
+                    } else {
+                        0x1e
+                    };
+                    if !(0..=66).contains(&offset) {
+                        return Err("late set reward leaves its side record");
+                    }
+                    amount =
+                        amount.wrapping_add(tables.curve(reward, u16_at(side, offset as usize)));
+                }
+            }
+            if tables.groups.row(u32::from(group)).is_some() {
+                if let Some(clan) = self.late_clan.iter().find(|op| op.group == group) {
+                    amount = amount.wrapping_add(clan.value);
+                }
+            }
+            if amount as i32 > 0 {
+                late_max(&mut source.maps[bank], group, amount, tables);
+            }
+        }
+        Ok(())
+    }
+}

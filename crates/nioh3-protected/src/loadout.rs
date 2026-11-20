@@ -629,7 +629,8 @@ fn search_with_observer(
     };
     let source_admission = match authority {
         crate::loadout_context::SearchAuthority::BundleDefault => bundle.source_admission(),
-        crate::loadout_context::SearchAuthority::VerifiedNativeEpoch => {
+        crate::loadout_context::SearchAuthority::VerifiedNativeEpoch
+        | crate::loadout_context::SearchAuthority::CurrentProgressBranch => {
             SourceAdmissionPolicy::OwnedType
         }
     };
@@ -746,6 +747,7 @@ fn search_with_observer(
         "weapon_domain": weapon_domain,
         "source_model_scope": match authority {
             crate::loadout_context::SearchAuthority::VerifiedNativeEpoch => "runtime_bound_rebuild",
+            crate::loadout_context::SearchAuthority::CurrentProgressBranch => "conditional_rebuild",
             crate::loadout_context::SearchAuthority::BundleDefault => engine.source_model_scope(),
         },
         "complete": report.complete,

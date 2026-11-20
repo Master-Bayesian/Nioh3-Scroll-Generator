@@ -1,0 +1,4 @@
+[
+  {"name":"retired-reply-restores-old-role","overrides":{"AcceptRetired":true},"expected":"Invariant CurrentReply is violated"},
+  {"name":"rank-from-source-read-alone","overrides":{"SearchWithSources":true},"expected":"Invariant RankRequiresDamage is violated"}
+]
