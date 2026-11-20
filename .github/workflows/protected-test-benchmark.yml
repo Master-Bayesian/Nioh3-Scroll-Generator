@@ -7,12 +7,13 @@ permissions:
 env:
   CARGO_INCREMENTAL: '0'
   CARGO_TERM_COLOR: never
-  NIOH3_BENCH_PROFILE: ${{ matrix.profile }}
-  NIOH3_BENCH_TARGET: ${{ matrix.target }}
 jobs:
   protected-tests:
     name: Protected (${{ matrix.profile }}, ${{ matrix.target }})
     runs-on: windows-latest
+    env:
+      NIOH3_BENCH_PROFILE: ${{ matrix.profile }}
+      NIOH3_BENCH_TARGET: ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
