@@ -1,5 +1,30 @@
 [
-  {"name":"drop-owner-on-failure","overrides":{"KeepOwner":false},"expected":"Invariant RetryOwnsPlan is violated"},
-  {"name":"accept-foreign-receipt","overrides":{"CheckReceipt":false},"expected":"Invariant ReleasedOnProof is violated"},
-  {"name":"ignore-remove-error","overrides":{"CheckRemoval":false},"expected":"Invariant ReleasedOnProof is violated"}
+  {
+    "name": "drop-owner-on-failure",
+    "overrides": {
+      "KeepOwner": false
+    },
+    "expected": "Invariant RetryOwnsPlan is violated"
+  },
+  {
+    "name": "accept-foreign-receipt",
+    "overrides": {
+      "CheckReceipt": false
+    },
+    "expected": "Invariant ReleasedOnProof is violated"
+  },
+  {
+    "name": "ignore-remove-error",
+    "overrides": {
+      "CheckRemoval": false
+    },
+    "expected": "Invariant ReleasedOnProof is violated"
+  },
+  {
+    "name": "reuse-execution-claim",
+    "overrides": {
+      "RespectDispatch": false
+    },
+    "expected": "Invariant DispatchNeverCancelled is violated"
+  }
 ]

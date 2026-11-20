@@ -254,7 +254,7 @@ export function DesktopCartActions({
       // Persist the cancellation owner before the view can disappear.
       if (!localStorage.getItem("nioh3-review-live-batch")) {
         localStorage.setItem("nioh3-review-live-batch", JSON.stringify({
-          batch_id: batch.batch_id, plan_digest: batch.plan_digest,
+          batch_id: batch.batch_id, plan_digest: batch.plan_digest, action: "cancel",
         }));
         window.dispatchEvent(new Event("nioh3-live-batch-cancelled"));
       }
@@ -485,7 +485,7 @@ export function DesktopCartActions({
       batch = refreshed.live_batch;
       if (batch.batch_id !== ref.batch_id || batch.plan_digest !== ref.plan_digest) throw Error("LIVE_BATCH_RECOVERY_MISMATCH");
       if(Array.isArray(ref.keys))onAdded?.(ref.keys.slice(0,batch.verified_count));
-      if (batch.state === "prepared") {
+      if (batch.state === "prepared" || (batch.state === "uncertain" && ref.action === "cancel")) {
         const cancelled = await runtimeObserver!.run(() =>
           window.operations.execute({
             method: "runtime.live_batch_cancel",

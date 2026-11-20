@@ -20,6 +20,20 @@ fn rejected(detail: &str) -> RuntimeError {
     }
 }
 
+/// Only an identical cancellation record can be reused after an interrupted reply.
+/// A dispatch claim, a partial file, or a different receipt retains its owner.
+fn ensure_cancel_record(path: &Path, expected: &Value) -> Result<(), RuntimeError> {
+    if path.is_file() {
+        if read_json(path)? == *expected {
+            return Ok(());
+        }
+        return Err(rejected(
+            "Existing journal differs from the cancellation record",
+        ));
+    }
+    exclusive_json(path, expected)
+}
+
 /// `live_add_batch.LiveAddBatch`, expressed over the shared application.
 pub struct LiveAddBatch;
 
@@ -257,7 +271,12 @@ impl LiveAddBatch {
             .and_then(Value::as_str)
             .ok_or_else(|| rejected("Batch review digest differs"))?
             .to_string();
-        exclusive_json(
+        if stored["plan"]["batch_id"] != batch_id
+            || sha256_hex(canonical_json(&stored["plan"]).as_bytes()) != digest
+        {
+            return Err(rejected("Batch review digest differs"));
+        }
+        ensure_cancel_record(
             &directory.join("claim.json"),
             &json!({"digest": digest, "cancelled": true}),
         )?;
@@ -268,8 +287,14 @@ impl LiveAddBatch {
             .and_then(Value::as_str)
             .ok_or_else(|| rejected("Batch review digest differs"))?
             .to_string();
-        operations.cancel(&first_id)?;
-        exclusive_json(
+        match operations.snapshot(&first_id)?.state {
+            OperationState::Prepared => {
+                operations.cancel(&first_id)?;
+            }
+            OperationState::Cancelled => {}
+            _ => return Err(rejected("Batch child already claimed for execution")),
+        }
+        ensure_cancel_record(
             &directory.join("receipt.json"),
             &json!({
                 "batch_id": batch_id,

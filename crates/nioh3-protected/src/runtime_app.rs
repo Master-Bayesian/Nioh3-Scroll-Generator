@@ -3287,6 +3287,33 @@ mod receipt_control_tests {
     }
 
     #[test]
+    fn restarted_batch_cancellation_resumes_each_journal_boundary() {
+        for cancel_child in [false, true] {
+            let fixture = Fixture::new();
+            let directory = fixture.batch();
+            let stored: Value =
+                serde_json::from_slice(&std::fs::read(directory.join("plan.json")).unwrap())
+                    .unwrap();
+            let claim =
+                serde_json::to_vec(&json!({"digest":stored["digest"],"cancelled":true})).unwrap();
+            std::fs::write(directory.join("claim.json"), &claim).unwrap();
+            if cancel_child {
+                fixture.operations.cancel(OPERATION).unwrap();
+            }
+            let params = json!({"batch_id":BATCH});
+            let first = fixture.invoke("live_batch_cancel", params.clone());
+            let retry = fixture.invoke("live_batch_cancel", params);
+            assert_eq!(
+                first["result"]["live_batch"]["state"], "cancelled",
+                "{first}"
+            );
+            assert_eq!(first["result"], retry["result"]);
+            assert_eq!(retry["result"]["live_batch"]["verified_count"], 0);
+            assert_eq!(std::fs::read(directory.join("claim.json")).unwrap(), claim);
+        }
+    }
+
+    #[test]
     fn a_restarted_worker_reports_an_uncertain_batch_without_cancelling_its_child() {
         let fixture = Fixture::new();
         let directory = fixture.batch();
