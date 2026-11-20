@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { localize } from "./presentation";
 
 /** The effect id that marks an empty slot. */
@@ -23,17 +23,20 @@ export function parseEffectId(text: string): number | null {
  * Effect picker: opening it always lists every candidate; only text typed after
  * opening filters the list, so the current effect never hides the others.
  */
-export function EffectPicker<C extends PickerCandidate>({ value, star, candidates, label, onPick, placeholder = "（空）" }: {
+export function EffectPicker<C extends PickerCandidate>({ value, star, candidates, label, onPick, accessibleName, placeholder = "（空）" }: {
   value: string;
   /** The saved star marker of the current effect, when it is unchanged. */
   star?: boolean;
   candidates: C[];
   label: (candidate: C) => string;
   onPick: (candidate: C | PickerCandidate) => void;
+  accessibleName: string;
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const listId = useId();
   const box = useRef<HTMLDivElement>(null);
   const current = parseEffectId(value);
   const currentLabel =
@@ -49,38 +52,97 @@ export function EffectPicker<C extends PickerCandidate>({ value, star, candidate
       : candidates;
     return list.slice(0, 400);
   }, [candidates, filter, label]);
+  const options: (C | PickerCandidate)[] = [{ id: EMPTY_EFFECT }, ...shown];
+  const activeOption = open && activeIndex !== null ? options[activeIndex] : undefined;
+  const optionId = (index: number) => listId + "-option-" + index;
+
+  function close() {
+    setOpen(false);
+    setActiveIndex(null);
+  }
+
+  function reveal() {
+    if (open) return;
+    setFilter("");
+    setOpen(true);
+  }
+
+  function pick(candidate: C | PickerCandidate) {
+    onPick(candidate);
+    close();
+  }
+
   useEffect(() => {
-    if (!open) return;
-    const close = (event: MouseEvent) => {
-      if (box.current && !box.current.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
+    if (open && activeIndex !== null) {
+      box.current?.querySelectorAll('[role="option"]')[activeIndex]?.scrollIntoView({ block: "nearest" });
+    }
+  }, [open, activeIndex]);
   return (
     <div className="effect-picker" ref={box}>
       <input
+        role="combobox"
+        aria-label={accessibleName}
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-activedescendant={activeOption && activeIndex !== null ? optionId(activeIndex) : undefined}
         value={open ? filter : localize(currentLabel)}
         placeholder={open ? "输入名称筛选" : placeholder}
-        onFocus={() => { setFilter(""); setOpen(true); }}
-        onChange={event => setFilter(event.target.value)}
+        onFocus={reveal}
+        onClick={reveal}
+        onBlur={close}
+        onChange={event => {
+          setFilter(event.target.value);
+          setActiveIndex(null);
+          setOpen(true);
+        }}
         onKeyDown={event => {
-          if (event.key === "Escape") setOpen(false);
-          if (event.key === "Enter" && shown[0]) { onPick(shown[0]); setOpen(false); }
+          if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            const last = options.length - 1;
+            const forward = event.key === "ArrowDown";
+            if (!open) {
+              setFilter("");
+              setOpen(true);
+              setActiveIndex(forward ? 0 : Math.min(candidates.length, 400));
+              return;
+            }
+            setActiveIndex(index => forward
+              ? Math.min((index ?? -1) + 1, last)
+              : Math.max((index ?? last + 1) - 1, 0));
+          }
+          if (event.key === "Escape" && open) {
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+          }
+          const candidate = activeOption ?? shown[0];
+          if (event.key === "Enter" && open && candidate) {
+            event.preventDefault();
+            pick(candidate);
+          }
         }}
       />
       {open && (
-        <ul className="effect-picker-list" role="listbox">
-          <li><button type="button" onMouseDown={() => { onPick({ id: EMPTY_EFFECT }); setOpen(false); }}>（空）</button></li>
-          {shown.map(candidate => (
-            <li key={candidate.id}>
-              <button type="button" className={candidate.id === current ? "current" : ""}
-                onMouseDown={() => { onPick(candidate); setOpen(false); }}>
-                {label(candidate)}
+        <ul id={listId} className="effect-picker-list" role="listbox" aria-label={accessibleName}>
+          {options.map((candidate, index) => (
+            <li key={index === 0 ? "empty" : candidate.id} role="presentation">
+              <button
+                id={optionId(index)}
+                type="button"
+                role="option"
+                tabIndex={-1}
+                aria-selected={activeIndex === null ? candidate.id === current : activeIndex === index}
+                className={activeIndex === index ? "keyboard-active" : candidate.id === current ? "current" : ""}
+                onMouseDown={event => event.preventDefault()}
+                onClick={() => pick(candidate)}
+              >
+                {index === 0 ? "（空）" : label(candidate as C)}
               </button>
             </li>
           ))}
-          {shown.length === 0 && <li className="effect-picker-empty">没有匹配的词条</li>}
+          {shown.length === 0 && <li className="effect-picker-empty" role="presentation">没有匹配的词条</li>}
         </ul>
       )}
     </div>

@@ -194,6 +194,7 @@ struct Plan {
 
 /// The save role application.
 pub struct SaveApplication {
+    fault_mode: SaveFaultMode,
     state_root: PathBuf,
     transaction_root: PathBuf,
     data_root: PathBuf,
@@ -212,6 +213,13 @@ pub struct SaveApplication {
     preview_resources: Option<ResourceCache<PreviewResources>>,
     /// The shipped effect tables plus their measured Grace maps.
     materialization: Option<ResourceCache<MaterializationResources>>,
+}
+
+#[derive(Default)]
+enum SaveFaultMode {
+    #[default]
+    Disabled,
+    Development,
 }
 
 /// The verified tables one installation record is materialized from.
@@ -253,6 +261,7 @@ impl SaveApplication {
         let curve = nioh3_worker::recommended_level::load(data_root)
             .map_err(|error| HostError::coded("RESOURCE_MISMATCH", error.to_string()))?;
         Ok(Self {
+            fault_mode: SaveFaultMode::Disabled,
             transaction_root: state_root.join("protected-internal"),
             state_root,
             data_root: data_root.to_path_buf(),
@@ -268,13 +277,23 @@ impl SaveApplication {
         })
     }
 
+    /// Enable fault selectors for an explicitly acknowledged development launch.
+    pub fn with_development_faults(mut self) -> Self {
+        self.fault_mode = SaveFaultMode::Development;
+        self
+    }
+
     fn host(&self) -> SaveTransactionHost {
         // The transaction's own plans and receipts stay private (they would
         // collide with the protected ledger under `v2-operations`), while the
         // bundles live in the canonical public root the shipped host uses, so a
         // user's existing backups are discovered and restored in place.
         let backup_root = self.backup_root();
-        match host_fault_point() {
+        let fault = match self.fault_mode {
+            SaveFaultMode::Disabled => None,
+            SaveFaultMode::Development => host_fault_point(),
+        };
+        match fault {
             Some(point) => {
                 SaveTransactionHost::with_faults(&self.transaction_root, fault_set_for(point))
                     .with_backup_root(backup_root)
@@ -1567,6 +1586,7 @@ impl SaveApplication {
     fn operation(&mut self, plan_id: &str, acknowledge: bool) -> Result<Value, HostError> {
         if let Some(receipt) = self.receipts.get(plan_id) {
             if !is_unresolved_status(receipt) {
+                self.retry_core_commit(plan_id, receipt);
                 return Ok(receipt.clone());
             }
         }
@@ -1599,16 +1619,50 @@ impl SaveApplication {
         if is_unresolved_status(&value) {
             self.settle(plan_id, &mut value, acknowledge);
         }
-        if CommitStatus::of(&value) == Some(CommitStatus::CommittedWithWarning) {
-            if let Err(error) = self.host().record_outer_commit(plan_id) {
-                eprintln!(
-                    "protected save host: could not settle the core record of {plan_id}: {}",
-                    HostError::from_save(error).message
-                );
-            }
-        }
+        self.retry_core_commit(plan_id, &value);
         self.receipts.insert(plan_id.to_string(), value.clone());
         Ok(value)
+    }
+
+    /// A warning may be cached even if its terminal ledger write failed.
+    /// Establish durable outer authority before releasing the core fence.
+    fn retry_core_commit(&self, plan_id: &str, receipt: &Value) {
+        if CommitStatus::of(receipt) != Some(CommitStatus::CommittedWithWarning) {
+            return;
+        }
+        let settle = || -> Result<(), HostError> {
+            let path = self.ledger_dir().join(format!("{plan_id}.json"));
+            let bytes = std::fs::read(&path)
+                .map_err(|error| HostError::rejected(format!("{}: {error}", path.display())))?;
+            let durable: Value = serde_json::from_slice(&bytes).map_err(|error| {
+                HostError::rejected(format!("operation ledger is not JSON: {error}"))
+            })?;
+            if durable["operation_id"] != plan_id {
+                return Err(HostError::rejected("Operation ledger id mismatch"));
+            }
+            match CommitStatus::of(&durable) {
+                Some(CommitStatus::Executing) => self.write_ledger(plan_id, receipt, true)?,
+                Some(CommitStatus::Committed | CommitStatus::CommittedWithWarning) => {}
+                Some(
+                    CommitStatus::Unknown | CommitStatus::NotCommitted | CommitStatus::Acknowledged,
+                )
+                | None => {
+                    return Err(HostError::rejected(
+                        "Outer operation ledger does not establish a commit",
+                    ));
+                }
+            }
+            self.host()
+                .record_outer_commit(plan_id)
+                .map_err(HostError::from_save)?;
+            Ok(())
+        };
+        if let Err(error) = settle() {
+            eprintln!(
+                "protected save host: could not settle the core record of {plan_id}: {}",
+                error.message
+            );
+        }
     }
 
     /// Settle an `unknown` outer receipt from the bytes on disk, or record the
@@ -1983,7 +2037,11 @@ impl SaveApplication {
         let temporary = path.with_extension("tmp");
         let text = serde_json::to_string(result)
             .map_err(|error| HostError::rejected(error.to_string()))?;
-        let fault = if terminal { take_ledger_fault() } else { None };
+        let fault = match self.fault_mode {
+            SaveFaultMode::Disabled => None,
+            SaveFaultMode::Development if terminal => take_ledger_fault(),
+            SaveFaultMode::Development => None,
+        };
         if fault == Some(LedgerFault::Temp) {
             return Err(ledger_fault_error(plan_id, "temp"));
         }
@@ -2774,9 +2832,8 @@ fn host_timing_enabled() -> bool {
 /// The save-core fault point one process should inject, if any.
 ///
 /// Acceptance and diagnosis drive the save-core fault gate from outside the
-/// process; the shipped host exposes no protocol field for it, so the selector
-/// travels in the environment exactly like `NIOH3_SAVE_HOST_TIMING`. It is unset
-/// in every ordinary run, which leaves the host fault-free.
+/// process, using the environment of an explicitly acknowledged development
+/// launch. Ordinary launches ignore fault selectors.
 fn host_fault_point() -> Option<nioh3_save::transaction::FaultPoint> {
     let value = std::env::var("NIOH3_SAVE_HOST_FAULT").ok()?;
     nioh3_save::transaction::FaultPoint::ALL

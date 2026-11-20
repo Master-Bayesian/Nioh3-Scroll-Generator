@@ -8,7 +8,7 @@
    the digest a failed rollback must keep and fails OwnBytesProvable. *)
 EXTENDS TLC
 
-CONSTANTS RecordOuterCommit, FixedRollback
+CONSTANTS RecordOuterCommit, FixedRollback, RetryCachedWarning
 
 Unresolved == {"pending", "uncertain"}
 CoreTerminal == {"committed", "not_committed", "acknowledged"}
@@ -96,7 +96,7 @@ OuterRecords ==
 
 OuterRecordsWarning ==
     /\ step = "report_warning"
-    /\ outer' = "committed_with_warning" /\ step' = "done"
+    /\ outer' = "committed_with_warning" /\ step' = "cached_warning"
     /\ UNCHANGED <<target, core, digest, landed>>
 
 Crash ==
@@ -105,7 +105,7 @@ Crash ==
     /\ UNCHANGED <<target, core, digest, outer, landed>>
 
 GameSaves ==
-    /\ step = "done" /\ target # "Foreign"
+    /\ step \in {"done", "cached_warning"} /\ target # "Foreign"
     /\ target' = "Foreign"
     /\ UNCHANGED <<core, digest, outer, step, landed>>
 
@@ -140,9 +140,16 @@ Acknowledge ==
     /\ SetCore("acknowledged") /\ outer' = "acknowledged"
     /\ UNCHANGED <<target, digest, step, landed>>
 
+\* A warning receipt read may still be served from the current process cache.
+Restart ==
+    /\ step = "cached_warning"
+    /\ step' = "done"
+    /\ UNCHANGED <<target, core, digest, outer, landed>>
+
 SettleFromOuter ==
     /\ RecordOuterCommit
-    /\ step = "done" /\ outer = "committed_with_warning" /\ core = "pending"
+    /\ (step = "done" \/ (step = "cached_warning" /\ RetryCachedWarning))
+    /\ outer = "committed_with_warning" /\ core = "pending"
     /\ SetCore("committed")
     /\ UNCHANGED <<target, digest, outer, step, landed>>
 
@@ -151,7 +158,7 @@ Next ==
     \/ CoreRecordsCommit \/ CoreRecordFails
     \/ ReadbackFailsRollbackHolds \/ ReadbackFailsRollbackFails
     \/ OuterRecords \/ OuterRecordsWarning \/ Crash \/ GameSaves
-    \/ Project \/ Settle \/ SettleWithoutCore \/ Acknowledge \/ SettleFromOuter
+    \/ Project \/ Settle \/ SettleWithoutCore \/ Acknowledge \/ SettleFromOuter \/ Restart
 
 Spec ==
     /\ Init /\ [][Next]_vars
@@ -178,14 +185,19 @@ TypeOK ==
 \* Once the client is reading, a save can leave the fence: every open state
 \* still has a recovery step.
 ResolutionPossible ==
-    (step = "done" /\ core \in Unresolved) =>
+    (step \in {"done", "cached_warning"} /\ core \in Unresolved) =>
         \/ outer \in {"executing", "unknown"}
         \/ (outer = "committed_with_warning" /\ RecordOuterCommit)
+
+\* A cached durable warning can release the fence in the same process.
+CachedWarningCanSettle ==
+    (step = "cached_warning" /\ core = "pending" /\ RecordOuterCommit) =>
+        ENABLED SettleFromOuter
 
 \* Bytes this commit left on disk stay provable as this commit's.
 OwnBytesProvable == (core = "uncertain" /\ target = "Output") => digest = "output"
 
 TerminalStable == [][(core \in CoreTerminal) => core' = core]_vars
 
-EventuallyReleased == (step = "done") ~> (core \notin Unresolved)
+EventuallyReleased == (step \in {"done", "cached_warning"}) ~> (core \notin Unresolved)
 =============================================================================

@@ -1,3 +1,4 @@
+import { sameSnapshot } from "../desktop/src/save-session";
 import { Notice } from "./Notice";
 import {CountEditor} from "./CountEditor";
 import {ScrollCompletion} from "./ScrollCompletion";
@@ -239,6 +240,10 @@ export function Editor({ cart }: { cart: Sample[] }) {
   draftIdentity.current = JSON.stringify([
     draft,
     current.saveEntry?.slot_index,
+    current.saveEntry?.record_hex,
+    writeMode,
+    saveState?.selected?.save_id,
+    saveState?.inventory?.source_sha256,
     saveState?.inventory?.snapshot_id,
   ]);
   const [message, setMessage] = useState(""),
@@ -250,7 +255,30 @@ export function Editor({ cart }: { cart: Sample[] }) {
   useEffect(() => {
     if (review) reviewPrompt.current?.scrollIntoView?.({ block: "nearest" });
   }, [review]);
-  const [records, setRecords] = useState<Record<string, Draft>>({});
+  // A verified live overlay belongs to these exact file bytes and this read only.
+  // It is never the baseline for editing the save file.
+  const records = useRef<Record<string, Draft>>({});
+  const displayedInventory = useRef(saveState?.inventory);
+  function recordKey(sample: Sample) {
+    const source = displayedInventory.current;
+    return desktop ? JSON.stringify([source?.save_id, source?.source_sha256, source?.snapshot_id,
+      sample.saveEntry?.slot_index, sample.saveEntry?.record_hex]) : sample.seed;
+  }
+  function ownsCurrentRecord(latest = saveState?.inventory) {
+    const shown = displayedInventory.current;
+    const entry = latest?.entries.find(entry => entry.slot_index === current.saveEntry?.slot_index);
+    return !!shown && !!latest && sameSnapshot(shown, latest) &&
+      !!entry && entry.record_hex === current.saveEntry?.record_hex;
+  }
+  function requireCurrentRecord() {
+    const latest = saveSession?.getSnapshot().inventory;
+    if (!latest || !ownsCurrentRecord(latest)) throw Error("SAVE_VIEW_STALE");
+    return latest;
+  }
+  function baselineFor(sample: Sample, mode = writeMode) {
+    const overlay = !desktop || mode === "live" ? records.current[recordKey(sample)] : undefined;
+    return overlay ?? fromSample(sample);
+  }
   useEffect(() => {
     setReview(false);
     setReviewedPlan(null);
@@ -258,6 +286,11 @@ export function Editor({ cart }: { cart: Sample[] }) {
     setSaveStateConfirmed(false);
   }, [draft, writeMode]);
   function setWriteMode(next: WriteMode) {
+    if (next === writeMode) return;
+    const baseline = baselineFor(current, next);
+    setSaved(baseline);
+    // Keep unsaved edits visible; an applied live overlay alone is not a file draft.
+    if (!changed) setDraftRaw(baseline);
     setWriteModeRaw(next);
     try {
       localStorage.setItem(WRITE_MODE_KEY, next);
@@ -295,8 +328,20 @@ export function Editor({ cart }: { cart: Sample[] }) {
     setTemporaryRaw(next);
   }
   useEffect(() => {
-    if (!desktop || !saveState?.inventory) return;
-    const entries = saveState.inventory.entries.map(entrySample);
+    if (!desktop) return;
+    activeRead.current++;
+    records.current = {};
+    displayedInventory.current = saveState?.inventory;
+    setPending(null);
+    setReview(false);
+    setReviewedPlan(null);
+    setLivePlan(null);
+    setSaveStateConfirmed(false);
+    setUndoStack([]);
+    setRedoStack([]);
+    setDeleteLockedPrompt(0);
+    setDeleteLockedConfirmed(false);
+    const entries = saveState?.inventory?.entries.map(entrySample) ?? [];
     setInventory(entries);
     if (entries.length)
       choose(
@@ -304,8 +349,8 @@ export function Editor({ cart }: { cart: Sample[] }) {
           (s) => s.saveEntry?.slot_index === current.saveEntry?.slot_index,
         ) || entries[0],
       );
-    else setMessage("当前存档没有绘卷。");
-  }, [saveState?.inventory?.snapshot_id]);
+    else if (saveState?.inventory) setMessage("当前存档没有绘卷。");
+  }, [saveState?.selected?.save_id, saveState?.inventory]);
   // The preview shows the dungeon content of the drafted seed and playthrough;
   // a changed seed is read again shortly after typing stops.
   const [previewSample, setPreviewSample] = useState<Sample | null>(null);
@@ -367,7 +412,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
     });
   function choose(s: Sample) {
     setCurrent(s);
-    const next = records[s.seed] || fromSample(s);
+    const next = baselineFor(s);
     setSaved(next);
     setDraftRaw(next);
     setUndoStack([]);
@@ -383,7 +428,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
           setCurrent(enriched);
           setTemporaryRaw(temporaryFromSample(enriched));
         })
-        .catch((e) => setMessage(errorText(e)));
+        .catch((e) => { if (activeRead.current === read) setMessage(errorText(e)); });
     }
   }
   async function validate() {
@@ -437,6 +482,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
         }
       if (desktop) {
         if (!current.saveEntry) throw Error("请先读取真实存档。");
+        const source = requireCurrentRecord();
         setBackendBusy(true);
         // An untouched recommended level keeps its stored raw value, so it
         // needs no conversion; only a changed level asks the search worker.
@@ -476,6 +522,8 @@ export function Editor({ cart }: { cart: Sample[] }) {
             ? { marks: { locked: draft.locked, favorite: draft.favorite } }
             : {}),
         } as ProtectedParams<"save.prepare_edit">["edits"][number];
+        if (identity !== draftIdentity.current) throw Error("SAVE_VIEW_STALE");
+        requireCurrentRecord();
         if (writeMode === "live") {
           const inventory = saveState?.inventory;
           if (!inventory) throw Error("请先读取真实存档。");
@@ -497,7 +545,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
           setLivePlan({ operation_id: plan.operation_id, plan_digest: plan.plan_digest });
         } else {
           setMessage("正在生成写入计划…");
-          const plan = await saveSession!.prepareEdit([edit]);
+          const plan = await saveSession!.prepareEdit([edit], source);
           if (identity !== draftIdentity.current)
             throw Error("内容已改变，请重新核对修改。");
           setReviewedPlan(plan.plan_id);
@@ -670,7 +718,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
       setPending(s);
       return;
     }
-    const base = isCurrent ? draft : records[s.seed] || fromSample(s);
+    const base = isCurrent ? draft : baselineFor(s);
     const next =
       mark === "favorite"
         ? { ...base, favorite: !base.favorite, locked: base.favorite ? base.locked : true }
@@ -795,8 +843,11 @@ export function Editor({ cart }: { cart: Sample[] }) {
   }
   async function applyLive() {
     if (!livePlan) return;
+    const identity = draftIdentity.current;
+    const key = recordKey(current);
     setBackendBusy(true);
     try {
+      requireCurrentRecord();
       let result = countEditOf(
         await runtimeObserver!.run(() =>
           window.operations.execute({
@@ -815,11 +866,13 @@ export function Editor({ cart }: { cart: Sample[] }) {
             }),
           ),
         );
+      if (identity !== draftIdentity.current) return;
+      requireCurrentRecord();
       setReview(false);
       setLivePlan(null);
       if (result.state === "verified") {
         setSaved(structuredClone(draft));
-        setRecords({ ...records, [current.seed]: structuredClone(draft) });
+        records.current[key] = structuredClone(draft);
         setMessage(
           "已写入游戏。在游戏里重新打开绘卷菜单即可看到；到神社休息（游戏存档）后才会写进存档文件。",
         );
@@ -837,6 +890,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
     if (!reviewedPlan || !saveStateConfirmed) return;
     setBackendBusy(true);
     try {
+      requireCurrentRecord();
       const receipt = await saveSession!.commit(reviewedPlan);
       setReview(false);
       setReviewedPlan(null);
@@ -857,6 +911,8 @@ export function Editor({ cart }: { cart: Sample[] }) {
     }
   }
   async function prepareDelete() {
+    try { requireCurrentRecord(); }
+    catch (error) { setMessage(errorText(error)); return; }
     const targets = deleteSlots.length ? deleteSlots : current.saveEntry ? [current.saveEntry.slot_index] : [];
     const locked = inventory.filter(
       (s) => s.saveEntry && targets.includes(s.saveEntry.slot_index) && s.saveEntry.locked,
@@ -870,12 +926,16 @@ export function Editor({ cart }: { cart: Sample[] }) {
     setBackendBusy(true);
     try {
       if (!current.saveEntry) return;
+      const source = requireCurrentRecord();
+      const identity = draftIdentity.current;
       const plan = await saveSession!.prepareDelete(
         (deleteSlots.length ? deleteSlots : [current.saveEntry.slot_index]) as [
           number,
           ...number[],
         ],
+        source,
       );
+      if (identity !== draftIdentity.current) return;
       setReviewedPlan(plan.plan_id);
       setReview(true);
       setSaveStateConfirmed(false);
@@ -886,13 +946,14 @@ export function Editor({ cart }: { cart: Sample[] }) {
       setBackendBusy(false);
     }
   }
-  if (desktop && !saveState?.inventory?.entries.length)
+  // Do not mount mutation controls with a previous selection during source transitions.
+  if (desktop && (!saveState?.inventory?.entries.length || !ownsCurrentRecord()))
     return (
       <section className="editor-empty">
         <h2>选择存档中的绘卷</h2>
         <SavePicker />
         <p>
-          {saveState?.inventory
+          {saveState?.inventory && !saveState.inventory.entries.length
             ? "当前存档没有绘卷，可以先从购物车添加。"
             : "读取后可编辑词条和修改副本内容。"}
         </p>
@@ -1199,6 +1260,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
                           value={s.id}
                           candidates={candidates}
                           label={effectLabel}
+                          accessibleName={localize("词条") + " " + (i + 1)}
                           onPick={(candidate) => replaceEffect(i, candidate)}
                           placeholder="空槽"
                         />
@@ -1656,10 +1718,7 @@ export function Editor({ cart }: { cart: Sample[] }) {
               <button
                 onClick={() => {
                   setSaved(structuredClone(draft));
-                  setRecords({
-                    ...records,
-                    [current.seed]: structuredClone(draft),
-                  });
+                  records.current[recordKey(current)] = structuredClone(draft);
                   setReview(false);
                   setMessage("修改已应用到本次预览。");
                 }}

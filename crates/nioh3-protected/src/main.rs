@@ -39,6 +39,7 @@ non-production opt-in. Runtime can start without generation resources; its gener
 #[derive(Debug)]
 struct Options {
     role: Role,
+    development: bool,
     state_root: PathBuf,
     data_root: PathBuf,
     contract_dir: PathBuf,
@@ -157,6 +158,7 @@ fn parse_options(args: &[String], development_selected: bool) -> Result<Option<O
     let role = role.ok_or("--role is required")?;
     Ok(Some(Options {
         role,
+        development: dev_only,
         state_root: state_root.ok_or("--state-root (or NIOH3_STATE_ROOT) is required")?,
         data_root: data_root.ok_or("--data-root is required")?,
         contract_dir: contract_dir.ok_or("--contract-dir is required")?,
@@ -250,6 +252,9 @@ fn run(options: &Options) -> ExitCode {
                 &options.data_root,
                 engine.context().clone(),
             ) {
+                Ok(application) if options.development => {
+                    Box::new(application.with_development_faults())
+                }
                 Ok(application) => Box::new(application),
                 Err(error) => {
                     eprintln!("save startup failed: {error}");

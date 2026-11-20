@@ -95,7 +95,11 @@ impl SaveBackup for SaveBackupAdapter {
         // The copy is written exclusively and verified against the planned
         // bytes, so a partially written backup can never look complete.
         let backup_path = directory.join("SAVEDATA.BIN");
-        std::fs::write(&backup_path, raw).map_err(|error| io_error(&backup_path, error))?;
+        nioh3_save::transaction::write_durable(&backup_path, raw).map_err(|error| {
+            RuntimeError::LiveAddRejected {
+                detail: error.to_string(),
+            }
+        })?;
         let copied = std::fs::read(&backup_path).map_err(|error| io_error(&backup_path, error))?;
         if copied != raw {
             return Err(RuntimeError::LiveAddRejected {
@@ -116,10 +120,6 @@ impl SaveBackup for SaveBackupAdapter {
                 detail: error.to_string(),
             })?;
         let plaintext = decrypted.as_bytes().to_vec();
-        let decrypted_path = directory.join("decrypted.bin");
-        std::fs::write(&decrypted_path, &plaintext)
-            .map_err(|error| io_error(&decrypted_path, error))?;
-
         // Publish the same account/slot/hash manifest the offline operations
         // publish, so the existing backup manager can restore this checkpoint.
         let manifest = BackupManifest {

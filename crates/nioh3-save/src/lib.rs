@@ -1,17 +1,9 @@
-//! Bounded read-only model of a decrypted Nioh 3 user save.
+//! Nioh 3 save codecs, inventory reads, and guarded offline transactions.
 //!
-//! This crate owns only the read side of the shipped save model: the fixed
-//! inventory region, the account identity carried by a mapped scroll record, the
-//! template records and the save-discovery path rules. It never writes a save,
-//! never launches the game and never decrypts a file. The shipped encrypt/decrypt
-//! component stays the source of the decrypted blob, exactly as in the Python
-//! product (`nioh3_scroll_editor/savegame.SaveCrypto`), and every byte handed to
-//! this crate is validated before it is indexed.
-//!
-//! Field offsets mirror `emaki_exchange.py` and
-//! `nioh3_scroll_editor/savegame.py` at the v0.7.5 baseline. Record-level field
-//! access is delegated to `nioh3_domain::record::ScrollRecordBytes` so the two
-//! sides cannot drift.
+//! The crate validates and decrypts supported containers, interprets their
+//! records, and manages prepared writes, backups, rollback and recovery.
+//! The transaction host verifies save identity and source bytes, holds a
+//! single-writer lock, and checks the installed content before reporting success.
 
 pub mod backup;
 pub mod character;

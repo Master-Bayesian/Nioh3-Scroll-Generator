@@ -112,6 +112,7 @@ try {
     replacementSha256: replacementHash,
     applierExitCode: result.status,
     receiptStatus: receipt?.status ?? null,
+    receiptFailurePhase: receipt?.failurePhase ?? null,
     receiptError: receipt?.error ?? null,
     targetRestored: restoredHash === previousHash,
     restoredSha256: restoredHash,
@@ -122,6 +123,7 @@ try {
   assert.notEqual(result.status, 0, 'the applier reported success for a replacement that cannot start');
   assert.equal(result.status, 1, `unexpected applier exit code ${result.status}: ${result.stderr}`);
   assert.equal(receipt?.status, 'failed', JSON.stringify(record));
+  assert.equal(receipt?.failurePhase, 'start-replacement', 'The applier must reach the real failing image launch');
   assert.equal(record.targetRestored, true, JSON.stringify(record));
   assert.equal(leftovers.length, 0, `the failing update left sibling files behind: ${leftovers}`);
 
