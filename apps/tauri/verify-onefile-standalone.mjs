@@ -1,5 +1,6 @@
 /** Accept the outer EXE alone, with cold owned caches and an unrelated CWD. */
 import assert from 'node:assert/strict';
+import {selectLoadoutScene} from './loadout-scene-control.mjs';
 import {spawn, execFileSync} from 'node:child_process';
 import {mkdir, mkdtemp, copyFile, readFile, readdir, writeFile, unlink, stat} from 'node:fs/promises';
 import {join, resolve, basename, dirname, relative, isAbsolute} from 'node:path';
@@ -170,12 +171,12 @@ async function launch(f, label) {
         if (value.job_id && value.state !== 'completed') throw new Error(`Read-only request did not complete: ${method}`);
         return value.job_id ? value.result : value;
       };
-      const catalog = async (query) => (await invoke('save.loadout_bundles', {catalog_query:query})).catalog;
-      const strong = await catalog('锁镰 力攻击');
-      const water = await catalog('燕返·水');
+      const choices = await invoke('save.loadout_bundles', {catalog_query:'锁镰 力攻击'});
+      const strong = choices.catalog;
+      const water = (await invoke('save.loadout_bundles', {catalog_query:'燕返·水'})).catalog;
       return {preview: await window.review.preview({seed:1, rarity:3, level:180, retain:false}),
         saves: await invoke('save.discover', {}), runtime: await invoke('runtime.status', {}),
-        catalog: {total:strong.total, status:strong.source_status, strong:strong.selections, water:water.selections}};
+        catalog: {total:strong.total, status:strong.source_status, choices:choices.bundles, strong:strong.selections, water:water.selections}};
     });
     assert.equal(record.requests.preview.candidate.seed, 1); assert.deepEqual(record.requests.saves.saves, []);
     assert.equal(record.requests.runtime.safe_to_shutdown, true);
@@ -205,6 +206,12 @@ async function launch(f, label) {
       await variant.waitFor();
       assert.equal(await variant.getByRole('button').count(), water.plan_ready ? 1 : 0);
       record.catalogUi = {selected:'kusarigama-strong', waterAction:water.action, waterSelectable:water.plan_ready};
+      record.pickerSelections = [];
+      for (const descriptor of catalog.choices.filter(row => row.scene && !row.diagnostic)) {
+        await selectLoadoutScene(page, descriptor);
+        assert.equal(await page.getByRole('combobox', {name:'增益条件', exact:true}).inputValue(), descriptor.id);
+        record.pickerSelections.push(descriptor.id);
+      }
     }
     record.workerLog = (await readFile(join(f.profile,'logs','desktop.log'),'utf8')).split('\n').filter(line => line.includes('[worker-backend]'));
     assert.equal(record.workerLog.length, 3 * report.launches.filter(r => r.runtime === f.runtime).length);

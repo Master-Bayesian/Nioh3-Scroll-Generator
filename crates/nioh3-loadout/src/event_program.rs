@@ -685,6 +685,11 @@ impl EventProgram {
         Ok(event)
     }
 
+    pub fn all_fixed_events_scored(&self) -> bool {
+        matches!(self.document.mode, Mode::FixedContacts)
+            && self.fixed.iter().all(|event| event.scored)
+    }
+
     pub fn is_single_fixed_contact(&self) -> bool {
         matches!(self.document.mode, Mode::FixedContacts)
             && matches!(self.fixed.as_slice(), [event] if event.scored)

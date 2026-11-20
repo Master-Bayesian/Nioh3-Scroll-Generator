@@ -68,7 +68,7 @@ fn the_same_admitted_state_builds_the_exact_prepared_device_packet() {
     engine
         .prepare_eligible(&candidate, &pack, &Limits::NONE, &mut old)
         .unwrap();
-    let expected = engine.prepared_device_contact(&mut old).unwrap();
+    let expected = engine.prepared_device_contacts(&mut old).unwrap();
     let mut shared = engine.work();
     let actual = engine
         .prepare_for_search(
@@ -79,10 +79,10 @@ fn the_same_admitted_state_builds_the_exact_prepared_device_packet() {
             Some(|_: &SetState| true),
         )
         .unwrap()
-        .device_contact()
+        .device_contacts()
         .unwrap();
     assert_eq!(actual, expected);
-    assert!(actual.is_some());
+    assert_eq!(actual.len(), 1);
     assert_eq!(shared.preparation_stats().pipeline_runs, 1);
 }
 

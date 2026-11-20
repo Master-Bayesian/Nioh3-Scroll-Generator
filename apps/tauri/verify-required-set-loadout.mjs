@@ -1,4 +1,5 @@
 /** Exercise the required-set search through a real WebView2 and protected worker. */
+import {selectLoadoutScene} from './loadout-scene-control.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -104,6 +105,7 @@ try {
     };
   });
   await page.getByRole('button', { name: '配装优化', exact: true }).click();
+  await selectLoadoutScene(page, JSON.parse(await readFile(new URL('../../data/loadout/kusarigama-strong/bundle.json', import.meta.url), 'utf8')));
   const context = page.getByTestId('loadout-context');
   await page.waitForFunction(() => {
     const state = document.querySelector('[data-testid="loadout-discovery-panel"]')?.dataset.state;

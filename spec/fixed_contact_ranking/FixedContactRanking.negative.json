@@ -1,0 +1,6 @@
+[
+  {"name":"wrong-candidate","overrides":{"WrongOwner":true},"expected":"Invariant OwnershipAndOrder is violated"},
+  {"name":"overwrite-first-hit","overrides":{"ReplacePrefix":true},"expected":"Invariant OwnershipAndOrder is violated"},
+  {"name":"answer-after-failed-hit","overrides":{"ForgetFailure":true},"expected":"Invariant OwnershipAndOrder is violated"},
+  {"name":"commit-partial-cancel","overrides":{"PublishCancelled":true},"expected":"Invariant NoPartialRank is violated"}
+]

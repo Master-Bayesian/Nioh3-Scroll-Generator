@@ -98,7 +98,10 @@ pub fn export(
     save_copy: &Path,
     out: &Path,
     fixture: Option<&Path>,
+    id: &str,
 ) -> Result<(), HostError> {
+    let bundle = loadout::find_bundle(data, &json!({"bundle":id}))?;
+    let dir = bundle.directory(data);
     let saved = fs::read(save_copy).map_err(failed)?;
     let plain = nioh3_save::decrypt_container(&saved).map_err(HostError::from_save)?;
     fs::create_dir(out).map_err(failed)?;
@@ -107,13 +110,18 @@ pub fn export(
             inner: memory,
             reads: Default::default(),
         };
-        let capture_role = || -> Result<(), HostError> {
-            let SnapshotOutcome::Ready(snap) =
+        let mut observed = None;
+        let mut capture_role = || -> Result<(), HostError> {
+            let SnapshotOutcome::Ready(snapshot) =
                 read_combat_snapshot(&memory).map_err(HostError::from_runtime)?
             else {
                 return Err(failed("current role is not stable"));
             };
-            json_file(&out.join("snapshot.json"), &*snap)?;
+            observed = Some(snapshot);
+            let snap = observed
+                .as_deref()
+                .ok_or_else(|| failed("missing observed role"))?;
+            json_file(&out.join("snapshot.json"), snap)?;
             if !loadout_context::outfit_is_owned(
                 &snap.inputs.inventory,
                 snap.inputs.active_bank as usize * 0xf70,
@@ -121,17 +129,15 @@ pub fn export(
             )? {
                 return Err(failed("equipped records differ from the save copy"));
             }
-            let id = "kusarigama-strong";
-            let dir = data.join("loadout").join(id);
-            let source = loadout_first_use::read(&memory, &snap, &dir)?;
+            let source = loadout_first_use::read(&memory, snap, &dir)?;
             json_file(&out.join("source-inputs.json"), &source.report())?;
-            let context = source.context(&memory, &snap, data, &dir)?;
+            let context = source.context(&memory, snap, data, &dir)?;
             let engine = Engine::open_with_context(&dir, &context).map_err(failed)?;
-            loadout_first_use::verify_equipped(&engine, &snap)?;
+            loadout_first_use::verify_equipped(&engine, snap)?;
             let bundle = out.join("bundle");
             let private = bundle.join("context");
             fs::create_dir_all(&private).map_err(failed)?;
-            for entry in fs::read_dir(dir).map_err(failed)? {
+            for entry in fs::read_dir(&dir).map_err(failed)? {
                 let entry = entry.map_err(failed)?;
                 if entry.file_type().map_err(failed)?.is_file() {
                     fs::copy(entry.path(), bundle.join(entry.file_name())).map_err(failed)?;
@@ -163,6 +169,18 @@ pub fn export(
             Ok(())
         };
         let result = capture_role();
+        if result.is_err() {
+            if let Some(snapshot) = observed {
+                let additional = loadout_first_use::sample_encounter(&memory, &snapshot, &dir);
+                json_file(
+                    &out.join("supplemental-encounter.json"),
+                    &json!({
+                        "scene":id, "sampled":additional.is_ok(), "admitted":false,
+                        "error":additional.err().map(|e| e.to_string())
+                    }),
+                )?;
+            }
+        }
         let replay = memory.save(out);
         let info = json!({"ready":result.is_ok(),"replay_saved":replay.is_ok(),"scope":if fixture.is_some(){"retained memory"}else{"ordinary verified game read"},"save_sha256":sha256(&saved),"save_writes":0,"game_writes":0,"error":result.as_ref().err().map(ToString::to_string),"replay_error":replay.as_ref().err().map(ToString::to_string)});
         json_file(&out.join("receipt.json"), &info)?;

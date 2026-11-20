@@ -1,4 +1,5 @@
 /** Read a selected save through the packaged broker and observe the real refresh reply. */
+import {selectLoadoutScene} from './loadout-scene-control.mjs';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {mkdir, copyFile, readFile, writeFile, mkdtemp} from 'node:fs/promises';
@@ -50,6 +51,7 @@ try {
     };
   });
   await page.getByRole('button',{name:'配装优化',exact:true}).click();
+  await selectLoadoutScene(page, JSON.parse(await readFile(new URL('../../data/loadout/kusarigama-strong/bundle.json', import.meta.url), 'utf8')));
   await page.waitForFunction(() => !!window.__refreshJob,null,{timeout:60000});
   const first = await page.evaluate(() => window.__refreshJob);
   report.firstRead = {id:first.job_id, state:first.state, reason:first.result?.reason, source:first.result?.source};

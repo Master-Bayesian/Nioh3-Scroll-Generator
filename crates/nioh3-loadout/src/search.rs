@@ -2278,34 +2278,41 @@ impl<'a> Search<'a> {
             }
         };
         let mut outcomes = vec![Outcome::Damage(0); candidates.len()];
-        let mut contacts = Vec::new();
-        let mut lanes = Vec::new();
-        for (index, candidate) in candidates.iter().enumerate() {
-            check_stopped()?;
-            match self
-                .prepare_candidate(candidate, request, work)
-                .and_then(PreparedCandidate::device_contact)
-            {
-                Ok(Some(words)) => {
-                    contacts.push(words);
-                    lanes.push(index);
+        let chunk = (4096 / self.engine.hit_count().max(1)).max(1);
+        for (group, group_outcomes) in candidates.chunks(chunk).zip(outcomes.chunks_mut(chunk)) {
+            let mut contacts = Vec::new();
+            let mut lanes = Vec::new();
+            for (index, candidate) in group.iter().enumerate() {
+                check_stopped()?;
+                match self
+                    .prepare_candidate(candidate, request, work)
+                    .and_then(PreparedCandidate::device_contacts)
+                {
+                    Ok(words) => {
+                        lanes.extend(std::iter::repeat_n(index, words.len()));
+                        contacts.extend(words);
+                    }
+                    Err(outcome) => group_outcomes[index] = outcome,
                 }
-                Ok(None) => {}
-                Err(outcome) => outcomes[index] = outcome,
             }
-        }
-        check_stopped()?;
-        let scores = device.run(&contacts)?;
-        check_stopped()?;
-        for (index, score) in lanes.into_iter().zip(scores) {
-            let damage = f32::from_bits(score.damage.total);
-            outcomes[index] = if score.bail != 0 {
-                Outcome::NoPath
-            } else if damage.is_finite() {
-                Outcome::Damage((0.0f32 + damage).to_bits())
-            } else {
-                Outcome::Refused("full MAIN produced non-finite damage")
-            };
+            check_stopped()?;
+            let scores = device.run(&contacts)?;
+            check_stopped()?;
+            if scores.len() != lanes.len() {
+                return Err("CUDA returned an incomplete contact batch".into());
+            }
+            for (index, score) in lanes.into_iter().zip(scores) {
+                if let Outcome::Damage(prior) = group_outcomes[index] {
+                    let total = f32::from_bits(prior) + f32::from_bits(score.damage.total);
+                    group_outcomes[index] = if score.bail != 0 {
+                        Outcome::NoPath
+                    } else if total.is_finite() {
+                        Outcome::Damage(total.to_bits())
+                    } else {
+                        Outcome::Refused("full MAIN produced non-finite damage")
+                    };
+                }
+            }
         }
         Ok(outcomes)
     }

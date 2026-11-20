@@ -1,4 +1,4 @@
-//! Materialize one declared direct-contact encounter in the translated MAIN's
+//! Materialize the selected, declared PC202 encounter in the translated MAIN's
 //! virtual address space. Only the compiled PC202 recipe can request live
 //! reads. All character and shared table values come from the current process.
 use super::*;
@@ -15,8 +15,70 @@ struct Recipe {
     form: i32,
     held_slot: u32,
     item_category: u32,
+    selected_action: SelectedAction,
     tables: Vec<ParameterTable>,
     fields: Vec<Field>,
+}
+#[derive(Deserialize)]
+struct SelectedAction {
+    controller_link: u64,
+    first_index: u16,
+    packet_row: usize,
+    parameter: String,
+    rows: Vec<String>,
+}
+
+// These are addresses in the scorer's private image. The game process only
+// supplies the character, never the player action being simulated.
+const ACTION_STATE: u64 = 0x6000_0000_0000;
+const ACTION_PARAM: u64 = ACTION_STATE + 0x1000;
+const ACTION_TABLE: u64 = ACTION_STATE + 0x10000;
+const ACTION_ROWS: u64 = ACTION_STATE + 0x100000;
+
+fn static_bytes(hex: &str, size: usize) -> R<Vec<u8>> {
+    if hex.len() != 2 * size || !hex.is_ascii() {
+        return Err(layout("invalid compiled action bytes"));
+    }
+    (0..hex.len())
+        .step_by(2)
+        .map(|i| {
+            u8::from_str_radix(&hex[i..i + 2], 16)
+                .map_err(|_| layout("invalid compiled action byte"))
+        })
+        .collect()
+}
+
+impl SelectedAction {
+    fn install(&self, image: &mut Image, packet_row_address: u64, packet_row: &[u8; 192]) -> R<()> {
+        image.pointer(self.controller_link, ACTION_STATE)?;
+        image.pointer(ACTION_STATE + 0x20, ACTION_PARAM)?;
+        image.set(ACTION_PARAM, &static_bytes(&self.parameter, 336)?)?;
+        image.pointer(ACTION_STATE + 0x40, ACTION_TABLE)?;
+        image.set(ACTION_STATE + 0x48, &self.first_index.to_le_bytes())?;
+        let count = u16::try_from(self.rows.len())
+            .map_err(|_| layout("invalid static action row count"))?;
+        image.set(ACTION_STATE + 0x4a, &count.to_le_bytes())?;
+        if self.packet_row >= self.rows.len() {
+            return Err(layout("invalid first action row"));
+        }
+        for (i, raw) in self.rows.iter().enumerate() {
+            let bytes = static_bytes(raw, 192)?;
+            let address = if i == self.packet_row {
+                if bytes != packet_row {
+                    return Err(layout("attack parameter and packet use different rows"));
+                }
+                packet_row_address
+            } else {
+                ACTION_ROWS + 192 * i as u64
+            };
+            image.set(address, &bytes)?;
+            image.pointer(
+                ACTION_TABLE + 8 * (u64::from(self.first_index) + i as u64),
+                address,
+            )?;
+        }
+        Ok(())
+    }
 }
 #[derive(Deserialize)]
 struct ParameterTable {
@@ -53,14 +115,14 @@ enum Root {
     Teb,
 }
 impl Root {
-    fn live(self, s: &CombatSnapshot) -> Option<u64> {
+    fn live(self, s: &EncounterRole) -> Option<u64> {
         match self {
             Self::Module => Some(s.module_base),
-            Self::SourceActor => Some(s.roots.player),
-            Self::SourceOwner => Some(s.roots.owner),
-            Self::Stat => Some(s.roots.stat),
-            Self::D => Some(s.roots.materializer),
-            Self::Source => Some(s.roots.source),
+            Self::SourceActor => Some(s.player),
+            Self::SourceOwner => Some(s.owner),
+            Self::Stat => Some(s.stat),
+            Self::D => Some(s.materializer),
+            Self::Source => Some(s.source),
             Self::Packet
             | Self::TargetActor
             | Self::TargetOwner
@@ -196,7 +258,7 @@ impl Reader<'_> {
     }
 }
 impl ParameterTable {
-    fn install(&self, reader: &mut Reader<'_>, s: &CombatSnapshot, image: &mut Image) -> R<()> {
+    fn install(&self, reader: &mut Reader<'_>, s: &EncounterRole, image: &mut Image) -> R<()> {
         let ctx = reader.pointer(add(s.module_base, self.global_offset)?)?;
         let begin = reader.pointer(ctx)?;
         image.pointer(self.context, self.begin)?;
@@ -253,15 +315,22 @@ impl ParameterTable {
     }
 }
 
-fn recipe() -> R<&'static Recipe> {
-    static RECIPE: OnceLock<Result<Recipe, String>> = OnceLock::new();
-    RECIPE
+fn recipe(key: &[u8; 32]) -> R<&'static Recipe> {
+    static RECIPES: OnceLock<Result<Vec<Recipe>, serde_json::Error>> = OnceLock::new();
+    RECIPES
         .get_or_init(|| {
-            serde_json::from_str(include_str!("kusarigama_strong_pc202.json"))
-                .map_err(|e| e.to_string())
+            let mut recipes: Vec<Recipe> =
+                serde_json::from_str(include_str!("samurai_direct_pc202.json"))?;
+            recipes.push(serde_json::from_str(include_str!(
+                "kusarigama_strong_pc202.json"
+            ))?);
+            Ok(recipes)
         })
         .as_ref()
-        .map_err(|_| layout("invalid built-in PC202 direct encounter"))
+        .map_err(|_| layout("invalid built-in PC202 encounters"))?
+        .iter()
+        .find(|recipe| &recipe.action_row_key == key)
+        .ok_or_else(|| layout("selected attack has no encounter with verified inputs"))
 }
 pub fn direct_encounter(
     memory: &dyn InventoryMemory,
@@ -271,7 +340,46 @@ pub fn direct_encounter(
     row_key: &[u8; 32],
     row: &[u8; 192],
 ) -> R<Encounter> {
-    let r = recipe()?;
+    let equipped =
+        s.inputs.active_bank as usize * BANK_BYTES + s.inputs.held_weapon_slot as usize * 0xe8;
+    let role = EncounterRole {
+        module_base: s.module_base,
+        player: s.roots.player,
+        owner: s.roots.owner,
+        stat: s.roots.stat,
+        materializer: s.roots.materializer,
+        source: s.roots.source,
+        form: s.inputs.mode,
+        held_slot: s.inputs.held_weapon_slot,
+        hell_weapon: s.inputs.inventory[equipped + 0x1a] & 0x10 != 0,
+    };
+    materialize_encounter(memory, &role, stat, category, row_key, row)
+}
+
+/// The roots already verified by the combat snapshot reader. Host replays
+/// can supply the same logical inputs from an independently retained actor.
+#[derive(Deserialize)]
+pub struct EncounterRole {
+    pub module_base: u64,
+    pub player: u64,
+    pub owner: u64,
+    pub stat: u64,
+    pub materializer: u64,
+    pub source: u64,
+    pub form: i32,
+    pub held_slot: u32,
+    pub hell_weapon: bool,
+}
+
+pub fn materialize_encounter(
+    memory: &dyn InventoryMemory,
+    s: &EncounterRole,
+    stat: &[u8],
+    category: u32,
+    row_key: &[u8; 32],
+    row: &[u8; 192],
+) -> R<Encounter> {
+    let r = recipe(row_key)?;
     let root = |key: &str| {
         r.roots
             .get(key)
@@ -279,8 +387,8 @@ pub fn direct_encounter(
             .ok_or_else(|| layout("missing virtual encounter anchor"))
     };
     if stat.len() != 0x900
-        || s.inputs.mode != r.form
-        || s.inputs.held_weapon_slot != r.held_slot
+        || s.form != r.form
+        || s.held_slot != r.held_slot
         || category != r.item_category
     {
         return Err(layout(
@@ -292,34 +400,30 @@ pub fn direct_encounter(
         pointers: BTreeMap::new(),
     };
     let mut image = Image::default();
-    if row_key != &r.action_row_key {
-        return Err(layout(
-            "selected damage row differs from this encounter's packet and event rules",
-        ));
-    }
     let aad = root("attack_data")?;
     image.pointer(add(root("packet")?, 0x190)?, aad)?;
-    image.set(aad, row)?;
+    r.selected_action.install(&mut image, aad, row)?;
     let mut bindings = BTreeMap::new();
     let mut live_objects = BTreeMap::new();
     for (name, address) in [
         ("module", s.module_base),
-        ("source_actor", s.roots.player),
-        ("source_owner", s.roots.owner),
-        ("stat", s.roots.stat),
-        ("source", s.roots.source),
-        ("d", s.roots.materializer),
+        ("source_actor", s.player),
+        ("source_owner", s.owner),
+        ("stat", s.stat),
+        ("source", s.source),
+        ("d", s.materializer),
     ] {
         let canonical = root(name)?;
         bindings.insert(canonical, address);
         live_objects.insert(address, canonical);
     }
-    let equipped =
-        s.inputs.active_bank as usize * BANK_BYTES + s.inputs.held_weapon_slot as usize * 0xe8;
-    let hell = u32::from(s.inputs.inventory[equipped + 0x1a] & 0x10 != 0);
+    let hell = u32::from(s.hell_weapon);
     let flags = hell << 16;
     let module = root("module")?;
-    for key in ["stat", "d", "packet", "stack", "teb"] {
+    if let Some(teb) = r.roots.get("teb") {
+        image.page(*teb);
+    }
+    for key in ["stat", "d", "packet", "stack"] {
         image.page(root(key)?);
     }
     for field in &r.fields {

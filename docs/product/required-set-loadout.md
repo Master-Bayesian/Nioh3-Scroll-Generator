@@ -49,9 +49,21 @@ The PC202 damage parameter bank resolves 11,909 direct row references across
 11,885 catalog actions. The lookup key includes the resource, action number,
 parameter digest and row selector. An event plan separately specifies the
 ordered landed contacts, projectile ownership, resource use and buff phases.
-The catalog spans more actions than an empty player profile can currently
-score. The first-use encounter currently available in the packaged app is the
-Ninja kusarigama first strong contact without temporary status.
+The cross-weapon candidate includes Ninja kusarigama strong and six Samurai
+mid-stance choices: katana quick, strong and Sword Ki, odachi quick and
+strong, and dual swords quick. These first-use scenarios require the selected
+weapon type in slot one and no temporary status. Their public bundles contain
+the attack layout, benchmark opponent, tables and scorers. Both source maps,
+the held weapon, numerical buffers and progression are supplied by the role
+reader. Per-scene current-player acceptance is recorded separately from
+retained-role numerical parity.
+
+PC202 helpers at RVAs 2E98F0 and 2E9948 also inspect the attack parameter
+record and the action's damage-row list via the actor's action controller.
+Each encounter installs the selected 336-byte parameter and its static
+resource row order in virtual storage. A player's idle animation is not a
+source of the selected skill's parameters. For the expanded kernels each
+contact selects its row through the mutable packet descriptor pointer.
 
 To compile an existing event sequence, build the loadout example
 `compile_action_rows` and run `tools/compile_loadout_event_inputs.py` with the
@@ -61,7 +73,8 @@ The generated `hits.txt` keeps writes at the addresses consumed by the
 evaluator. Preserve equipment and phase inputs from the current role. An
 earlier pointer-relocation experiment scored katana mid strong as 761 versus
 the original 1196, despite containing the correct row bytes at the new address.
-Qualify a new scene with its original per-contact components and the actual
+The expanded Samurai families declare this packet field writable and
+recheck the native values. Qualify a new scene with its original per-contact components and the actual
 device before exposing it as a ranking choice.
 
 Run the native harness with a PC202 fixture that preserves the original

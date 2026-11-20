@@ -14,7 +14,6 @@ import io
 import json
 import re
 import struct
-import sys
 import zipfile
 from pathlib import Path, PurePosixPath
 
@@ -179,7 +178,12 @@ def check_scene_layout(files: dict[str, bytes], layout: dict) -> dict:
     empty_actor_buffers = (len(addresses) == 72 and not any(addresses[56:])
                            and all(name in frame and not any(frame[name])
                                    for name in ("stat", "d0", "s_base", "d_base")))
-    return {"stat_address": stat, "damage_address": damage, "main_address": main, "hit_write_addresses": len(addresses_hit), "frame_sections": sorted(frame),
+    templates = plan.get("templates", [])
+    fixed_contacts = None
+    if plan.get("mode") == {"kind": "fixed_contacts"} and len(templates) == int(lines[0]) and all(
+            t.get("scored", True) is True and type(t.get("landed")) is bool and type(t.get("guard")) is bool for t in templates):
+        fixed_contacts = sum(t["guard"] and t["landed"] for t in templates)
+    return {"stat_address": stat, "damage_address": damage, "main_address": main, "hit_write_addresses": len(addresses_hit), "frame_sections": sorted(frame), "fixed_scored_contacts": fixed_contacts,
             "empty_actor_buffers_and_seeds": empty_actor_buffers}
 
 
@@ -217,7 +221,7 @@ def verify_scene(files: dict[str, bytes], scene_id: str, app_commit: str | None 
         exports[name] = sorted(actual)
     layout = check_scene_layout(files, contract["kernel_layout"])
     need(contract.get("compatibility_status") == "host_e2e_required", "a static contract cannot certify host numerical compatibility")
-    return {"scene_id": scene_id, "files": inventory(files), "contract_sha256": digest(files[CONTRACT]), "layout": layout, "exports": exports, "abi_expected": ABIS, "host_e2e_required": True}
+    return {"scene_id": scene_id, "descriptor": descriptor, "files": inventory(files), "contract_sha256": digest(files[CONTRACT]), "layout": layout, "exports": exports, "abi_expected": ABIS, "host_e2e_required": True}
 
 
 def verify_scene_directory(path: Path, app_commit: str | None = None, scene_id: str | None = None) -> dict:
@@ -267,15 +271,19 @@ def artifact_report(path: Path) -> dict:
     return {"artifact_kind": kind, "artifact_sha256": digest(raw), "payload_sha256": digest(payload), "source_commit": manifest["git"]["commit"], "scenes": scenes, "passed": True}
 
 
-def verify_host_receipt(artifact: dict, receipt: dict) -> None:
+def verify_host_receipt(artifact: dict, receipt: dict, scene_id: str | None = None) -> None:
     need(artifact["artifact_kind"] == "onefile", "host receipt must bind the final outer EXE")
-    need(receipt.get("release_ready") is True and receipt.get("mode") == "player" and receipt.get("private_resources_copied") is False, "engineering/private-fixture evidence cannot authorize a player release")
+    accepted = (receipt.get("release_ready") is True if scene_id is None else receipt.get("scene_player_verified") is True)
+    need(accepted and receipt.get("mode") == "player" and receipt.get("private_resources_copied") is False, "engineering/private-fixture evidence cannot authorize a player release")
     fresh = receipt.get("fresh_install", {})
     need(fresh.get("passed") is True and fresh.get("source") == "live" and fresh.get("searches_complete") is True and fresh.get("private_resources_copied") is False and fresh.get("provisioned_by") == "product", "fresh player install has no accepted product provisioning/search")
     need(receipt.get("schema") == HOST_SCHEMA and receipt.get("passed") is True, "packaged numerical host receipt absent or failed")
     need(receipt.get("outer_sha256") == artifact["artifact_sha256"] and receipt.get("source_commit") == artifact["source_commit"], "host receipt belongs to another EXE/commit")
     need(receipt.get("environment", {}).get("platform") == "win32" and receipt.get("runtime_overrides") == [], "host receipt did not use the packaged Windows runtime")
     actual_scenes = {entry["scene_id"]: entry for entry in artifact["scenes"]}
+    if scene_id is not None:
+        need(scene_id in actual_scenes, "requested scene is absent from the artifact")
+        actual_scenes = {scene_id: actual_scenes[scene_id]}
     need(bool(actual_scenes), "optimizer host acceptance requires at least one shipped scene")
     covered = receipt.get("scenes", [])
     need(len(covered) == len(actual_scenes) and {entry.get("scene_id") for entry in covered} == set(actual_scenes), "host receipt does not cover every shipped scene")
@@ -299,7 +307,10 @@ def verify_host_receipt(artifact: dict, receipt: dict) -> None:
             need(executed.get("schema") == "nioh3-loadout-execution/v1" and executed.get("scope") == "prepared_exact_sweep", "missing native execution receipt")
             need(executed.get("backend") == backend and executed.get("planned") == run["answered"] and executed.get("completed") == run["answered"], "execution receipt counters differ from search")
             if backend == "card":
-                need(executed.get("native_calls", 0) > 0 and executed.get("submitted_contacts") == run["answered"] and executed.get("completed_contacts") == run["answered"] and executed.get("failed_batches") == 0 and executed.get("reuse_enabled") is False, "CUDA module did not execute every expected contact")
+                contacts = expected["layout"].get("fixed_scored_contacts")
+                need(type(contacts) is int and contacts > 0, "CUDA acceptance needs a fixed scored contact count")
+                count = contacts * run["answered"]
+                need(executed.get("native_calls", 0) > 0 and executed.get("submitted_contacts") == count and executed.get("completed_contacts") == count and executed.get("failed_batches") == 0 and executed.get("reuse_enabled") is False, "CUDA module did not execute every expected contact")
             else:
                 need(executed.get("cpu_executed_candidates", 0) > 0 and executed.get("cpu_executed_candidates", 0) + executed.get("cpu_certified_candidates", 0) == run["answered"], "CPU execution/certificate counts differ from search")
             library = "main_cpu.dll" if backend == "cpu" else "main_device.dll"
@@ -344,6 +355,7 @@ def main() -> int:
     check.add_argument("artifact", type=Path)
     check.add_argument("--host-receipt", type=Path)
     check.add_argument("--require-host-e2e", action="store_true")
+    check.add_argument("--verify-player-scene", help="verify one scene receipt without granting full release acceptance")
     check.add_argument("--output", type=Path)
     args = parser.parse_args()
     try:
@@ -360,7 +372,11 @@ def main() -> int:
         else:
             report = artifact_report(args.artifact)
             need(bool(report["scenes"]), "optimizer acceptance requires at least one shipped scene")
-            if args.require_host_e2e or args.host_receipt:
+            if args.verify_player_scene:
+                need(args.host_receipt is not None and not args.require_host_e2e, "per-scene check requires its own host receipt")
+                verify_host_receipt(report, json.loads(args.host_receipt.read_bytes()), args.verify_player_scene)
+                report.update(verified_player_scene=args.verify_player_scene, release_ready=False, host_e2e_passed=False)
+            elif args.require_host_e2e or args.host_receipt:
                 need(args.host_receipt is not None, "final release requires --host-receipt from packaged numerical E2E")
                 verify_host_receipt(report, json.loads(args.host_receipt.read_bytes()))
                 report["host_e2e_passed"] = True

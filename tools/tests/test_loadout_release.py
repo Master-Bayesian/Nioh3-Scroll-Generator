@@ -67,7 +67,8 @@ def scene_files() -> dict[str, bytes]:
     files["bundle.json"] = json.dumps({"id": "kusarigama-strong"}).encode()
     files["frame.bin"] = frame
     files["hits.txt"] = b"1\n30298\n0\n"
-    files["event_plan.json"] = json.dumps({"main_address": 0x30000, "hit_values_sha256": gate.digest(files["hits.txt"])}).encode()
+    files["event_plan.json"] = json.dumps({"main_address": 0x30000, "hit_values_sha256": gate.digest(files["hits.txt"]),
+        "mode": {"kind": "fixed_contacts"}, "templates": [{"landed": True, "guard": True}]}).encode()
     for name, symbols in gate.EXPORTS.items():
         files[name] = pe_fixture(symbols)
     return files
@@ -242,6 +243,18 @@ class LoadoutReleaseTests(unittest.TestCase):
                    "scenes": [{"scene_id": "kusarigama-strong", "files": scene["files"], "runs": runs}],
                    "no_private_profile": {"ran": True, "false_complete": False}}
         gate.verify_host_receipt(artifact, receipt)
+        multi = copy.deepcopy(artifact)
+        multi["scenes"][0]["layout"]["fixed_scored_contacts"] = 2
+        with self.assertRaisesRegex(ValueError, "every expected contact"):
+            gate.verify_host_receipt(multi, receipt)
+        paired = copy.deepcopy(receipt)
+        paired["scenes"][0]["runs"][1]["execution_receipt"].update(submitted_contacts=80, completed_contacts=80)
+        gate.verify_host_receipt(multi, paired)
+        multi["scenes"].append(dict(scene, scene_id="another-action"))
+        paired.update(release_ready=False, scene_player_verified=True)
+        gate.verify_host_receipt(multi, paired, "kusarigama-strong")
+        with self.assertRaises(ValueError):
+            gate.verify_host_receipt(multi, paired)
         captured = copy.deepcopy(artifact)
         captured["scenes"][0]["layout"]["frame_sections"].append("source_rebuild")
         with self.assertRaisesRegex(ValueError, "character-bound source program"):

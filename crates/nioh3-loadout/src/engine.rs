@@ -251,6 +251,8 @@ impl Work {
     }
 }
 
+pub(crate) type PreparedContacts = Vec<Vec<(u64, u32)>>;
+
 /// An admitted, fully prepared candidate. Keeping the exclusive scratch
 /// borrow until scoring prevents another candidate, context or packet from
 /// replacing the state between its set check and evaluation.
@@ -268,8 +270,8 @@ impl PreparedCandidate<'_> {
         self.engine.evaluate_prepared_with_bound(self.work, bounds)
     }
 
-    pub(crate) fn device_contact(self) -> Result<Option<Vec<(u64, u32)>>, Outcome> {
-        self.engine.prepared_device_contact(self.work)
+    pub(crate) fn device_contacts(self) -> Result<PreparedContacts, Outcome> {
+        self.engine.prepared_device_contacts(self.work)
     }
 }
 
@@ -1243,9 +1245,13 @@ impl Engine {
     }
 
     pub fn supports_prepared_device(&self) -> bool {
-        self.has_dynamic_sources()
+        (self.has_dynamic_sources() || self.dir.join("main_device.dll").is_file())
             && matches!(&self.cpu_evaluation, CpuEvaluation::CapturedScene(_))
-            && self.is_single_fixed_contact()
+            && !self.frame.held_reaper
+            && self
+                .event_program
+                .as_ref()
+                .is_none_or(EventProgram::all_fixed_events_scored)
     }
 
     pub(crate) fn open_prepared_device(&self) -> Result<crate::gpu::MainDevice, String> {
@@ -1265,36 +1271,35 @@ impl Engine {
     }
 
     /// Unfused reference entry retained for the explicit host acceptance audit.
-    /// Production search uses PreparedCandidate::device_contact instead.
-    pub(crate) fn prepare_device_contact(
+    /// Production search uses PreparedCandidate::device_contacts instead.
+    pub(crate) fn prepare_device_contacts(
         &self,
         candidate: &Candidate,
         pack: &Backpack,
         limits: &Limits,
         work: &mut Work,
-    ) -> Result<Option<Vec<(u64, u32)>>, Outcome> {
+    ) -> Result<PreparedContacts, Outcome> {
         self.prepare_eligible(candidate, pack, limits, work)?;
-        self.prepared_device_contact(work)
+        self.prepared_device_contacts(work)
     }
 
     /// Share the exact candidate and packet builder with the CPU route. A
     /// device lane represents one executable scored contact of this objective.
-    fn prepared_device_contact(&self, work: &mut Work) -> Result<Option<Vec<(u64, u32)>>, Outcome> {
+    fn prepared_device_contacts(&self, work: &mut Work) -> Result<PreparedContacts, Outcome> {
         let events = self.execution_events(work).map_err(Outcome::Refused)?;
-        let [event] = events.as_slice() else {
-            return Err(Outcome::Refused(
-                "prepared CUDA objective is not a single contact",
-            ));
-        };
-        if !event.scored {
-            return Err(Outcome::Refused(
-                "prepared CUDA objective is not a scored contact",
-            ));
+        let mut contacts = Vec::with_capacity(events.len());
+        for event in events {
+            if !event.scored {
+                return Err(Outcome::Refused("prepared CUDA requires scored contacts"));
+            }
+            if self
+                .assemble_execution(event, &work.scratch.writes, &mut work.writes)
+                .map_err(Outcome::Refused)?
+            {
+                contacts.push(work.writes.clone());
+            }
         }
-        let active = self
-            .assemble_execution(*event, &work.scratch.writes, &mut work.writes)
-            .map_err(Outcome::Refused)?;
-        Ok(active.then(|| work.writes.clone()))
+        Ok(contacts)
     }
 
     pub fn hit_count(&self) -> usize {

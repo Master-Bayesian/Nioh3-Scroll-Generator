@@ -273,7 +273,10 @@ impl Contexts {
                 return partial("source_maps_differ");
             }
             if !snap.inputs.status_keys.is_empty()
-                || !matches!(bundle.buff_scene(), crate::loadout::BuffScene::Current)
+                || !matches!(
+                    bundle.buff_scene(),
+                    crate::loadout::BuffScene::Current | crate::loadout::BuffScene::Untriggered
+                )
             {
                 return partial("reference_encounter_unsupported");
             }

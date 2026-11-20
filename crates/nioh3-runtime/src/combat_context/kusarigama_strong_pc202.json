@@ -1,40 +1,10 @@
 {"schema":"nioh3-pc202-kusarigama-strong-encounter/v1",
 "roots":{"d": 2077783917056, "entry_stack": 249553740200, "module": 140700630712320, "packet": 2077062923008, "source": 2077783894224, "source_actor": 2077783777328, "source_owner": 2077783848784, "stack": 249553742248, "stat": 2077783892160, "target_actor": 2077785792064, "target_owner": 2077785858656, "target_stat": 2077785868296, "teb": 249523662848, "attack_data": 2075192308016},
-"form":1,"held_slot":0,"item_category":11583,
+"form":1,
+"held_slot":0,
+"item_category":11583,
 "action_row_key":[60, 179, 237, 192, 146, 72, 76, 110, 245, 19, 165, 182, 177, 212, 89, 222, 102, 162, 97, 3, 179, 81, 234, 39, 9, 109, 153, 210, 162, 145, 84, 58],
-"tables":[
-  {
-    "kind": "curve",
-    "global_offset": 79315976,
-    "context": 2077771018736,
-    "begin": 2077771018816,
-    "index": 2077771074464,
-    "extent": 55608,
-    "index_extent": 5296,
-    "stride": 84
-  },
-  {
-    "kind": "curve",
-    "global_offset": 79315984,
-    "context": 2077771079792,
-    "begin": 2077771079872,
-    "index": 2077771083952,
-    "extent": 4044,
-    "index_extent": 2696,
-    "stride": 12
-  },
-  {
-    "kind": "scalar",
-    "global_offset": 79314720,
-    "context": 2077772287344,
-    "begin": 2077772287424,
-    "index": 2077772382320,
-    "hash_header": 2077772382000,
-    "extent": 94536,
-    "index_extent": 47272,
-    "stride": 32
-  }
-],
+"tables":[{"kind": "curve", "global_offset": 79315976, "context": 2077771018736, "begin": 2077771018816, "index": 2077771074464, "extent": 55608, "index_extent": 5296, "stride": 84}, {"kind": "curve", "global_offset": 79315984, "context": 2077771079792, "begin": 2077771079872, "index": 2077771083952, "extent": 4044, "index_extent": 2696, "stride": 12}, {"kind": "scalar", "global_offset": 79314720, "context": 2077772287344, "begin": 2077772287424, "index": 2077772382320, "hash_header": 2077772382000, "extent": 94536, "index_extent": 47272, "stride": 32}],
 "fields":[
 {"at":249523662896,"n":8,"root":"teb","path":[48],"kind":"pointer","to":249523662848},
 {"at":249523662936,"n":8,"root":"teb","path":[88],"kind":"pointer","to":2082375310240},
@@ -44,16 +14,6 @@
 {"at":249553741344,"n":4,"root":"stack","path":[-904],"kind":"zero"},
 {"at":249553741440,"n":4,"root":"stack","path":[-808],"kind":"zero"},
 {"at":249553742248,"n":8,"root":"stack","path":[0],"kind":"module_pointer","rva":3307499},
-{"at":2075192188272,"n":8,"root":"source_actor","path":[944,8,232,32,0],"kind":"read"},
-{"at":2075192188284,"n":2,"root":"source_actor","path":[944,8,232,32,12],"kind":"read"},
-{"at":2075192188296,"n":4,"root":"source_actor","path":[944,8,232,32,24],"kind":"read"},
-{"at":2075192188492,"n":4,"root":"source_actor","path":[944,8,232,32,220],"kind":"read"},
-{"at":2075192308130,"n":2,"root":"source_actor","path":[944,8,232,64,256,114],"kind":"read"},
-{"at":2075193093120,"n":8,"root":"source_actor","path":[944,8,232,32],"kind":"pointer","to":2075192188272},
-{"at":2075193093152,"n":8,"root":"source_actor","path":[944,8,232,64],"kind":"pointer","to":2075193177432},
-{"at":2075193093160,"n":2,"root":"source_actor","path":[944,8,232,72],"kind":"read"},
-{"at":2075193093162,"n":2,"root":"source_actor","path":[944,8,232,74],"kind":"read"},
-{"at":2075193177688,"n":8,"root":"source_actor","path":[944,8,232,64,256],"kind":"pointer","to":2075192308016},
 {"at":2075453051184,"n":8,"root":"target_actor","path":[944,8,232,32,0],"kind":"benchmark","bits":"0000000000010000"},
 {"at":2075453051208,"n":4,"root":"target_actor","path":[944,8,232,32,24],"kind":"benchmark","bits":"00004018"},
 {"at":2075453051208,"n":8,"root":"target_actor","path":[944,8,232,32,24],"kind":"benchmark","bits":"0000401800040010"},
@@ -82,7 +42,6 @@
 {"at":2077062711152,"n":8,"root":"source_actor","path":[944,8,0],"kind":"module_pointer","rva":59762328},
 {"at":2077062711320,"n":8,"root":"source_actor","path":[944,8,168],"kind":"read"},
 {"at":2077062711376,"n":8,"root":"source_actor","path":[944,8,224],"kind":"pointer","to":2077783777328},
-{"at":2077062711384,"n":8,"root":"source_actor","path":[944,8,232],"kind":"pointer","to":2075193093088},
 {"at":2077062713816,"n":4,"root":"source_actor","path":[944,8,2664],"kind":"read"},
 {"at":2077062714888,"n":4,"root":"source_actor","path":[944,8,3736],"kind":"read"},
 {"at":2077062714892,"n":4,"root":"source_actor","path":[944,8,3740],"kind":"read"},
@@ -819,4 +778,5 @@
 {"at":140700710039892,"n":4,"root":"module","path":[79327572],"kind":"read"},
 {"at":140700710039940,"n":4,"root":"module","path":[79327620],"kind":"read"},
 {"at":140700710042984,"n":8,"root":"module","path":[79330664],"kind":"pointer","to":2077805778144}
-]}
+],
+"selected_action":{"controller_link": 2077062711384, "first_index": 32, "packet_row": 0, "parameter": "00000000000200000000ff08d761ffff000915000400d80000024c5900020008fc0800002800ffffffff39003a003b00ffffffffffffffff00000000ffff005fffff0000ffff11272000ffffffff0000ffffffff0000ffffffff0000ffffffff0000ffff120000004e0043000000ffffffff0000ffff99000000310049000000fffff9271d000100ffff0000ffffffff0000ffffffff0000ffffffff0000ffffffff0000ffffffff0000ffffffff0000ffffffff0000ffffffff0000ffffffff0000ffffffff0000ffffffff0000ffffffff0000ffffffff0000ffffffffffff02000000010001002a004400ffffffff0a12381e0000000000002000000000000f00370000000064000000000000ffff000c0080010100000000ffffc80b646f2a00ffff41ffffff00000000000000000a0000001f00ffff0000ffffffff0000ffffffff0000ffffffff0000ffff0000", "rows": ["00000000022000001c00ffff040000002c000e000c00460003000c0937006400ffffff64ffffffff15000f0000002d00000000000000ff0228000a00370000aa0000000000000000020000000000ffffffffffff0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000ffffffff640028020000b01dffff000000001500ffffffff0000f739ff000106ffffffff0000ffff0000ffff00ff0001ffffffffffff00ffffff0000ffffffffffffffffffffffffffff", "00000000000000001c00ffff0200000000000000ffff0000ffff000000000000ffffff64ffffffff150000000000f1ff5a0000000000ff0101002800000000010000000000000000000001000000ffffffffffff0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000ffffffff640000ff0000ffffffff000000001500ffffffff0000f739ff0001ffffffffff0000ffff0000ffff00ff0000ffffffffffff00ffffff0000ffffffffffffffffffffffffffff"]}}

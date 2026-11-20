@@ -3,6 +3,7 @@
  * Usage: node apps/tauri/verify-packaged-loadout-search.mjs CONFIG.json OUTPUT
  * See tools/acceptance/PACKAGED_LOADOUT_HOST.md for the exact config and receipts.
  */
+import {selectLoadoutScene} from './loadout-scene-control.mjs';
 import assert from 'node:assert/strict';
 import {spawn, execFileSync} from 'node:child_process';
 import {mkdir, readFile, writeFile, copyFile, readdir, cp, lstat} from 'node:fs/promises';
@@ -26,8 +27,8 @@ const outer = resolve(config.outer), python = config.python || 'python';
 const staticTool = resolve('tools/verify_loadout_release.py');
 const inspection = JSON.parse(execFileSync(python, [staticTool, 'check', outer], {encoding: 'utf8'}));
 assert.equal(inspection.passed, true);
-assert.equal(inspection.scenes.length, 1, 'This runner currently covers the one-scene 0.8.13 beta; extend selectors before shipping other scenes');
-const scene = inspection.scenes[0];
+const scene = inspection.scenes.find(entry => entry.scene_id === config.scene_id);
+assert(scene, 'Requested attack is missing from the final package');
 assert(Object.keys(scene.files).every(name => !name.includes('/')), 'This beta runner only accepts flat scene input bundles');
 assert.equal(scene.scene_id, config.scene_id);
 const source = await readFile(config.save);
@@ -42,7 +43,9 @@ assert(reference.ranked?.length > 0 && reference.progress?.planned > 0);
 assert(Number.isInteger(config.set_key) && Number.isInteger(config.set_pieces));
 assert.deepEqual(reference.required_sets, [{key: config.set_key, minimum_tier: config.set_pieces}], 'Reference has different set constraints');
 assert.equal(reference.top_case?.components?.state, 'available', 'Reference must include independently checked winner components');
-assert.equal(reference.top_case.components.contacts.length, 1, 'This beta gate requires a one-contact reference; extend accounting explicitly for multi-contact objectives');
+const contactsPerCandidate = scene.layout.fixed_scored_contacts;
+assert(Number.isInteger(contactsPerCandidate) && contactsPerCandidate > 0);
+assert.equal(reference.top_case.components.contacts.length, contactsPerCandidate);
 const artifact = await inspectOnefile(outer);
 const report = {mode, release_ready: false, private_resources_copied: mode === 'engineering-fixture', schema: 'nioh3-packaged-loadout-e2e/v1', passed: false, outer_sha256: artifact.sha256,
   source_commit: inspection.source_commit, environment: {platform: process.platform, arch: arch(), os: release()},
@@ -161,20 +164,30 @@ async function run(backend, withProfile) {
     assert.equal(diagnostic.packageVerification.ok, true);
     assert.equal(diagnostic.packageVerification.sourceCommit, inspection.source_commit);
     await page.evaluate(() => {
-      window.__packagedLoadout = {jobs: {}, calls: []};
+      window.__packagedLoadout = {jobs: {}, calls: [], scenes: {}};
       const ops = window.operations, log = window.__packagedLoadout;
       const execute = ops.execute.bind(ops), snapshot = ops.snapshot.bind(ops);
       ops.execute = async command => {
         log.calls.push({method: command.method, params: command.params});
         const result = await execute(command);
-        if (result?.job_id) log.jobs[result.job_id] = result;
+        if (result?.job_id) {
+          log.jobs[result.job_id] = result;
+          log.scenes[result.job_id] = command.params?.bundle;
+        }
         return result;
       };
       ops.snapshot = async (role, id) => {const job = await snapshot(role, id); log.jobs[id] = job; return job;};
     });
     await page.getByRole('button', {name: '配装优化', exact: true}).click();
-    await page.waitForFunction(() => Object.values(window.__packagedLoadout.jobs).some(job => job.kind === 'save.loadout_context' && ['completed', 'failed'].includes(job.state)), null, {timeout: 60000});
-    const contextJobs = () => page.evaluate(() => Object.values(window.__packagedLoadout.jobs).filter(job => job.kind === 'save.loadout_context'));
+    await selectLoadoutScene(page, scene.descriptor);
+    const awaitContext = previous => page.waitForFunction(({sceneId, previous}) => {
+      const {jobs, scenes} = window.__packagedLoadout;
+      return Object.values(jobs).some(job => job.kind === 'save.loadout_context' &&
+        scenes[job.job_id] === sceneId && !previous.includes(job.job_id) && ['completed', 'failed'].includes(job.state));
+    }, {sceneId:scene.scene_id, previous}, {timeout:60000});
+    const contextJobs = () => page.evaluate(id => Object.values(window.__packagedLoadout.jobs)
+      .filter(job => job.kind === 'save.loadout_context' && window.__packagedLoadout.scenes[job.job_id] === id), scene.scene_id);
+    await awaitContext([]);
     let contexts = await contextJobs();
     const first = contexts.at(-1);
     evidence.first_read = first;
@@ -199,7 +212,7 @@ async function run(backend, withProfile) {
     assert.equal(first.result?.source_sha256?.toLowerCase(), sourceSha);
     assert.equal(first.result?.bundle, config.scene_id);
     await page.getByRole('button', {name: '刷新角色状态', exact: true}).click();
-    await page.waitForFunction(id => Object.values(window.__packagedLoadout.jobs).some(job => job.kind === 'save.loadout_context' && job.job_id !== id && ['completed', 'failed'].includes(job.state)), first.job_id, {timeout: 60000});
+    await awaitContext(contexts.map(job => job.job_id));
     contexts = await contextJobs();
     const refresh = contexts.at(-1);
     assert.equal(refresh.state, 'completed', JSON.stringify(refresh.error));
@@ -231,8 +244,8 @@ async function run(backend, withProfile) {
     assert.equal(executed.completed, result.answered);
     if (backend === 'card') {
       assert(executed.native_calls > 0, 'Loaded CUDA module executed no native call');
-      assert.equal(executed.submitted_contacts, result.answered);
-      assert.equal(executed.completed_contacts, result.answered);
+      assert.equal(executed.submitted_contacts, result.answered * contactsPerCandidate);
+      assert.equal(executed.completed_contacts, result.answered * contactsPerCandidate);
       assert.equal(executed.failed_batches, 0);
       assert.equal(executed.reuse_enabled, false, 'Default-policy acceptance must execute every submitted contact');
     } else {
@@ -307,13 +320,14 @@ try {
   await run('card', true);
   report.passed = true;
   if (mode === 'player') {
-    report.release_ready = true;
+    report.scene_player_verified = true;
+    report.release_ready = inspection.scenes.length === 1;
     report.no_private_profile = {ran: true, false_complete: false, ready: true};
     report.fresh_install = {passed: true, source: 'live', searches_complete: true, private_resources_copied: false, provisioned_by: 'product'};
   }
   await writeFile(reportPath, JSON.stringify(report, null, 2));
   // The same parser used by the release verifier consumes the generated receipt.
-  if (mode === 'player') execFileSync(python, [staticTool, 'check', outer, '--require-host-e2e', '--host-receipt', reportPath,
+  if (mode === 'player') execFileSync(python, [staticTool, 'check', outer, ...(report.release_ready ? ['--require-host-e2e'] : ['--verify-player-scene', scene.scene_id]), '--host-receipt', reportPath,
     '--output', join(output, 'release-gate.json')], {stdio: 'inherit'});
 } catch (error) {
   report.passed = false;

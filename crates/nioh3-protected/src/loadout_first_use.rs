@@ -24,6 +24,49 @@ use nioh3_runtime::{
 use serde_json::{json, Value};
 use std::{fs, path::Path};
 
+fn selected_row(scene: &Path) -> Result<ActionRow, HostError> {
+    #[derive(serde::Deserialize)]
+    struct Descriptor {
+        resource_action: ActionRow,
+    }
+    let bytes =
+        fs::read(scene.join("bundle.json")).map_err(|e| HostError::rejected(e.to_string()))?;
+    let descriptor: Descriptor =
+        serde_json::from_slice(&bytes).map_err(|e| HostError::rejected(e.to_string()))?;
+    Ok(descriptor.resource_action)
+}
+
+/// Preserve independently readable inputs when the source producer stops
+/// early. This diagnostic is never used to admit a ranking.
+#[cfg(feature = "first-use-acceptance")]
+pub(crate) fn sample_encounter(
+    memory: &dyn InventoryMemory,
+    snap: &CombatSnapshot,
+    scene: &Path,
+) -> Result<(), HostError> {
+    let invalid = |s: &str| HostError::rejected(s.to_owned());
+    let unarmed = unarmed_levels(memory, snap);
+    let stat = memory
+        .read(snap.roots.stat, 0x900)
+        .map_err(HostError::from_runtime)?;
+    let table_bytes = fs::read(scene.join("tables.bin")).map_err(|e| invalid(&e.to_string()))?;
+    let tables = Tables::load(&table_bytes).map_err(invalid)?;
+    let at =
+        snap.inputs.active_bank as usize * 0xf70 + snap.inputs.held_weapon_slot as usize * 0xe8;
+    let key = u16::from_le_bytes([snap.inputs.inventory[at], snap.inputs.inventory[at + 1]]);
+    let row = selected_row(scene)?.resolve().map_err(invalid)?;
+    direct_encounter(
+        memory,
+        snap,
+        &stat,
+        tables.category(key).unwrap_or(0x3c2e),
+        &row.key,
+        row.bytes,
+    )
+    .map_err(HostError::from_runtime)?;
+    unarmed.map(|_| ()).map_err(HostError::from_runtime)
+}
+
 pub(crate) struct SourceRead {
     prefix: Vec<Submission>,
     guardians: Vec<GuardianSubmission>,
@@ -361,15 +404,8 @@ impl SourceRead {
             }),
         };
         frame = Frame::with_source_rebuild(&frame, &program).map_err(invalid)?;
-        #[derive(serde::Deserialize)]
-        struct AttackSelection {
-            resource_action: ActionRow,
-        }
-        let descriptor =
-            fs::read(scene.join("bundle.json")).map_err(|e| invalid(&e.to_string()))?;
-        let attack: AttackSelection =
-            serde_json::from_slice(&descriptor).map_err(|e| invalid(&e.to_string()))?;
-        let row = attack.resource_action.resolve().map_err(invalid)?;
+        let attack = selected_row(scene)?;
+        let row = attack.resolve().map_err(invalid)?;
         let encounter = direct_encounter(
             memory,
             snap,
@@ -418,7 +454,7 @@ impl SourceRead {
             source_sha256: self.digest.clone(),
             game_version: [2, 0, 2, 0],
             description: format!("Current PC202 normal progress and equipped inventory, frontal training opponent, resource {} action {} row {}",
-                attack.resource_action.resource, attack.resource_action.action, attack.resource_action.row),
+                attack.resource, attack.action, attack.row),
         };
         let manifest = ContextManifest {
             schema: nioh3_loadout::context::CONTEXT_SCHEMA.into(),

@@ -108,10 +108,21 @@ def stage_rust_runtime(root: Path, output: Path, loadout_runtime: Path | None = 
     data_destination = runtime / 'data'
     shutil.copytree(data_source, data_destination)
     if loadout_runtime is not None:
-        source = loadout_runtime.resolve(strict=True)
+        supplied = loadout_runtime.resolve(strict=True)
+        sources = [supplied] if (supplied / 'bundle.json').is_file() else sorted(supplied.iterdir())
+        if not sources:
+            raise ValueError("Loadout runtime contains no scenes")
+    else:
+        sources = []
+    for source in sources:
         descriptor = json.loads((source / "bundle.json").read_bytes())
-        target = data_destination / "loadout" / "kusarigama-strong"
-        if descriptor != json.loads((target / "bundle.json").read_bytes()):
+        scene_id = descriptor["id"]
+        if not isinstance(scene_id, str) or not scene_id.isascii() or not scene_id.replace("-", "").isalnum() or len(scene_id) > 64:
+            raise ValueError("Invalid loadout scene ID")
+        if source != supplied and source.name != scene_id:
+            raise ValueError("Loadout directory and descriptor disagree")
+        target = data_destination / "loadout" / scene_id
+        if target.exists() and descriptor != json.loads((target / "bundle.json").read_bytes()):
             raise ValueError("Loadout runtime does not match the packaged scene")
         # A descriptor only identifies the menu entry. It does not bind address
         # spaces, source programs or the two native binaries. Validate the whole
@@ -120,7 +131,8 @@ def stage_rust_runtime(root: Path, output: Path, loadout_runtime: Path | None = 
         staged_scene = target.with_name(target.name + ".staging")
         shutil.copytree(source, staged_scene)
         verify_scene_directory(staged_scene, scene_id=target.name)
-        shutil.rmtree(target)
+        if target.exists():
+            shutil.rmtree(target)
         staged_scene.rename(target)
     scenes = data_destination / "loadout"
     if scenes.is_dir():
@@ -186,7 +198,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path)
     parser.add_argument('workers', type=Path)
-    parser.add_argument('--loadout-runtime', type=Path, help='installed PC202 kusarigama runtime assets')
+    parser.add_argument('--loadout-runtime', type=Path, help='one sealed PC202 scene or a directory of sealed scenes')
     parser.add_argument('--root', type=Path, help='override the repository root (tests)')
     args = parser.parse_args()
     root = (args.root or Path(__file__).resolve().parents[1]).resolve()
@@ -237,7 +249,8 @@ def main():
     for path in sorted(output.rglob('*')):
         if path.is_file():
             files.append({'path': path.relative_to(output).as_posix(), 'size': path.stat().st_size, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
-    git = lambda *args: subprocess.check_output(['git', *args], cwd=root, text=True, encoding='utf-8').strip()
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=root, text=True, encoding='utf-8').strip()
     manifest = {'schema': 'nioh3-tauri-manifest/v1', 'version': version, 'git': {'commit': git('rev-parse', 'HEAD'), 'dirty': bool(git('status', '--porcelain'))}, 'files': files}
     (output / 'build-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     report = {'path': str(output), 'version': version, 'fileCount': len(files) + 1, 'installedBytes': sum(f['size'] for f in files), 'exeBytes': (output / 'Nioh3Studio.exe').stat().st_size}
