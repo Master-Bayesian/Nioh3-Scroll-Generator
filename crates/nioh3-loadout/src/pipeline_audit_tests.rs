@@ -3,6 +3,29 @@ use super::*;
 const ATTRS: [i32; 7] = [5, 45, 15, 200, 5, 60, 155];
 
 #[test]
+fn actor_elemental_packet_is_rebuilt_when_changing_weapon_imbue() -> R<()> {
+    let (tables, frame, character) = fixture();
+    let mut scratch = Scratch::new();
+    tables.pipeline(&frame, &character, &ATTRS, &[], &mut scratch)?;
+    for (element, stat_power, packet_power) in [(2, 73, 73), (u32::MAX, 0, 100), (2, 73, 73)] {
+        put_u32(&mut scratch.stat, 0x3c, element);
+        put_u32(&mut scratch.stat, 0x40, stat_power);
+        tables.frame_writes(&frame, &character, &ATTRS, 0, 0, &mut scratch)?;
+        let last = |offset| {
+            scratch
+                .writes
+                .iter()
+                .rev()
+                .find(|(at, _)| *at == frame.main_addr + offset)
+                .map(|word| word.1)
+        };
+        assert_eq!(last(0x14), Some(element));
+        assert_eq!(last(0x18), Some(packet_power));
+    }
+    Ok(())
+}
+
+#[test]
 fn first_read_preserves_each_action_layout_when_replacing_player_values() -> R<()> {
     let projectile: Vec<u8> = [0u32, 0, 0, 1, 100, 0, 1, 100, 0]
         .into_iter()

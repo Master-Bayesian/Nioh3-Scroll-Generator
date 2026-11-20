@@ -2330,8 +2330,15 @@ impl Tables {
         writes.push((f.main_addr + 0x10, u32_at(pred, 0x34)));
         let element = u32_at(pred, 0x3C);
         writes.push((f.main_addr + 0x14, element));
-        if f.weapon_element_packet && element != u32::MAX {
-            writes.push((f.main_addr + 0x18, u32_at(pred, 0x40)));
+        if f.weapon_element_packet {
+            // The constructor initializes power before the optional weapon
+            // imbue. Restore it when the candidate removes the equipped imbue.
+            let power = if element == u32::MAX {
+                100
+            } else {
+                u32_at(pred, 0x40)
+            };
+            writes.push((f.main_addr + 0x18, power));
         }
         writes.push((f.ext_addr + 0x7B8, u32_at(pred, 0x7B8)));
         for (i, &points) in attrs.iter().enumerate() {

@@ -14,6 +14,7 @@ def stage(source, base, generated, groups, resolver, output, source_commit, nati
     names = (
         "katana-light", "katana-mid-strong-current", "katana-mid-sword-ki-current",
         "samurai-odachi-mid-quick", "samurai-odachi-mid-strong", "samurai-dual-swords-mid-quick",
+        "katana-mid-tsubame-gaeshi-water",
     )
     verify_scene_directory(base, source_commit, scene_id="kusarigama-strong")
     output.mkdir(parents=True, exist_ok=False)
@@ -35,7 +36,18 @@ def stage(source, base, generated, groups, resolver, output, source_commit, nati
         descriptor["resource_action"] = {**match, "row_sha256": root["row_sha256"]}
         raw = (src / "hits.txt").read_bytes()
         address = root["aad_address"]
-        allowed = {plan["main_address"] + offset for offset in (0x13c, 0x144, 0x148)}
+        main = plan["main_address"]
+        incarnation = int.from_bytes(hashlib.sha256(name.encode()).digest()[:8], "little") or 1
+        projectile_scene = any(t["packet"]["kind"] != "prepared_actor" for t in plan["templates"])
+        offsets = [0x13c, 0x144, 0x148]
+        if projectile_scene:
+            path = Path(__file__).resolve().parents[1] / "crates/nioh3-runtime/src/combat_context/water_projectile_pc202.json"
+            recipe = json.loads(path.read_bytes())
+            key = match["resource"].encode() + b"\0" + struct.pack("<HI", match["action"], match["row"]) + bytes.fromhex(match["parameter_sha256"])
+            if hashlib.sha256(key).digest() != bytes(recipe["action_row_key"]):
+                raise ValueError("No projectile constructor for this action")
+            offsets += [0x198, 0x19c, 0x280, 0x284, 0x288, 0x28c, 0x290, 0x29c]
+        allowed = {main + offset for offset in offsets}
         if any(not (address <= word < address + 192 or word in allowed)
                for word in (int(v, 16) for v in raw.splitlines()[1].split())):
             raise ValueError(f"{name} contains a hit input with undeclared ownership")
@@ -45,18 +57,40 @@ def stage(source, base, generated, groups, resolver, output, source_commit, nati
         columns = [i for i, a in enumerate(addresses) if a in allowed]
         writes = [addresses[i] for i in columns] + [plan["main_address"] + 0x190, plan["main_address"] + 0x194]
         contacts = []
-        for line, binding, body in zip(lines[2:], bindings, rows, strict=True):
+        spawned = 0
+        for line, binding, body, template in zip(lines[2:], bindings, rows, plan["templates"], strict=True):
             selected, = binding["exact_action_matches"]
-            if any(selected[key] != match[key] for key in ("resource", "action", "parameter_sha256")):
-                raise ValueError(f"{name} needs a distinct spawned action state")
-            # The selected-action materializer owns this virtual row layout.
-            # Every contact sets the packet pointer; the original descriptor
-            # table remains immutable when a later contact picks another row.
-            pointer = address if selected["row"] == match["row"] else 0x600000100000 + 192 * selected["row"]
             if hashlib.sha256(body).hexdigest() != binding["row_sha256"]:
                 raise ValueError("Attack parameter differs from the selected row")
             old = [int(v, 16) for v in line.split()]
+            packet = template["packet"]
+            if packet["kind"] == "prepared_actor":
+                if any(selected[key] != match[key] for key in ("resource", "action", "parameter_sha256")):
+                    raise ValueError(f"{name} has another actor action")
+                pointer = address if selected["row"] == match["row"] else 0x600000100000 + 192 * selected["row"]
+                if projectile_scene:
+                    actor = recipe["roots"]["source_actor"]
+                    if (old[addresses.index(main+0x198)] | old[addresses.index(main+0x19c)] << 32) != actor:
+                        raise ValueError("Direct contact has a different actor")
+            elif packet["kind"] == "unimbued_owner_projectile":
+                obj = recipe["projectiles"][spawned]
+                if (selected["action"], selected["row"], body.hex()) != (obj["action"], obj["selector"], obj["damage_row"]):
+                    raise ValueError("Spawn descriptor selects a different child action row")
+                if packet["source_tag"] != (obj["descriptor_head"][0] << 4 | 4) or packet["owner"] != plan["source"]["owner"]:
+                    raise ValueError("Projectile is not bound to this actor and resource")
+                a, b = addresses.index(main+0x198), addresses.index(main+0x19c)
+                if (old[a] | old[b] << 32) != packet["object"]:
+                    raise ValueError("Projectile source and packet disagree")
+                actor = obj["object"]
+                spawned += 1
+                pointer = obj["row_address"]
+                old[a], old[b] = actor & 0xffffffff, actor >> 32
+                packet.update(object=actor, incarnation=(incarnation - 1 + spawned) % ((1 << 64) - 1) + 1)
+            else:
+                raise ValueError(f"Unsupported packet kind in {name}")
             contacts.append([old[i] for i in columns] + [pointer & 0xffffffff, pointer >> 32])
+        if projectile_scene and spawned != len(recipe["projectiles"]):
+            raise ValueError("Event plan and constructor count differ")
         def words(items):
             return " ".join(format(v, "x") for v in items)
         hits = ("\n".join([str(len(contacts)), words(writes), *(words(row) for row in contacts)]) + "\n").encode()
@@ -65,7 +99,7 @@ def stage(source, base, generated, groups, resolver, output, source_commit, nati
         plan["provenance"] = {"kind": "resource_bound_training_encounter", "row_bindings": bindings}
         # The normalized owner is part of the evaluator layout. Use an action
         # namespace for this immutable plan's event source incarnation.
-        plan["source"]["incarnation"] = int.from_bytes(hashlib.sha256(name.encode()).digest()[:8], "little") or 1
+        plan["source"]["incarnation"] = incarnation
         for file in ("arena.bin", "mapped.bin", "programs.txt", "tables.bin", "source_numeric.bin",
                      "live_groups.txt", "survival_groups.txt", "gpu_setup.txt"):
             shutil.copyfile(base / file, dest / file)

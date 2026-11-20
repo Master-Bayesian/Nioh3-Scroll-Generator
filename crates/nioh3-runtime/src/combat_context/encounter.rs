@@ -16,6 +16,8 @@ struct Recipe {
     held_slot: u32,
     item_category: u32,
     selected_action: SelectedAction,
+    #[serde(default)]
+    projectiles: Vec<OwnedProjectile>,
     tables: Vec<ParameterTable>,
     fields: Vec<Field>,
 }
@@ -34,6 +36,38 @@ const ACTION_STATE: u64 = 0x6000_0000_0000;
 const ACTION_PARAM: u64 = ACTION_STATE + 0x1000;
 const ACTION_TABLE: u64 = ACTION_STATE + 0x10000;
 const ACTION_ROWS: u64 = ACTION_STATE + 0x100000;
+
+/// The ordinary mode-1 unimbued projectile constructor. Only the descriptor
+/// words read by the verified damage path are installed. Other bytes stay
+/// unknown, including any unobserved constructor output.
+#[derive(Deserialize)]
+struct OwnedProjectile {
+    object: u64,
+    row_address: u64,
+    descriptor_head: [u32; 4],
+    action: u16,
+    selector: u8,
+    damage_row: String,
+}
+
+impl OwnedProjectile {
+    fn install(&self, image: &mut Image, actor: u64) -> R<()> {
+        let object = self.object;
+        let tag = self.descriptor_head[0].wrapping_shl(4) | 4;
+        image.set(object, &tag.to_le_bytes())?;
+        image.pointer(object + 0x260, actor)?;
+        image.set(object + 0x590, &1.0f32.to_le_bytes())?;
+        image.set(object + 0x594, &u64::from(1.0f32.to_bits()).to_le_bytes())?;
+        image.set(object + 0x59c, &u32::MAX.to_le_bytes())?;
+        image.set(object + 0x5a0, &1u32.to_le_bytes())?;
+        for (i, word) in self.descriptor_head.iter().enumerate() {
+            image.set(object + 0x5d0 + i as u64 * 4, &word.to_le_bytes())?;
+        }
+        image.set(object + 0x758, &u32::from(self.action).to_le_bytes())?;
+        image.set(object + 0x75c, &[self.selector])?;
+        image.set(self.row_address, &static_bytes(&self.damage_row, 192)?)
+    }
+}
 
 fn static_bytes(hex: &str, size: usize) -> R<Vec<u8>> {
     if hex.len() != 2 * size || !hex.is_ascii() {
@@ -324,6 +358,9 @@ fn recipe(key: &[u8; 32]) -> R<&'static Recipe> {
             recipes.push(serde_json::from_str(include_str!(
                 "kusarigama_strong_pc202.json"
             ))?);
+            recipes.push(serde_json::from_str(include_str!(
+                "water_projectile_pc202.json"
+            ))?);
             Ok(recipes)
         })
         .as_ref()
@@ -403,6 +440,9 @@ pub fn materialize_encounter(
     let aad = root("attack_data")?;
     image.pointer(add(root("packet")?, 0x190)?, aad)?;
     r.selected_action.install(&mut image, aad, row)?;
+    for projectile in &r.projectiles {
+        projectile.install(&mut image, root("source_actor")?)?;
+    }
     let mut bindings = BTreeMap::new();
     let mut live_objects = BTreeMap::new();
     for (name, address) in [
@@ -473,6 +513,9 @@ pub fn materialize_encounter(
                     [12] => u32_at(stat, 0x30)?,
                     [16] => u32_at(stat, 0x34)?,
                     [20] => u32_at(stat, 0x3c)?,
+                    // PC202 2B42C6/2B444C initialize packet+18 to 100.
+                    // An unimbued weapon leaves that constructor value intact.
+                    [24] if u32_at(stat, 0x3c)? == u32::MAX => 100,
                     [24] => u32_at(stat, 0x40)?,
                     [0x144] => category,
                     [0x298] => flags,

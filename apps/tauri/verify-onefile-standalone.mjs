@@ -205,6 +205,10 @@ async function launch(f, label) {
       const variant = panel.locator('article').filter({hasText:'25358'});
       await variant.waitFor();
       assert.equal(await variant.getByRole('button').count(), water.plan_ready ? 1 : 0);
+      if (water.plan_ready) {
+        await variant.getByRole('button').click();
+        assert.equal(await page.getByRole('combobox', {name:'攻击', exact:true}).inputValue(), 'katana-mid-tsubame-gaeshi-water');
+      }
       record.catalogUi = {selected:'kusarigama-strong', waterAction:water.action, waterSelectable:water.plan_ready};
       record.pickerSelections = [];
       for (const descriptor of catalog.choices.filter(row => row.scene && !row.diagnostic)) {

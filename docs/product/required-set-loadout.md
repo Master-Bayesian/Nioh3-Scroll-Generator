@@ -50,8 +50,13 @@ The PC202 damage parameter bank resolves 11,909 direct row references across
 parameter digest and row selector. An event plan separately specifies the
 ordered landed contacts, projectile ownership, resource use and buff phases.
 The cross-weapon candidate includes Ninja kusarigama strong and six Samurai
-mid-stance choices: katana quick, strong and Sword Ki, odachi quick and
-strong, and dual swords quick. These first-use scenarios require the selected
+mid-stance direct choices: katana quick, strong and Sword Ki, odachi quick
+and strong, and dual swords quick. Water Tsubame Gaeshi adds an eighth choice.
+Its action-only objective excludes the prerequisite quick attack and retains
+the direct contact, zero-motion occurrence and damaging owner projectile.
+The unimbued actor packet begins with elemental power 100, from original
+PC202 2B42C6 / 2B444C. Each projectile has its own source and damage row and
+links back to the role being scored. These first-use scenarios require the selected
 weapon type in slot one and no temporary status. Their public bundles contain
 the attack layout, benchmark opponent, tables and scorers. Both source maps,
 the held weapon, numerical buffers and progression are supplied by the role

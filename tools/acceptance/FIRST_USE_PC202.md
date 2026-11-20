@@ -15,6 +15,13 @@ the normal picker. A partial player receipt verifies only its named scene.
 Run `tools/check_models.ps1 -Model FixedContactRanking` to check candidate
 ownership, contact order and cancellation in the batched rank merge.
 
+For Water Tsubame Gaeshi, verify the action-only score over three contacts.
+With the recorded neutral katana the direct hit gives 241 physical and 425
+water. One spawned contact gives zero; the other gives 847 water. Verify the
+whole move and each channel when changing an imbued candidate to an unimbued
+one. The independent constructor control is the original PC202 function at
+2B4430 with its caller's eight-byte argument offset.
+
 The first supported fresh profile is a Ninja holding a kusarigama in slot one, using the first direct strong hit against the fixed training warrior. The app reads the current role, verifies its worn records against the selected save and builds an in-memory context. It requires no imported character directory, source epoch file, debugger or live attack. Existing verified epochs remain a separate acquisition route.
 
 The ordinary reader reconstructs elixir and regional ranks, clan/title effects, three area layers, configured passive skills and slotted skills in native order. It reads the two guardian definitions, eight core records, unlock curve and the native post-equipment selectors. The active core and selected SOURCE maps are compared in order, including zero values and duplicate contributions. Scoring uses the declared progress-rank branch. A transient skill descriptor from a different native rebuild is not observed by an ordinary read. The UI reports the conditional model scope.
