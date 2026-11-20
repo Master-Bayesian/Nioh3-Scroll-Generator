@@ -16,6 +16,7 @@ import sys
 # Both the command-line packager and imported tests resolve the same project module.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools.verify_tauri_native_dependencies import verify_runtime_native_dependencies
+from tools.verify_loadout_release import verify_scene_directory
 
 
 def cargo_target_dir(root: Path, workspace: str) -> Path:
@@ -112,10 +113,20 @@ def stage_rust_runtime(root: Path, output: Path, loadout_runtime: Path | None = 
         target = data_destination / "loadout" / "kusarigama-strong"
         if descriptor != json.loads((target / "bundle.json").read_bytes()):
             raise ValueError("Loadout runtime does not match the packaged scene")
-        for name in ("arena.bin", "event_plan.json", "frame.bin", "gpu_setup.txt",
-                     "hits.txt", "live_groups.txt", "main_cpu.dll", "mapped.bin",
-                     "programs.txt", "source_numeric.bin", "survival_groups.txt", "tables.bin"):
-            shutil.copyfile(source / name, target / name)
+        # A descriptor only identifies the menu entry. It does not bind address
+        # spaces, source programs or the two native binaries. Validate the whole
+        # immutable bundle, then replace the scene rather than merge leftovers.
+        verify_scene_directory(source, scene_id=target.name)
+        staged_scene = target.with_name(target.name + ".staging")
+        shutil.copytree(source, staged_scene)
+        verify_scene_directory(staged_scene, scene_id=target.name)
+        shutil.rmtree(target)
+        staged_scene.rename(target)
+    scenes = data_destination / "loadout"
+    if scenes.is_dir():
+        for scene in sorted(scenes.iterdir()):
+            if scene.is_dir():
+                verify_scene_directory(scene)
     for path in sorted(data_destination.rglob('*')):
         if path.is_file():
             staged.append(path.relative_to(output).as_posix())

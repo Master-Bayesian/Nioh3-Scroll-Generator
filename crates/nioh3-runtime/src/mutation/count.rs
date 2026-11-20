@@ -470,11 +470,11 @@ impl CountProcesses for WindowsCountProcesses {
     }
 }
 
-/// The concrete product adapter the protected host will use.
-#[cfg(windows)]
 /// Makes the record a scroll edit writes from the live record, or says why not.
 pub type RecordBuilder<'a> = dyn Fn(&[u8]) -> Result<Vec<u8>, String> + 'a;
 
+/// The concrete product adapter the protected host will use.
+#[cfg(windows)]
 pub type WindowsCountMemoryAdapter = WindowsCountMemory<WindowsCountProcesses>;
 
 /// One reviewed count plan.

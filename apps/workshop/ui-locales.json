@@ -7251,6 +7251,10 @@
     "当前模型未找到满足条件的搭配。请放宽负重、防御或体力的要求，或减少套装件数后再试。": [
       "The search found no outfit that meets these constraints.",
       "条件を満たす装備の組み合わせが見つかりませんでした。"
+    ],
+    "伤害复核与排名分数不一致，本次结果已作废。请重新读取角色后搜索；仍然出现请反馈。": [
+      "Damage verification disagrees with the ranking score. These results have been discarded. Refresh the character and search again; report the issue if it persists.",
+      "ダメージ検証と順位のスコアが一致しないため、今回の結果を無効にしました。キャラクターを読み直して再検索し、問題が続く場合は報告してください。"
     ]
   },
   "game": {

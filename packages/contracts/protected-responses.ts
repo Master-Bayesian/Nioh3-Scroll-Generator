@@ -1466,6 +1466,7 @@ export interface LoadoutSearch {
   source_model_scope?: "legacy_unverified" | "conditional_rebuild" | "runtime_bound_rebuild";
   weapon_domain?: LoadoutWeaponDomain;
   excluded_by_set_bound?: number;
+  execution_receipt?: LoadoutExecutionReceipt;
 }
 /**
  * Owned native TYPE enumeration and independently supported weapon-source scope. Counts identify submitted weapon records; retained_current is a separate planner choice.
@@ -1478,6 +1479,23 @@ export interface LoadoutWeaponDomain {
   uncomputed_items: number;
   retained_current: boolean;
   reason: string | null;
+}
+/**
+ * Actual completed prepared exact-sweep work after startup probe counters are reset. Excludes final row-detail recomputation. CUDA contacts and candidate outfits are different units. Omission means the selected route has no execution telemetry, never proof that GPU work ran.
+ */
+export interface LoadoutExecutionReceipt {
+  schema: "nioh3-loadout-execution/v1";
+  scope: "prepared_exact_sweep";
+  backend: "cpu" | "card";
+  planned: number;
+  completed: number;
+  cpu_executed_candidates: number;
+  cpu_certified_candidates: number;
+  completed_contacts: number;
+  submitted_contacts: number;
+  native_calls: number;
+  failed_batches: number;
+  reuse_enabled: boolean;
 }
 export interface LiveCharacter {
   source: "runtime";

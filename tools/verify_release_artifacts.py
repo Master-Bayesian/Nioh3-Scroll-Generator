@@ -13,7 +13,7 @@ Local mode:
 Public mode (adds the live release checks):
   ... --public [--public-download-dir <fresh, empty or absent dir>]
 
-Only the standard library plus `cryptography` (Ed25519) are required.
+Dependencies: standard library, `cryptography` (Ed25519), and `pefile` for optimizer DLL export checks.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ import json
 import os
 import re
 import struct
+import sys
 import urllib.error
 import urllib.request
 import zipfile
@@ -32,6 +33,9 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from tools.verify_loadout_release import artifact_report, verify_host_receipt
 
 DEFAULT_REPOSITORY = "Master-Bayesian/Nioh3-Scroll-Generator"
 
@@ -390,6 +394,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--version", required=True, help="release version, without the leading v")
     parser.add_argument("--expected-sha", required=True, help="full candidate commit recorded by build-manifest.json")
     parser.add_argument("--report", type=Path, required=True, help="path for the JSON verification report")
+    parser.add_argument("--loadout-host-receipt", type=Path, help="final EXE numerical E2E receipt; required when optimizer scenes are shipped")
     parser.add_argument("--repository", default=DEFAULT_REPOSITORY, help="owner/repo of the release")
     parser.add_argument("--public", action="store_true", help="also verify the live GitHub release")
     parser.add_argument("--public-download-dir", type=Path, help="fresh dir for a public re-download (implies --public)")
@@ -405,6 +410,17 @@ def main(argv: list[str] | None = None) -> int:
 
     report = Report()
     body = verify_local(args.directory, args.version, args.expected_sha, args.repository, report)
+    if body.get("assets"):
+        try:
+            loadout = artifact_report(args.directory / asset_names(args.version)[0])
+            if loadout["scenes"]:
+                if args.loadout_host_receipt is None:
+                    raise ValueError("Optimizer release requires --loadout-host-receipt bound to the final EXE")
+                verify_host_receipt(loadout, json.loads(args.loadout_host_receipt.read_bytes()))
+            report.record("packaged_loadout_numerical_e2e", True, "whole-scene identity and final EXE host receipt verified")
+            body["loadout"] = loadout
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            report.record("packaged_loadout_numerical_e2e", False, str(error))
     if public:
         if body.get("assets"):
             body["public"] = verify_public(args.directory, args.version, args.expected_sha, args.repository, args.public_download_dir, report)
@@ -422,6 +438,7 @@ def main(argv: list[str] | None = None) -> int:
         "assets": body.get("assets", {}),
         "zip": body.get("zip", {}),
         "outer": body.get("outer", {}),
+        "loadout": body.get("loadout", {}),
         "checks": report.checks,
         "passed": report.passed,
     }

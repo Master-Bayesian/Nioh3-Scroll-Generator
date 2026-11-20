@@ -21,7 +21,7 @@ use std::{
 
 const SCHEMA: &str = "nioh3-loadout-observation/v2";
 const MAX_CAPSULE: u64 = 1024 * 1024;
-const BUNDLE_FILES: [&str; 20] = [
+const BUNDLE_FILES: [&str; 23] = [
     "bundle.json",
     "programs.txt",
     "arena.bin",
@@ -35,13 +35,16 @@ const BUNDLE_FILES: [&str; 20] = [
     "survival_groups.txt",
     "kernel.dll",
     "main_cpu.dll",
+    "main_device.dll",
     "image.bin",
     "pool.bin",
     "image_known.bin",
     "event_plan.json",
     "main_cpu.so",
+    "main_device.so",
     "source_program.json",
     "source_numeric.bin",
+    "runtime-contract.json",
 ];
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -649,6 +652,44 @@ mod portable_tests {
         ));
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    #[test]
+    fn immutable_bundle_keeps_and_binds_prepared_device_and_runtime_contract() {
+        let root = work_directory("device-contract");
+        let source = root.join("source");
+        fs::create_dir_all(&source).unwrap();
+        for name in [
+            "main_cpu.dll",
+            "main_device.dll",
+            "main_device.so",
+            "runtime-contract.json",
+        ] {
+            fs::write(source.join(name), format!("original {name}")).unwrap();
+        }
+        let hashes = bundle_hashes(&source).unwrap();
+        for name in ["main_device.dll", "main_device.so", "runtime-contract.json"] {
+            assert!(
+                hashes.contains_key(name),
+                "missing immutable identity for {name}"
+            );
+        }
+        let destination = root.join("recording");
+        ensure_bundle(&destination, &source, &hashes).unwrap();
+        let retained = destination
+            .join("bundles")
+            .join(bundle_id(&hashes).unwrap());
+        assert_eq!(bundle_hashes(&retained).unwrap(), hashes);
+        for name in ["main_device.dll", "main_device.so", "runtime-contract.json"] {
+            let original = fs::read(retained.join(name)).unwrap();
+            fs::write(retained.join(name), b"tampered").unwrap();
+            assert!(
+                ensure_bundle(&destination, &source, &hashes).is_err(),
+                "tamper escaped for {name}"
+            );
+            fs::write(retained.join(name), original).unwrap();
+        }
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

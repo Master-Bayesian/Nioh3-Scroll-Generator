@@ -15,7 +15,7 @@ import {
 import { LoadoutCatalogPicker } from "./LoadoutCatalogPicker";
 import { LoadoutSourceCheck } from "./LoadoutSourceCheck";
 import { DamageSummary,DamageContacts } from "./LoadoutDamageDetails";
-import { loadoutAnswerCoverage, loadoutIncompleteReasons, loadoutSourceModelScope } from './loadout-answer-coverage';
+import { loadoutAnswerCoverage, loadoutHasScoreConflict, loadoutIncompleteReasons, loadoutSourceModelScope } from './loadout-answer-coverage';
 import { identifiedLoadoutSearchJob, loadoutSearchProgress, loadoutSearchStageLabel, type LoadoutSearchOwner } from "./loadout-search-progress";
 import { sameSource } from "../desktop/src/save-session";
 import { itemCatalog, nameLabel, setName, setOf } from "./equipment-facets";
@@ -25,6 +25,7 @@ import { SavePicker, saveLines } from "./CartActions";
 import { discoverSaves, saveObserver, saveSession } from "./save-workspace";
 
 import { nativeLoadoutSlot, preferredScene, sceneWeaponKey as weaponKey } from "./loadout-scene-selection";
+import { matchesLoadoutUndoItem, parseLoadoutUndo, type LoadoutUndo as Undo } from "./loadout-undo";
 
 type Bundle = LoadoutBundles["bundles"][number];
 type AttackScene = NonNullable<Bundle["scene"]>;
@@ -112,6 +113,7 @@ function newest(saves: SaveReference[]): SaveReference | undefined {
 /** Why a loadout request failed, with what the player can do about it. */
 function loadoutError(error: unknown): string {
   const text = errorText(error);
+  if (/LOADOUT_SCORE_VERIFICATION_MISMATCH/.test(text)) return "伤害复核与排名分数不一致，本次结果已作废。请重新读取角色后搜索；仍然出现请反馈。";
   if (/LOADOUT_SOURCE_REBUILD_REFRESH_REQUIRED/.test(text)) return "当前场景的来源数据尚未与这次角色读取绑定，暂不能搜索。请使用已支持的场景。";
   if (/LOADOUT_DOMAIN_COUNT_TOO_LARGE/.test(text)) return "搭配数量超出可精确统计的范围，无法完成这次搜索。请减少参与搜索的装备后重试。";
   if (/LOADOUT_SOURCE_ATTRIBUTES_UNPROVEN/.test(text)) return "当前来源重建尚不支持属性点重分配。请关闭“允许重新分配属性点”后搜索。";
@@ -147,17 +149,10 @@ interface RuleDraft {
 
 /** Undo for the last outfit this page put on, kept per save until it is used or the outfit changes again. */
 /** How to undo a wear: every record it moved, with the set word it had before (null: not worn). */
-interface Undo {
-  school: Bundle["school"];
-  restore: { slot_index: number; slot: number | null; item_id: number }[];
-}
-
 function readUndo(saveId: string): Undo | null {
   try {
     const text = localStorage.getItem(UNDO_KEY + saveId);
-    const undo = text ? (JSON.parse(text) as Partial<Undo>) : null;
-    // Entries from before exact restores have no `restore` list and are dropped.
-    return undo && Array.isArray(undo.restore) && undo.restore.length && undo.school ? (undo as Undo) : null;
+    return text ? parseLoadoutUndo(JSON.parse(text) as unknown) : null;
   } catch {
     return null;
   }
@@ -659,10 +654,20 @@ export function LoadoutOptimizer({ bundles, catalog }: { bundles: VerifiedBundle
       const lines = worn.map(line =>
         (line.after != null ? "穿上的装备：" : "卸下的装备：") + slotText(line.after ?? line.before) + " " + itemText(line.item_id),
       );
-      const back: Undo = {
-        school: bundle.school,
-        restore: worn.map(l => ({ slot_index: l.slot_index, slot: l.before, item_id: l.item_id })),
-      };
+      const restore: Undo["restore"] = [];
+      for (const line of worn) {
+        const original = source.equipment.find(item => item.slot_index === line.slot_index);
+        if (!original || original.item_id !== line.item_id) {
+          // The service already owns this plan. Keep its exact ID until discard
+          // succeeds, even when the claimed preview cannot identify an item.
+          setPending({ kind: "retiring", planId: plan.plan_id, reason: "changed" });
+          setMessage(loadoutError("OPTIMIZER_RESULT_STALE"));
+          return;
+        }
+        restore.push({ slot_index: line.slot_index, slot: line.before, item_id: line.item_id,
+          inventory_key: original.inventory_key, seed: original.seed });
+      }
+      const back: Undo = { school: bundle.school, restore };
       setTitleConfirmed(false);
       setPending({ kind: "planned", planId: plan.plan_id, lines, undo: purpose === "wear" ? back : null, purpose, binding });
     });
@@ -674,7 +679,7 @@ export function LoadoutOptimizer({ bundles, catalog }: { bundles: VerifiedBundle
 
   function undoWear() {
     if (!undo || !character || !selectedId) return;
-    const moved = undo.restore.find(i => byIndex.get(i.slot_index)?.item_id !== i.item_id);
+    const moved = undo.restore.find(item => !matchesLoadoutUndoItem(item, byIndex.get(item.slot_index)));
     if (moved) {
       setMessage("原来的装备已经不在背包原来的位置（可能被卖掉或分解了），无法自动换回。请在游戏里手动换装，或到“存档管理”恢复换装前的自动备份。缺少的装备：" + itemText(moved.item_id));
       return;
@@ -965,6 +970,9 @@ export function LoadoutResults({ result, byIndex, movePoints, referenceOutfit, o
 }) {
   const [open, setOpen] = useState<number | null>(0);
   const [showSame, setShowSame] = useState<number | null>(null);
+  if (loadoutHasScoreConflict(result)) return <section className="character-message" role="alert" data-testid="loadout-result-coverage" data-coverage="unanswered">
+    伤害复核与排名分数不一致，本次结果已作废。请重新读取角色后搜索；仍然出现请反馈。
+  </section>;
   const groups = grouped(result.best);
   const current = result.current;
   const unanswered = result.no_path + result.refused;

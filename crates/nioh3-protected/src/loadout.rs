@@ -641,7 +641,7 @@ fn search_with_observer(
         && !request.move_points
         && !enhanced
         && !keep_current;
-    let (space, report, excluded, mut details_work, swaps) = if exact {
+    let (space, report, excluded, mut details_work, swaps, execution_receipt) = if exact {
         let completed = exact_search::run(engine, &pack, request, &assigned_spares, observer)?;
         (
             completed.planned,
@@ -649,6 +649,7 @@ fn search_with_observer(
             completed.excluded,
             completed.work,
             assigned_spares,
+            Some(completed.execution_receipt),
         )
     } else {
         let search = Search::new(engine, &pack)
@@ -686,7 +687,7 @@ fn search_with_observer(
                 "LOADOUT_SPACE_TOO_LARGE"
             })
         })?;
-        (space, report, 0, engine.work(), Vec::new())
+        (space, report, 0, engine.work(), Vec::new(), None)
     };
     if let Some(failure) = &report.failure {
         return Err(HostError::rejected(failure.to_string()));
@@ -714,7 +715,9 @@ fn search_with_observer(
                     })
                 })
                 .collect();
-            let details=engine.damage_details(&s.candidate,&pack,&mut details_work).verify_total(s.bits);
+            let details = publication_damage_details(
+                engine.damage_details(&s.candidate, &pack, &mut details_work), s.bits,
+            )?;
             let mut row = json!({
                 "damage": s.damage(),
                 "damage_details":details,
@@ -727,11 +730,11 @@ fn search_with_observer(
                     row["move_previous_weapon_to_slot"] = json!(slot);
                 }
             }
-            row
+            Ok(row)
         })
-        .collect();
-    let current = current_outfit(engine, &pack, &origin, source_admission);
-    Ok(json!({
+        .collect::<Result<Vec<_>, HostError>>()?;
+    let current = current_outfit(engine, &pack, &origin, source_admission)?;
+    let mut result = json!({
         "bundle": bundle.id,
         "context_id": params["context_id"],
         "start_attrs": engine.start_attrs,
@@ -760,7 +763,13 @@ fn search_with_observer(
         },
         "current": current,
         "enhanced": enhanced,
-    }))
+    });
+    if let Some(receipt) = execution_receipt {
+        result["execution_receipt"] = serde_json::to_value(receipt).map_err(|error| {
+            HostError::rejected(format!("LOADOUT_EXECUTION_RECEIPT_INVALID: {error}"))
+        })?;
+    }
+    Ok(result)
 }
 
 fn validate_source_search(
@@ -921,7 +930,7 @@ fn current_outfit(
     pack: &Backpack,
     origin: &[Chosen],
     source_admission: SourceAdmissionPolicy,
-) -> Value {
+) -> Result<Value, HostError> {
     let mut items = [None; SLOTS];
     let mut doubled = Vec::new();
     for (row, &input) in pack.origin.iter().enumerate() {
@@ -941,7 +950,7 @@ fn current_outfit(
         }
     }
     if !doubled.is_empty() {
-        return json!({"status": "ambiguous", "slots": doubled});
+        return Ok(json!({"status": "ambiguous", "slots": doubled}));
     }
     let candidate = Candidate {
         attrs: engine.start_attrs,
@@ -974,21 +983,22 @@ fn current_outfit(
         Outcome::OutsideLimits => ("refused", None),
     };
     let details = match damage {
-        Some(damage) => engine
-            .damage_details(&candidate, pack, &mut w)
-            .verify_total(damage.to_bits()),
+        Some(damage) => publication_damage_details(
+            engine.damage_details(&candidate, pack, &mut w),
+            damage.to_bits(),
+        )?,
         None => nioh3_loadout::damage::DamageDetails::unavailable(
             nioh3_loadout::damage::DetailUnavailable::EvaluationFailed,
         ),
     };
-    json!({
+    Ok(json!({
         "status": status,
         "damage": damage,
         "damage_details":details,
         "items": worn,
         "kept_slots": kept,
         "facts": engine.facts(&candidate, pack, &mut w).map(facts_json),
-    })
+    }))
 }
 
 #[cfg(test)]
@@ -1019,3 +1029,60 @@ mod rule_normalization_tests {
 #[cfg(test)]
 #[path = "loadout_domain_tests.rs"]
 mod domain_tests;
+
+/// A contradictory score must never become a publishable winner or baseline.
+fn publication_damage_details(
+    details: nioh3_loadout::damage::DamageDetails,
+    score: u32,
+) -> Result<nioh3_loadout::damage::DamageDetails, HostError> {
+    use nioh3_loadout::damage::{DamageDetails, DetailUnavailable};
+    let verified = details.verify_total(score);
+    if matches!(
+        verified,
+        DamageDetails::Unavailable {
+            reason: DetailUnavailable::ScoreMismatch
+        }
+    ) {
+        return Err(HostError::rejected("LOADOUT_SCORE_VERIFICATION_MISMATCH"));
+    }
+    Ok(verified)
+}
+
+#[cfg(test)]
+mod score_publication_tests {
+    use super::publication_damage_details;
+    use nioh3_loadout::damage::{DamageDetails, DetailUnavailable};
+
+    #[test]
+    fn contradictory_native_detail_blocks_rank_publication() {
+        let detail = DamageDetails::Available {
+            total: 723.0,
+            physical: 702.0,
+            elemental: 21.0,
+            contacts: Vec::new(),
+        };
+        assert!(publication_damage_details(detail, 1016.0f32.to_bits()).is_err());
+    }
+
+    #[test]
+    fn explicit_score_mismatch_cannot_be_downgraded_to_cosmetic_missing_detail() {
+        let detail = DamageDetails::unavailable(DetailUnavailable::ScoreMismatch);
+        assert!(publication_damage_details(detail, 1016.0f32.to_bits()).is_err());
+    }
+
+    #[test]
+    fn matching_detail_and_legacy_capability_absence_remain_distinct() {
+        let detail = DamageDetails::Available {
+            total: 723.0,
+            physical: 702.0,
+            elemental: 21.0,
+            contacts: Vec::new(),
+        };
+        assert!(publication_damage_details(detail, 723.0f32.to_bits()).is_ok());
+        assert!(publication_damage_details(
+            DamageDetails::unavailable(DetailUnavailable::MissingComponentCapability),
+            723.0f32.to_bits(),
+        )
+        .is_ok());
+    }
+}

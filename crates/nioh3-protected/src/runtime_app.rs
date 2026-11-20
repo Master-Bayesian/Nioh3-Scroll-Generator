@@ -34,7 +34,6 @@ use serde_json::Value;
 
 use nioh3_worker::engine::EngineContext;
 
-#[cfg(windows)]
 use crate::app::FinalizeStep;
 use crate::app::{JobContext, Role, RoleApplication};
 use crate::error::HostError;
@@ -474,7 +473,7 @@ impl RuntimeApplication {
     fn count_editor_for_game(
         &self,
         _approved: &crate::compatibility::ExecutableIdentity,
-    ) -> Result<(), HostError> {
+    ) -> Result<nioh3_runtime::mutation::CountEditor, HostError> {
         Err(HostError::from_runtime(
             nioh3_runtime::RuntimeError::UnsupportedPlatform,
         ))
@@ -497,7 +496,7 @@ impl RuntimeApplication {
     }
 
     #[cfg(not(windows))]
-    fn count_editor_for_plans(&self) -> Result<(), HostError> {
+    fn count_editor_for_plans(&self) -> Result<nioh3_runtime::mutation::CountEditor, HostError> {
         Err(HostError::from_runtime(
             nioh3_runtime::RuntimeError::UnsupportedPlatform,
         ))

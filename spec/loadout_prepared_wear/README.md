@@ -21,9 +21,16 @@ liveness, network reliability, damage arithmetic or any save-write result.
 
 The three named controls must exit TLC with code 12 and their exact invariant
 failure; parse errors are failures of verification. The model is discovered by
-`tools/check_models.ps1` on the host. A portable runner is provided at
-`tools/check_loadout_prepared_wear.py` and uses the supplied, digest-pinned TLC
-jar. The real React/SaveSession/OperationController E2E is
-`apps/workshop/verify-loadout-prepared-wear.mjs`, which also runs compiled source
-faults for stale confirmation and foreign-plan discard. Its native API is a
-controlled fixture and forbids commits; this is not Windows/native acceptance.
+`tools/check_models.ps1` on the host. The declared controls use the digest-pinned TLC jar through that runner.
+The production React/SaveSession/OperationController flow control is
+`apps/workshop/verify-loadout-product.mjs`. It exercises a late plan after
+input changes, a failed discard and retry, and an invalid preview after the
+service has already claimed a plan. It also covers read/refresh, search cancel,
+double clicks, contradictory scores, unmount, and physical-item undo identity.
+Its API is a strict in-memory fixture. Its simulated commit changes fixture
+objects only: no worker, game, or save file is opened. `NIOH3_DOM_MODULE` can
+select a jsdom DOM-only execution when Chromium cannot run; that is not browser
+or WebView2 acceptance. The separate packaged Windows gate must verify those
+boundaries. Model success is not a refinement proof of the React implementation.
+The old named portable runner and verify-loadout-prepared-wear.mjs were absent
+from the fbbac77 archive and must not be cited as supplied executable evidence.

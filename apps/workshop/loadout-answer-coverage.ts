@@ -1,3 +1,5 @@
+import type { LoadoutSearch } from '../../packages/contracts/protected-responses';
+
 /** Completeness of an already returned search result; not search lifecycle. */
 export type LoadoutAnswerCoverage = "complete" | "partial" | "unanswered" | "infeasible";
 
@@ -7,6 +9,14 @@ export type LoadoutSourceModelScope = "legacy_unverified" | "conditional_rebuild
 export function loadoutSourceModelScope(scope: unknown): LoadoutSourceModelScope {
   if (scope === "conditional_rebuild" || scope === "runtime_bound_rebuild") return scope;
   return "legacy_unverified";
+}
+
+/** A failed numerical cross-check is a contradictory result, not missing decoration. */
+export function loadoutHasScoreConflict(result: Pick<LoadoutSearch, 'best' | 'current'>): boolean {
+  const rows = result.current.status === 'ambiguous' ? result.best : [...result.best, result.current];
+  return rows.some(row => row.damage_details?.state === 'unavailable'
+    ? row.damage_details.reason === 'score_mismatch'
+    : row.damage_details?.state === 'available' && row.damage_details.total !== row.damage);
 }
 
 export function loadoutAnswerCoverage(bestCount: number, unansweredCount: number, completeSearch: boolean, sourceUncomputed: number | null = 0): LoadoutAnswerCoverage {

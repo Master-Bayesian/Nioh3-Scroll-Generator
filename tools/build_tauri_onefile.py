@@ -15,6 +15,7 @@ import sys
 # Both the command-line packager and imported tests resolve the same project module.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools.verify_tauri_native_dependencies import inspect_native_imports
+from tools.verify_loadout_release import verify_archive_scenes, artifact_report
 
 MAGIC = b"NIOH3_ONEFILE_V1"
 FOOTER = struct.Struct("<16sQ32s")
@@ -101,6 +102,7 @@ def verify_archive(path: Path) -> tuple[dict, bytes]:
         launcher = archive.read(LAUNCHER_PATH)
         require_x64_pe(launcher)
         inspect_native_imports(launcher, LAUNCHER_PATH)
+        verify_archive_scenes(archive, git["commit"])
         return manifest, launcher
 
 
@@ -139,7 +141,10 @@ def build_onefile(archive_path: Path, output: Path) -> dict:
                 remaining -= len(chunk)
             if digest.digest() != archive_hash or stream.read() != FOOTER.pack(MAGIC, archive_size, archive_hash):
                 raise ValueError("Embedded archive changed while building")
-        report = {"path": str(output), "version": manifest["version"], "sourceCommit": manifest["git"]["commit"],
+        # Verify the artifact's own embedded payload after wrapping, not a
+        # nearby source/runtime directory that the final EXE may not use.
+        loadout = artifact_report(output)
+        report = {"loadout": loadout, "path": str(output), "version": manifest["version"], "sourceCommit": manifest["git"]["commit"],
                   "bytes": output.stat().st_size, "sha256": sha256(output), "payloadBytes": archive_size,
                   "payloadSha256": archive_hash.hex(), "launcherSha256": hashlib.sha256(launcher).hexdigest(),
                   "format": "nioh3-onefile/v1", "footerBytes": FOOTER.size}

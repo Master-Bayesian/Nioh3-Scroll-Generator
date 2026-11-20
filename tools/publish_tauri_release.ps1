@@ -32,6 +32,8 @@ param(
     [Parameter(Mandatory)][string]$Version,
     [Parameter(Mandatory)][string]$Output,
     [string]$Python = $env:NIOH3_PYTHON,
+    # External host receipt binds the final outer EXE; never an extra release asset.
+    [string]$LoadoutHostReceipt,
     [string]$Repository = 'Master-Bayesian/Nioh3-Scroll-Generator',
     # Command-scoped identity for the annotated tag. GitHub runners have none
     # configured globally, and this helper must never write a global git config.
@@ -187,6 +189,17 @@ $verifyBaseArguments = @(
     '--expected-sha', $ExpectedSha,
     '--repository', $Repository
 )
+if (-not [string]::IsNullOrWhiteSpace($LoadoutHostReceipt)) {
+    if (-not (Test-Path -LiteralPath $LoadoutHostReceipt -PathType Leaf)) {
+        Fail "loadout host receipt does not exist: $LoadoutHostReceipt"
+    }
+    $boundReceipt = Join-Path $outputRoot 'loadout-host-receipt.json'
+    $receiptSource = [System.IO.Path]::GetFullPath($LoadoutHostReceipt)
+    if ($receiptSource -ne [System.IO.Path]::GetFullPath($boundReceipt)) {
+        Copy-Item -LiteralPath $receiptSource -Destination $boundReceipt -Force
+    }
+    $verifyBaseArguments += @('--loadout-host-receipt', $boundReceipt)
+}
 $publicReportPath = Join-Path $outputRoot 'public-verify-report.json'
 & $pythonRunner -Python $Python -ScriptPath $verifierRelative -ScriptArgument (@($verifyBaseArguments) + @('--report', $reportPath)) | Out-Null
 if ($LASTEXITCODE -ne 0) { Fail "artifact verification failed; see $reportPath" }

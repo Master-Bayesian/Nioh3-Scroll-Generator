@@ -330,7 +330,7 @@
         },
         "favorite": {
           "type": "boolean",
-          "description": "The game's favourite (喜好项目) mark."
+          "description": "The game's favourite (\u559c\u597d\u9879\u76ee) mark."
         },
         "audit": {
           "anyOf": [
@@ -2981,7 +2981,7 @@
               },
               "favorite": {
                 "type": "boolean",
-                "description": "The game's favourite (喜好项目) mark."
+                "description": "The game's favourite (\u559c\u597d\u9879\u76ee) mark."
               },
               "record_hex": {
                 "type": "string",
@@ -5454,6 +5454,9 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 9007199254740991
+        },
+        "execution_receipt": {
+          "$ref": "#/definitions/LoadoutExecutionReceipt"
         }
       },
       "required": [
@@ -6119,6 +6122,82 @@
             "now"
           ]
         }
+      ]
+    },
+    "LoadoutExecutionReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Actual completed prepared exact-sweep work after startup probe counters are reset. Excludes final row-detail recomputation. CUDA contacts and candidate outfits are different units. Omission means the selected route has no execution telemetry, never proof that GPU work ran.",
+      "properties": {
+        "schema": {
+          "const": "nioh3-loadout-execution/v1"
+        },
+        "scope": {
+          "const": "prepared_exact_sweep"
+        },
+        "backend": {
+          "enum": [
+            "cpu",
+            "card"
+          ]
+        },
+        "planned": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "completed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cpu_executed_candidates": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "cpu_certified_candidates": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "completed_contacts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "submitted_contacts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "native_calls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "failed_batches": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reuse_enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "schema",
+        "scope",
+        "backend",
+        "planned",
+        "completed",
+        "cpu_executed_candidates",
+        "cpu_certified_candidates",
+        "completed_contacts",
+        "submitted_contacts",
+        "native_calls",
+        "failed_batches",
+        "reuse_enabled"
       ]
     }
   },
