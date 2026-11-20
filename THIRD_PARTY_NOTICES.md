@@ -1,5 +1,15 @@
 # Third-party notices
 
+## Naiwa skin media
+
+The idle and laughing WebP button images are unmodified files from
+[MXU’s Naiwa asset directory](https://github.com/MaaXYZ/MXU/tree/2f309effe43bbf151ef71e10895d461eaaad9201/src/assets/skins).
+The 2.4-second mono WAV uses the original audio beginning at 2.6 seconds in
+[the community video collected by NaiWa Wallpaper](https://github.com/Nailong-Studio/NaiWa-Wallpaper/blob/036afc4f4930c90e78c0a8e26d4a2da6606c95e2/videos/%E5%A5%B6%E8%9B%99-%E5%A4%A7%E7%AC%91.mp4),
+with attenuation and short fades. The MXU release asset contains a silent video.
+[MXU’s asset notice](https://github.com/MaaXYZ/MXU/blob/2f309effe43bbf151ef71e10895d461eaaad9201/src/assets/skins/README.md#奶蛙)
+records the source media rights as unverified and independent of the code license.
+
 ## Nioh save-data decryption tool
 
 `bin/Nioh_Savefile_decrypt.exe` and its corresponding source under

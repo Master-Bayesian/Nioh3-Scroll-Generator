@@ -6383,6 +6383,22 @@
     "所选装备的搜索结果或生成条件已变化。请重新搜索并选择结果，再加入清单。": [
       "The selected equipment search result or generation conditions changed. Search again and choose a result before adding it.",
       "選択した装備の検索結果または生成条件が変わりました。再検索して結果を選んでから、追加してください。"
+    ],
+    "皮肤": [
+      "Skin",
+      "スキン"
+    ],
+    "奶蛙": [
+      "Naiwa",
+      "奶蛙（ナイワ）"
+    ],
+    "播放奶蛙大笑": [
+      "Play Naiwa’s laugh",
+      "奶蛙の笑い声を再生"
+    ],
+    "默认": [
+      "Default",
+      "既定"
     ]
   },
   "game": {

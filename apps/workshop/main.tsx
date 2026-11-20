@@ -37,6 +37,8 @@ import {
 } from "./model";
 import "./style.css";
 import "./arc.css";
+import "./naiwa.css";
+import { NaiwaButton } from "./NaiwaButton";
 import { BackupManager } from "./BackupManager";
 import { Editor } from "./Editor";
 import { CharacterEditor } from "./CharacterEditor";
@@ -63,7 +65,7 @@ import { searchStartParams, searchStatusText } from "./search-policy";
 import { isKnownIdPreview, knownIdPreviewState, knownIdUseBlocked, parseKnownScrollId } from "./known-id-preview";
 import { resultSourceLabel, type ResultOrigin } from "./result-source";
 import { useConditionDrag } from "./condition-drag";
-import { useTheme, type Theme } from "./theme";
+import { useSkin, useTheme, type Theme } from "./theme";
 const hex = (id: string) =>
   "0x" + Number(id).toString(16).toUpperCase().padStart(4, "0");
 function score(sample: Sample, mode: string) {
@@ -341,6 +343,7 @@ function App() {
     [ruleFind, setRuleFind] = useState(""),
     [favoriteFind, setFavoriteFind] = useState("");
   const [theme, setTheme] = useTheme();
+  const [skin, setSkin] = useSkin();
   const [showIds, setShowIds] = useState(false),
     [modal, setModal] = useState(""),
     [status, setStatus] = useState("请选择筛选条件。"),
@@ -1146,6 +1149,7 @@ function App() {
         </nav>
         <div className="toplinks">
           {desktop && <UpdateNotice onOpen={openUpdatePrompt} />}
+          {skin === "naiwa" && <NaiwaButton />}
           <button
             className="icon-button language-button"
             aria-label="切换语言"
@@ -2517,6 +2521,13 @@ function App() {
                       className={theme === value ? "active" : ""} onClick={() => setTheme(value)}>{label}</button>
                   ))}
                 </div>
+                <label className="settings-skin-choice">
+                  <span>皮肤</span>
+                  <select value={skin} onChange={event => setSkin(event.currentTarget.value === "naiwa" ? "naiwa" : "default")}>
+                    <option value="default">默认</option>
+                    <option value="naiwa">奶蛙</option>
+                  </select>
+                </label>
                 <ToggleSwitch
                   label="显示词条与敌人 ID"
                   checked={showIds}
@@ -2578,7 +2589,7 @@ function App() {
                           void window.support.resetTool!()
                             .then(() => {
                               try {
-                                for (const key of Object.keys(localStorage)) if (key !== "nioh3-theme") localStorage.removeItem(key);
+                                for (const key of Object.keys(localStorage)) if (key !== "nioh3-theme" && key !== "nioh3-skin") localStorage.removeItem(key);
                               } catch {
                                 // The records are archived; the page reload still starts clean.
                               }
