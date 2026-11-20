@@ -60,23 +60,11 @@ const componentBits = detail => {
 };
 async function checkLoadedScene(sceneDir) {
   const actual = await readdir(sceneDir, {withFileTypes: true});
-  const runtimeFiles = actual.filter(entry => entry.name !== 'context');
+  const runtimeFiles = actual;
   assert(runtimeFiles.every(entry => entry.isFile()), 'Unexpected scene directory or symbolic link');
   assert.deepEqual(runtimeFiles.map(entry => entry.name).sort(), [...Object.keys(scene.files), 'runtime-contract.json'].sort(), 'Loaded scene file set differs from final payload');
   assert.equal(await hashFile(join(sceneDir, 'runtime-contract.json')), scene.contract_sha256);
   for (const [name, expectedFile] of Object.entries(scene.files)) assert.equal(await hashFile(join(sceneDir, name)), expectedFile.sha256, 'Loaded scene differs from embedded file ' + name);
-  if (actual.some(entry => entry.name === 'context')) {
-    assert(actual.find(entry => entry.name === 'context').isDirectory(), 'Context is not a real directory');
-    const names = await readdir(join(sceneDir, 'context'));
-    const hashes = {};
-    for (const name of names.sort()) {
-      const path = join(sceneDir, 'context', name);
-      assert((await lstat(path)).isFile(), 'Private context must contain regular files only');
-      hashes[name] = await hashFile(path);
-    }
-    return hashes;
-  }
-  return {};
 }
 const normalized = rows => rows.map(row => ({damage: row.damage,
   items: (row.items ?? row.assignments).map(item => [item.slot, item.slot_index ?? item.save_slot]),
@@ -109,6 +97,7 @@ async function run(backend, withProfile) {
   // come from the outer EXE's embedded package and the real production broker.
   env.NIOH3_LOADOUT_GPU = backend === 'cpu' ? '0' : '1';
   await mkdir(profile, {recursive: true});
+  let privateContextHashes = null;
   if (withProfile && mode === 'engineering-fixture') {
     const epochSource = resolve(config.live_epoch_fixture);
     const active = JSON.parse(await readFile(join(epochSource, 'active.json'), 'utf8'));
@@ -119,9 +108,6 @@ async function run(backend, withProfile) {
     assert.equal(binding.capture_sha256, active.capture_sha256);
     assert.equal(binding.context_sha256, reference.context_sha256);
     assert.equal(epoch.context_sha256, reference.context_sha256);
-    // Extra private context files live under context/. Every executable and
-    // every public scene input still must be byte-identical to the final EXE.
-    await checkLoadedScene(join(generation, 'bundle'));
     const target = join(env.NIOH3_STATE_ROOT, 'loadout-live-epochs', config.scene_id);
     await mkdir(target, {recursive: true});
     const rejectLinks = async path => {
@@ -129,7 +115,21 @@ async function run(backend, withProfile) {
       return true;
     };
     await copyFile(join(epochSource, 'active.json'), join(target, 'active.json'));
-    await cp(generation, join(target, active.capture_sha256), {recursive: true, errorOnExist: true, force: false, filter: rejectLinks});
+    const privateGeneration = join(target, active.capture_sha256);
+    await mkdir(join(privateGeneration, 'bundle'), {recursive: true});
+    for (const file of ['EPOCH_INPUT.json', 'LIVE_BINDING.json']) {
+      await rejectLinks(join(generation, file));
+      await copyFile(join(generation, file), join(privateGeneration, file));
+    }
+    await cp(join(generation, 'bundle', 'context'), join(privateGeneration, 'bundle', 'context'),
+      {recursive: true, errorOnExist: true, force: false, filter: rejectLinks});
+    const contextDir = join(privateGeneration, 'bundle', 'context');
+    privateContextHashes = {};
+    for (const name of await readdir(contextDir)) {
+      const file = join(contextDir, name);
+      assert((await lstat(file)).isFile(), 'Expected a private context file');
+      privateContextHashes[name] = await hashFile(file);
+    }
   }
   await writeFile(join(profile, 'game-install.json'), JSON.stringify({schema: 'nioh3-game-install/v1', executable: game.path}));
   const saveTarget = join(env.LOCALAPPDATA, 'KoeiTecmo', 'NIOH3', 'Savedata', basename(dirname(dirname(config.save))), basename(dirname(config.save)), 'SAVEDATA.BIN');
@@ -247,13 +247,15 @@ async function run(backend, withProfile) {
     assert(matching.length > 0, 'No actual loaded scorer module observed; do not substitute a filename guess');
     const loaded = matching.at(-1), sceneDir = dirname(loaded.library);
     assert(pathInside(loaded.worker, env.LOCALAPPDATA));
-    assert(pathInside(loaded.library, root), 'Loaded scorer is outside the isolated packaged session');
+    const packagedScene = join(dirname(loaded.worker), 'runtime', 'data', 'loadout', scene.scene_id);
+    assert.equal(resolve(sceneDir).toLowerCase(), resolve(packagedScene).toLowerCase(),
+      'Loaded scorer must come from the installed scene next to the packaged worker');
     assert(loaded.worker.toLowerCase().includes(artifact.payloadSha256));
     assert.equal(await hashFile(loaded.library), scene.files[libraryName].sha256);
-    const contextFileHashes = await checkLoadedScene(sceneDir);
+    await checkLoadedScene(sceneDir);
     const abi = JSON.parse(execFileSync(python, [resolve('tools/probe_loadout_abi.py'), loaded.library, backend], {encoding: 'utf8'}));
     assert.equal(abi.passed, true);
-    const runReceipt = {private_context_file_hashes: contextFileHashes, execution_receipt: executed, requested_backend: backend, actual_backend: result.backend, complete: result.complete,
+    const runReceipt = {private_context_file_hashes: privateContextHashes, execution_receipt: executed, requested_backend: backend, actual_backend: result.backend, complete: result.complete,
       planned: reference.progress.planned, answered: result.answered, searched: result.searched,
       refused: result.refused, no_path: result.no_path, source_uncomputed: result.source_uncomputed,
       winner_components_matched: true, winner_component_bits: componentBits(result.best[0].damage_details),

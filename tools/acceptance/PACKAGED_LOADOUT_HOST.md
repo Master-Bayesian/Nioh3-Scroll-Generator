@@ -109,7 +109,9 @@ This mode first records the fresh-state missing-resource outcome, then copies
 the explicitly supplied generation into isolated
 `state/loadout-live-epochs/kusarigama-strong/`. Every executable and deployable
 scene input in that generation must match the exact final EXE. The private
-context hashes are recorded separately; private context bytes are not written
+context hashes are recorded separately. The verifier copies only the private
+context and binding receipts. Scoring DLLs must load from the installed payload
+beside the packaged worker. Private context bytes are not written
 to receipts. It then exercises the real production bound-epoch receiver.
 
 Successful engineering runs emit `passed=true`, `release_ready=false`,

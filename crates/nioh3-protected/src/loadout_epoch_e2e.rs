@@ -186,15 +186,52 @@ fn production_live_epoch_receiver_requires_current_process_and_scene() {
         std::env::var_os("NIOH3_LIVE_EPOCH_RECEIVER_FIXTURE")
             .expect("prepared live source receiver fixture"),
     );
-    let data = test_root.join("data");
-    let state = test_root.join("state");
     let active = test_root.join("identities.json");
     let info: Value = serde_json::from_slice(&fs::read(active).unwrap()).unwrap();
     let cap = info["capture_sha256"].as_str().unwrap();
-    let generation = state
-        .join("loadout-live-epochs/kusarigama-strong")
-        .join(cap);
+    // Older fixtures kept the binaries and the private observation together.
+    // Exercise the current product shape without modifying the input fixture.
+    let original = test_root.join("state/loadout-live-epochs/kusarigama-strong");
+    let input = original.join(cap);
+    let run = test_root.join(format!("installed-scorer-{}", std::process::id()));
+    let data = run.join("data");
+    let installed = data.join("loadout/kusarigama-strong");
+    let state = run.join("state");
+    let epoch = state.join("loadout-live-epochs/kusarigama-strong");
+    let generation = epoch.join(cap);
     let bundle_path = generation.join("bundle");
+    let private = bundle_path.join("context");
+    fs::create_dir_all(&private).unwrap();
+    fs::create_dir_all(&installed).unwrap();
+    fs::copy(
+        input.join("EPOCH_INPUT.json"),
+        generation.join("EPOCH_INPUT.json"),
+    )
+    .unwrap();
+    fs::copy(
+        test_root.join("data/loadout/kusarigama-strong/bundle.json"),
+        installed.join("bundle.json"),
+    )
+    .unwrap();
+    for name in [
+        "arena.bin",
+        "frame.bin",
+        "gpu_setup.txt",
+        "hits.txt",
+        "live_groups.txt",
+        "main_cpu.dll",
+        "mapped.bin",
+        "programs.txt",
+        "survival_groups.txt",
+        "tables.bin",
+    ] {
+        fs::copy(input.join("bundle").join(name), installed.join(name)).unwrap();
+    }
+    for entry in fs::read_dir(input.join("bundle/context")).unwrap() {
+        let entry = entry.unwrap();
+        fs::copy(entry.path(), private.join(entry.file_name())).unwrap();
+    }
+    assert!(!bundle_path.join("main_cpu.dll").exists());
     let receipt_path = generation.join("EPOCH_INPUT.json");
     let mut snapshot: CombatSnapshot =
         serde_json::from_slice(&fs::read(test_root.join("SNAPSHOT_FIXTURE.json")).unwrap())
@@ -229,6 +266,13 @@ fn production_live_epoch_receiver_requires_current_process_and_scene() {
             || Ok(Some(SnapshotOutcome::Ready(Box::new(source.clone())))),
         )
     };
+    let cold = bind(
+        &mut contexts,
+        &snapshot,
+        ObservationOrigin::VerifiedProcessRead,
+    )
+    .unwrap();
+    fs::copy(original.join("active.json"), epoch.join("active.json")).unwrap();
     let ready = bind(
         &mut contexts,
         &snapshot,
@@ -352,7 +396,8 @@ fn production_live_epoch_receiver_requires_current_process_and_scene() {
     let result = json!({"passed":true,"production_receiver_reached":true,"current_snapshot_is_file_backed":true,
         "exact_scene_channels":[634,615,19],"wrong_birth_retired_old_binding":true,
         "changed_outfit_cannot_rebind_stale_scene":true,"retained_origin_cannot_acquire_live_authority":true,
-        "current_resource_republished":true,"changed_maximum_rejected":true,"actual_game_read_verified":false});
+        "current_resource_republished":true,"changed_maximum_rejected":true,"actual_game_read_verified":false,
+        "before_generation_activation":cold,"private_generation_contains_scorer":false});
     fs::write(
         test_root.join("LIVE_EPOCH_RECEIVER_E2E.json"),
         serde_json::to_vec_pretty(&result).unwrap(),

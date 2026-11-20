@@ -303,6 +303,7 @@ impl BoundLiveEpoch {
     pub(crate) fn acquire(
         state_root: &Path,
         bundle_id: &str,
+        bundle_path: std::path::PathBuf,
         snapshot: &CombatSnapshot,
     ) -> Result<Option<Self>, HostError> {
         let root = state_root.join("loadout-live-epochs").join(bundle_id);
@@ -332,9 +333,13 @@ impl BoundLiveEpoch {
                 "LOADOUT_SOURCE_EPOCH_CURRENT_INPUT_CHANGED",
             ));
         }
-        let bundle_path = path.join("bundle");
-        let prepared =
-            PreparedReplayEpoch::load(bundle_id, &bundle_path, &path.join("EPOCH_INPUT.json"))?;
+        // The player generation owns the private context and original receipt.
+        // The installed scene owns every executable and shared scoring input.
+        let prepared = PreparedReplayEpoch::load(
+            bundle_id,
+            &path.join("bundle"),
+            &path.join("EPOCH_INPUT.json"),
+        )?;
         if binding.context_sha256 != prepared.context.digest()
             || binding.capture_sha256 != prepared.receipt.capture_sha256
         {

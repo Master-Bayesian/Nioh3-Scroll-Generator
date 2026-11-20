@@ -161,9 +161,12 @@ impl Contexts {
             ) && usage == crate::loadout_live::SnapshotUse::CurrentProcess
                 && matches!(bundle.buff_scene(), crate::loadout::BuffScene::Current)
             {
-                if let Some(epoch) =
-                    crate::loadout_epoch::BoundLiveEpoch::acquire(state_root, bundle_id, current)?
-                {
+                if let Some(epoch) = crate::loadout_epoch::BoundLiveEpoch::acquire(
+                    state_root,
+                    bundle_id,
+                    bundle.directory(data_root),
+                    current,
+                )? {
                     return self.publish(
                         BindingOwner {
                             save_id,
