@@ -394,18 +394,23 @@ fn product_fixture_score(
         matches!(authority, SearchAuthority::VerifiedNativeEpoch),
         live_authority,
     );
+    // This fixture compares one retained outfit with its independent native
+    // receipt. Submit the same set constraint required by the product UI.
+    let retained = Candidate {
+        attrs: engine.start_attrs,
+        items: [None; SLOTS],
+    };
+    let empty = Backpack::from_slots(&[]).unwrap();
+    let sets = engine
+        .equipment_set_state(&retained, &empty, &mut engine.work())
+        .unwrap();
+    let &(key, _) = sets.pieces.iter().max_by_key(|entry| entry.1).unwrap();
+    params["sets"] = json!([{"options":[{"key":key,"pieces":1}],"at_least":1}]);
     let score = crate::loadout::search(data, plain, &params, &engine).unwrap();
     assert_eq!(score["complete"], true);
     assert_eq!(score["answered"], 1);
     assert_eq!(score["best"][0]["damage"], expected["damage"]["total"]);
-    let details = engine.damage_details(
-        &Candidate {
-            attrs: engine.start_attrs,
-            items: [None; SLOTS],
-        },
-        &Backpack::from_slots(&[]).unwrap(),
-        &mut engine.work(),
-    );
+    let details = engine.damage_details(&retained, &empty, &mut engine.work());
     let decoded = serde_json::to_value(details).unwrap();
     assert_eq!(decoded["physical"], expected["damage"]["physical"]);
     assert_eq!(decoded["elemental"], expected["damage"]["wind"]);
