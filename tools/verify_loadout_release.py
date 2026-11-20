@@ -57,6 +57,43 @@ def inventory(files: dict[str, bytes]) -> dict:
     return {name: identity(raw) for name, raw in sorted(files.items()) if name != CONTRACT}
 
 
+def export_layout(source: Path, target: Path) -> None:
+    """Export the single direct-contact layout consumed by Engine::open_with_context.
+
+    Frame::same_layout checks canonical addresses, packet mode and Ki seed mode.
+    The character's encoded context supplies the actual STAT/D and source program.
+    """
+    files = {name: (source / name).read_bytes() for name in REQUIRED}
+    plan = json.loads(files["event_plan.json"])
+    templates = plan.get("templates", [])
+    need(plan.get("mode") == {"kind": "fixed_contacts"} and len(templates) == 1
+         and templates[0].get("packet") == {"kind": "prepared_actor"}
+         and plan.get("single_use") is None, "layout export requires the single direct actor contact")
+    frame = sections(files["frame.bin"])
+    # These sections change Frame::same_layout. Extend publication of other
+    # attack shapes only alongside matching exporter and engine controls.
+    need(not (frame.keys() & {"packet_kind", "aad_packet_kind", "weapon_element_packet", "hit_packets", "held_reaper"}),
+         "layout export requires the default weapon packet")
+    layout = {name: bytes(len(frame[name])) for name in ("stat", "d0", "s_base", "d_base")}
+    need(len(frame["addresses"]) == 72, "unexpected frame address layout")
+    layout["addresses"] = frame["addresses"]
+    if "identity_ki_seed" in frame:
+        need(frame["identity_ki_seed"] == struct.pack("<4I", 1, 0, 0, 0x3f800000), "unknown Ki layout")
+        layout["identity_ki_seed"] = frame["identity_ki_seed"]
+    files["frame.bin"] = b"".join(
+        struct.pack("<I", len(name)) + name.encode("ascii") + struct.pack("<I", len(raw)) + raw
+        for name, raw in layout.items())
+    # Only slot ranges come from this base setup. The app supplies the owned
+    # pool separately. Reject a nonempty static pool instead of dropping it.
+    setup = files["gpu_setup.txt"].decode("ascii").splitlines()
+    need(len(setup) == 3 and setup[0].split()[-1:] == ["0"] and setup[1].split() == ["0"],
+         "layout export requires the app-owned equipment pool")
+    files["gpu_setup.txt"] = b"0 0 0\n0\n0 0 0 0 0 0 0\n"
+    target.mkdir(parents=True, exist_ok=False)
+    for name, raw in files.items():
+        (target / name).write_bytes(raw)
+
+
 def sections(raw: bytes) -> dict[str, bytes]:
     result = {}
     offset = 0
@@ -208,6 +245,8 @@ def verify_host_receipt(artifact: dict, receipt: dict) -> None:
     need(len(covered) == len(actual_scenes) and {entry.get("scene_id") for entry in covered} == set(actual_scenes), "host receipt does not cover every shipped scene")
     for entry in covered:
         expected = actual_scenes[entry["scene_id"]]
+        need("source_rebuild" not in expected["layout"]["frame_sections"],
+             "public frame contains a character-bound source program and reference inventory")
         need(entry.get("files") == expected["files"], "host receipt scene bytes differ from EXE")
         runs = entry.get("runs", [])
         need(len(runs) == 2 and {run.get("requested_backend") for run in runs} == {"cpu", "card"}, "host receipt must cover CPU and actual CUDA")
@@ -252,6 +291,9 @@ def seal(scene: Path, generated: Path, app_commit: str, native_commit: str) -> d
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
+    export = sub.add_parser("export-layout")
+    export.add_argument("source", type=Path)
+    export.add_argument("target", type=Path)
     certify = sub.add_parser("seal")
     certify.add_argument("scene", type=Path)
     certify.add_argument("--generated-main", type=Path, required=True)
@@ -264,7 +306,10 @@ def main() -> int:
     check.add_argument("--output", type=Path)
     args = parser.parse_args()
     try:
-        if args.command == "seal":
+        if args.command == "export-layout":
+            export_layout(args.source, args.target)
+            report = {"passed": True, "layout": str(args.target), "requires_player_context": True}
+        elif args.command == "seal":
             report = seal(args.scene, args.generated_main, args.app_commit, args.native_commit)
         else:
             report = artifact_report(args.artifact)

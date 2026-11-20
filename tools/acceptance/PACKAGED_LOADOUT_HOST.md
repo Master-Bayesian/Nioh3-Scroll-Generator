@@ -17,6 +17,14 @@ sidecars are rejected; they must not be copied into a public EXE.
 Build both DLLs from the same generated MAIN and export all inputs for that
 address space/source generation. Then record the exact app/native commits:
 
+For the retained single direct-actor contact, first run
+`python tools/verify_loadout_release.py export-layout <engineering-scene> <new-directory>/kusarigama-strong`.
+Seal the newly exported directory. Its base frame contains the canonical address
+layout and empty character buffers. The player's context supplies the actual
+frame at engine initialization. Keep the captured source program, its reference
+inventory and populated STAT/D in the private generation. A host receipt cannot
+authorize publishing that captured program inside the executable.
+
 ```powershell
 python tools/verify_loadout_release.py seal C:/work/export/kusarigama-strong `
   --generated-main C:/work/native/main_gen.inc `

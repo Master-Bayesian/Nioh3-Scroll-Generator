@@ -103,6 +103,27 @@ class LoadoutReleaseTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
 
+    def test_layout_export_keeps_addresses_and_removes_character_evidence(self):
+        files = scene_files()
+        original = gate.sections(files["frame.bin"])
+        original["stat"] = b"P" * 0x900
+        original["source_rebuild"] = b'{"reference_inventory":[12,34]}'
+        files["frame.bin"] = b"".join(
+            struct.pack("<I", len(name)) + name.encode() + struct.pack("<I", len(value)) + value
+            for name, value in original.items())
+        files["event_plan.json"] = json.dumps({
+            "mode": {"kind": "fixed_contacts"}, "templates": [{"packet": {"kind": "prepared_actor"}}],
+            "single_use": None}).encode()
+        files["gpu_setup.txt"] = b"348 340 0\n0\n5 45 15 200 5 60 155\n"
+        write_files(self.root / "captured", files)
+        gate.export_layout(self.root / "captured", self.root / "export")
+        public = gate.sections((self.root / "export/frame.bin").read_bytes())
+        self.assertEqual(public["addresses"], original["addresses"])
+        self.assertEqual(public["stat"], bytes(0x900))
+        self.assertNotIn("source_rebuild", public)
+        self.assertEqual((self.root / "captured/frame.bin").read_bytes(), files["frame.bin"])
+        self.assertNotIn(b"348", (self.root / "export/gpu_setup.txt").read_bytes())
+
     def test_static_identity_is_not_numerical_acceptance(self):
         report = gate.verify_scene(bound_scene(), "kusarigama-strong", COMMIT)
         self.assertTrue(report["host_e2e_required"])
@@ -209,6 +230,10 @@ class LoadoutReleaseTests(unittest.TestCase):
                    "scenes": [{"scene_id": "kusarigama-strong", "files": scene["files"], "runs": runs}],
                    "no_private_profile": {"ran": True, "false_complete": False}}
         gate.verify_host_receipt(artifact, receipt)
+        captured = copy.deepcopy(artifact)
+        captured["scenes"][0]["layout"]["frame_sections"].append("source_rebuild")
+        with self.assertRaisesRegex(ValueError, "character-bound source program"):
+            gate.verify_host_receipt(captured, receipt)
         mutations = [
             ("engineering", lambda r: r.update(mode="engineering-fixture", private_resources_copied=True)),
             ("no-fresh-install", lambda r: r["fresh_install"].update(passed=False)),
