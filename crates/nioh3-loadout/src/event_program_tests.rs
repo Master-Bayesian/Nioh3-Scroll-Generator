@@ -176,8 +176,9 @@ fn production_packet_builder_restores_actor_after_owned_projectile() {
     let mut engine = Engine::audit_fixture();
     let main = engine.frame.main_address();
     engine.formula = Formula::audit_word(main + 0x18, 1.0f32.to_bits());
-    engine.hits.addresses = vec![main + 0x198, main + 0x19c];
-    engine.hits.rows = vec![vec![0x90000, 0]; 3];
+    // The descriptor overwrites both halves of an earlier object pointer.
+    engine.hits.addresses = vec![main + 0x198, main + 0x19c, main + 0x198, main + 0x19c];
+    engine.hits.rows = vec![vec![0x90004, 1, 0x90000, 0]; 3];
     engine.frame.hit_packets = vec![
         crate::pipeline::HitPacket::Prepared,
         crate::pipeline::HitPacket::UnimbuedOwnerProjectile {
@@ -200,6 +201,7 @@ fn production_packet_builder_restores_actor_after_owned_projectile() {
     for (field, value) in [
         ("incarnation", json!(0)),
         ("object", json!(0x90004)),
+        ("object", json!(0x1_0009_0004u64)),
         ("descriptor_kind", json!(1)),
         ("owner", json!(7)),
     ] {

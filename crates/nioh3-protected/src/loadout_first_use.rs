@@ -1,6 +1,7 @@
 //! Build the current outfit's ordered source rules from ordinary process reads.
 //! This step has no dependency on a private generation or a damage template.
 use crate::error::HostError;
+use nioh3_loadout::action_rows::ActionRow;
 use nioh3_loadout::context::{
     sha256, CharacterInputs, ContextManifest, CoreEntry, LoadoutContext, NonGearSources,
     Provenance, Scenario, SceneBytes,
@@ -360,10 +361,33 @@ impl SourceRead {
             }),
         };
         frame = Frame::with_source_rebuild(&frame, &program).map_err(invalid)?;
-        let encounter = direct_encounter(memory, snap, &self.basis.stat, self.category)
-            .map_err(HostError::from_runtime)?;
-        let confirmed = direct_encounter(memory, snap, &self.basis.stat, self.category)
-            .map_err(HostError::from_runtime)?;
+        #[derive(serde::Deserialize)]
+        struct AttackSelection {
+            resource_action: ActionRow,
+        }
+        let descriptor =
+            fs::read(scene.join("bundle.json")).map_err(|e| invalid(&e.to_string()))?;
+        let attack: AttackSelection =
+            serde_json::from_slice(&descriptor).map_err(|e| invalid(&e.to_string()))?;
+        let row = attack.resource_action.resolve().map_err(invalid)?;
+        let encounter = direct_encounter(
+            memory,
+            snap,
+            &self.basis.stat,
+            self.category,
+            &row.key,
+            row.bytes,
+        )
+        .map_err(HostError::from_runtime)?;
+        let confirmed = direct_encounter(
+            memory,
+            snap,
+            &self.basis.stat,
+            self.category,
+            &row.key,
+            row.bytes,
+        )
+        .map_err(HostError::from_runtime)?;
         if encounter != confirmed
             || !matches!(nioh3_runtime::combat_context::read_combat_snapshot(memory).map_err(HostError::from_runtime)?,
             nioh3_runtime::combat_context::SnapshotOutcome::Ready(current) if current.roots==snap.roots && current.inputs==snap.inputs && current.status_tree_raw==snap.status_tree_raw)
@@ -389,7 +413,13 @@ impl SourceRead {
                     .collect()
             }),
         };
-        let provenance=Provenance{capture_id:format!("first-use-{}",self.digest),source_sha256:self.digest.clone(),game_version:[2,0,2,0],description:"Current PC202 normal progress branch and equipped inventory, fixed frontal training opponent and a direct Ninja kusarigama strong contact".into()};
+        let provenance = Provenance {
+            capture_id: format!("first-use-{}", self.digest),
+            source_sha256: self.digest.clone(),
+            game_version: [2, 0, 2, 0],
+            description: format!("Current PC202 normal progress and equipped inventory, frontal training opponent, resource {} action {} row {}",
+                attack.resource_action.resource, attack.resource_action.action, attack.resource_action.row),
+        };
         let manifest = ContextManifest {
             schema: nioh3_loadout::context::CONTEXT_SCHEMA.into(),
             provenance,
@@ -397,7 +427,7 @@ impl SourceRead {
                 image_sha256: sha256(&encounter.image),
                 image_known_sha256: sha256(&encounter.known),
                 scene_entry_sha256: sha256(&encounter.entry),
-                attack_weapon_slot: 0,
+                attack_weapon_slot: input.held_weapon_slot,
                 main_flags_298: encounter.flags,
             },
             attrs: input.raw_attrs,
@@ -430,7 +460,7 @@ pub(crate) fn verify_equipped(
     snap: &CombatSnapshot,
 ) -> Result<(), HostError> {
     use nioh3_loadout::damage::DamageDetails;
-    use nioh3_loadout::engine::{Backpack, Candidate, SLOTS};
+    use nioh3_loadout::engine::{Backpack, Candidate, Limits, Outcome, SLOTS};
     let invalid = |s: &str| HostError::rejected(format!("LOADOUT_FIRST_USE_VERIFY: {s}"));
     let c = Candidate {
         attrs: engine.start_attrs,
@@ -498,9 +528,24 @@ pub(crate) fn verify_equipped(
         ));
     }
     let details = engine.damage_details(&c, &pack, &mut engine.work());
-    if !matches!(details,DamageDetails::Available{total,physical,elemental,ref contacts} if contacts.len()==1 && total.is_finite() && physical.is_finite() && elemental.is_finite())
-    {
-        return Err(invalid("reference contact could not be evaluated"));
+    let Outcome::Damage(score) = engine.evaluate(&c, &pack, &Limits::NONE, &mut engine.work())
+    else {
+        return Err(invalid("equipped attack could not be scored"));
+    };
+    let DamageDetails::Available { contacts, .. } = details.verify_total(score) else {
+        return Err(invalid(
+            "equipped damage breakdown differs from its ranking score",
+        ));
+    };
+    let expected_contacts = engine
+        .native_words(&c, &pack, &mut engine.work())
+        .map_err(invalid)?
+        .1
+        .len();
+    if contacts.len() != expected_contacts {
+        return Err(invalid(
+            "equipped damage breakdown omits or adds a scoring contact",
+        ));
     }
     Ok(())
 }

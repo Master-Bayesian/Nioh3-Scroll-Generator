@@ -45,6 +45,25 @@ workflow.
 
 ## Verification scope
 
+The PC202 damage parameter bank resolves 11,909 direct row references across
+11,885 catalog actions. The lookup key includes the resource, action number,
+parameter digest and row selector. An event plan separately specifies the
+ordered landed contacts, projectile ownership, resource use and buff phases.
+The catalog spans more actions than an empty player profile can currently
+score. The first-use encounter currently available in the packaged app is the
+Ninja kusarigama first strong contact without temporary status.
+
+To compile an existing event sequence, build the loadout example
+`compile_action_rows` and run `tools/compile_loadout_event_inputs.py` with the
+scene directory, example executable, canonical descriptor address and a new
+output directory. Initialize that descriptor from `damage_descriptor.bin`.
+The generated `hits.txt` keeps writes at the addresses consumed by the
+evaluator. Preserve equipment and phase inputs from the current role. An
+earlier pointer-relocation experiment scored katana mid strong as 761 versus
+the original 1196, despite containing the correct row bytes at the new address.
+Qualify a new scene with its original per-contact components and the actual
+device before exposing it as a ranking choice.
+
 Run the native harness with a PC202 fixture that preserves the original
 save and its compiled scene identity. The harness launches the actual
 Windows WebView2 host and protected worker with the replay source.

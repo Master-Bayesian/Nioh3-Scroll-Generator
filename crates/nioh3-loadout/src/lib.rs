@@ -12,6 +12,7 @@ pub mod damage;
 pub mod engine;
 pub mod formula;
 pub mod gpu;
+pub mod action_rows;
 pub mod hit_buffer;
 pub mod native;
 pub mod pipeline;

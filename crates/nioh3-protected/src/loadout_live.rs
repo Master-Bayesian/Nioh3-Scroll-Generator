@@ -1013,7 +1013,7 @@ fn refresh_with_projection(
         replace_scene_word(&mut image, &mut known, address, &value.to_le_bytes())?;
         if let Some(index) = hit_addresses
             .iter()
-            .position(|candidate| *candidate == address)
+            .rposition(|candidate| *candidate == address)
         {
             if runtime_rows[0][index] != value {
                 runtime_rows[0][index] = value;

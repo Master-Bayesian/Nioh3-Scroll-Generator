@@ -494,7 +494,7 @@ impl EventProgram {
                     let word = |a| {
                         addresses
                             .iter()
-                            .position(|&x| x == a)
+                            .rposition(|&x| x == a)
                             .map(|i| rows[index][i])
                     };
                     if let (Some(lo), Some(hi)) = (

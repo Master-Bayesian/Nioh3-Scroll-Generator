@@ -87,7 +87,7 @@ struct AttackScene {
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct Bundle {
     id: String,
-    name: String,
+    pub(crate) name: String,
     weapon: String,
     damage: String,
     pub(crate) school: String,

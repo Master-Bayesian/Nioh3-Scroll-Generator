@@ -272,9 +272,7 @@ impl Contexts {
             if !sources.matched() {
                 return partial("source_maps_differ");
             }
-            if bundle_id != "kusarigama-strong"
-                || snap.inputs.held_weapon_slot != 0
-                || !snap.inputs.status_keys.is_empty()
+            if !snap.inputs.status_keys.is_empty()
                 || !matches!(bundle.buff_scene(), crate::loadout::BuffScene::Current)
             {
                 return partial("reference_encounter_unsupported");
@@ -287,7 +285,7 @@ impl Contexts {
                 .map_err(|e| HostError::rejected(e.to_string()))?;
             let skills = crate::loadout_live::displayed_skills(&snap.inputs, &catalog);
             let profile = json!({"captured_at":crate::loadout_live::snapshot_time(),"skills":skills,"buffs":[],
-              "notes":["普通技能分支，按训练武士正面承受锁镰力攻击首击计算。"]});
+              "notes":[format!("普通技能分支，按训练武士正面承受「{}」计算。",bundle.name)]});
             contexts.publish(
                 BindingOwner {
                     save_id,

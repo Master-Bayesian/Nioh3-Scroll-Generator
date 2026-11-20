@@ -11,6 +11,10 @@ type R<T> = Result<T, RuntimeError>;
 #[derive(Deserialize)]
 struct Recipe {
     roots: BTreeMap<String, u64>,
+    action_row_key: [u8; 32],
+    form: i32,
+    held_slot: u32,
+    item_category: u32,
     tables: Vec<ParameterTable>,
     fields: Vec<Field>,
 }
@@ -264,6 +268,8 @@ pub fn direct_encounter(
     s: &CombatSnapshot,
     stat: &[u8],
     category: u32,
+    row_key: &[u8; 32],
+    row: &[u8; 192],
 ) -> R<Encounter> {
     let r = recipe()?;
     let root = |key: &str| {
@@ -273,12 +279,12 @@ pub fn direct_encounter(
             .ok_or_else(|| layout("missing virtual encounter anchor"))
     };
     if stat.len() != 0x900
-        || s.inputs.mode != 1
-        || s.inputs.held_weapon_slot != 0
-        || category != 0x2d3f
+        || s.inputs.mode != r.form
+        || s.inputs.held_weapon_slot != r.held_slot
+        || category != r.item_category
     {
         return Err(layout(
-            "direct encounter requires a first-slot Ninja kusarigama",
+            "current role does not match this encounter's form, held slot and weapon category",
         ));
     }
     let mut reader = Reader {
@@ -286,6 +292,14 @@ pub fn direct_encounter(
         pointers: BTreeMap::new(),
     };
     let mut image = Image::default();
+    if row_key != &r.action_row_key {
+        return Err(layout(
+            "selected damage row differs from this encounter's packet and event rules",
+        ));
+    }
+    let aad = root("attack_data")?;
+    image.pointer(add(root("packet")?, 0x190)?, aad)?;
+    image.set(aad, row)?;
     let mut bindings = BTreeMap::new();
     let mut live_objects = BTreeMap::new();
     for (name, address) in [
@@ -300,9 +314,9 @@ pub fn direct_encounter(
         bindings.insert(canonical, address);
         live_objects.insert(address, canonical);
     }
-    let hell = u32::from(
-        s.inputs.inventory[s.inputs.active_bank as usize * BANK_BYTES + 0x1a] & 0x10 != 0,
-    );
+    let equipped =
+        s.inputs.active_bank as usize * BANK_BYTES + s.inputs.held_weapon_slot as usize * 0xe8;
+    let hell = u32::from(s.inputs.inventory[equipped + 0x1a] & 0x10 != 0);
     let flags = hell << 16;
     let module = root("module")?;
     for key in ["stat", "d", "packet", "stack", "teb"] {
