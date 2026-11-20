@@ -2399,8 +2399,20 @@ impl Frame {
         section("d0", reset_damage);
         section("d_base", damage);
         section("baseline_sources", &seeds[2].to_le_bytes());
-        if let Some(ki) = s.0.get("identity_ki_seed") {
-            section("identity_ki_seed", &ki.bytes);
+        // These are attack policies compared by same_layout. In particular,
+        // elemental projectiles and the resource-driven loop must survive
+        // replacing the four actor buffers with this role's observations.
+        for name in [
+            "packet_kind",
+            "aad_packet_kind",
+            "weapon_element_packet",
+            "hit_packets",
+            "held_reaper",
+            "identity_ki_seed",
+        ] {
+            if let Some(policy) = s.0.get(name) {
+                section(name, &policy.bytes);
+            }
         }
         Self::with_owner_resource(&out, resource)
     }

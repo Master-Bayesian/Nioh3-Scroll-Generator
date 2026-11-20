@@ -2,6 +2,56 @@ use super::*;
 
 const ATTRS: [i32; 7] = [5, 45, 15, 200, 5, 60, 155];
 
+#[test]
+fn first_read_preserves_each_action_layout_when_replacing_player_values() -> R<()> {
+    let projectile: Vec<u8> = [0u32, 0, 0, 1, 100, 0, 1, 100, 0]
+        .into_iter()
+        .flat_map(u32::to_le_bytes)
+        .collect();
+    for policies in [
+        vec![("packet_kind", &[2u8, 0][..])],
+        vec![("aad_packet_kind", &[1][..]), ("hit_packets", &projectile)],
+        vec![("held_reaper", &[1][..])],
+    ] {
+        let mut layout = audit_frame_bytes();
+        for (name, value) in policies {
+            layout.extend((name.len() as u32).to_le_bytes());
+            layout.extend(name.as_bytes());
+            layout.extend((value.len() as u32).to_le_bytes());
+            layout.extend(value);
+        }
+        let declared = Frame::load(&layout)?;
+        let private = Frame::load(&Frame::first_use_frame(
+            &layout,
+            &[1; 0x900],
+            &[2; 0x900],
+            &[3; 0xb00],
+            &[4; 0xb00],
+            [100, 200, 300],
+            [4, 5],
+        )?)?;
+        assert!(declared.same_layout(&private));
+        assert_eq!(
+            (
+                private.main8,
+                private.hp_base,
+                private.baseline_defense_sources
+            ),
+            (100, 200, 300)
+        );
+        assert_eq!(
+            (
+                private.stat[0],
+                private.s_base[0],
+                private.d_base[0],
+                private.d0[0]
+            ),
+            (1, 2, 3, 4)
+        );
+    }
+    Ok(())
+}
+
 pub(super) fn fixture() -> (Tables, Frame, Character) {
     // Losslessly reconstructed from the supplied NUMERIC_TABLES.json.gz.
     // SHA256: 922ba8fa5c1089538c1f075e5600cc65a8310ee4150d12eb4aa34610f3f804c2.

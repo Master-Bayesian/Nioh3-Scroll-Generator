@@ -57,6 +57,46 @@ def inventory(files: dict[str, bytes]) -> dict:
     return {name: identity(raw) for name, raw in sorted(files.items()) if name != CONTRACT}
 
 
+def public_frame(raw: bytes, plan: dict) -> bytes:
+    """Keep the byte layout and typed attack policies; all player numeric buffers start empty."""
+    frame = sections(raw)
+    layout = {name: bytes(len(frame[name])) for name in ("stat", "d0", "s_base", "d_base")}
+    need(len(frame["addresses"]) == 72, "unexpected frame address layout")
+    layout["addresses"] = frame["addresses"][:56] + bytes(16)
+    for name, width in (("packet_kind", 2), ("aad_packet_kind", 1)):
+        if name in frame:
+            need(len(frame[name]) == width, "invalid packet selector")
+            layout[name] = frame[name]
+    need(not {"packet_kind", "aad_packet_kind"} <= layout.keys(), "conflicting packet selectors")
+    for name in ("held_reaper", "weapon_element_packet"):
+        if name in frame:
+            need(frame[name] == bytes([1]), "invalid attack policy: " + name)
+            layout[name] = frame[name]
+    need(("held_reaper" in layout) == (plan["mode"]["kind"] == "held_reaper"), "held action layout mismatch")
+    packets = [row["packet"] for row in plan["templates"]]
+    need(bool(packets), "action has no templates")
+    if "hit_packets" in frame or any(row["kind"] != "prepared_actor" for row in packets):
+        # Recreate only typed public words; never copy raw projectile object,
+        # owner, or incarnation fields from an actor's historical event plan.
+        records = []
+        for packet in packets:
+            if packet["kind"] == "prepared_actor":
+                records.append(bytes(12))
+            elif packet["kind"] == "unimbued_owner_projectile":
+                records.append(struct.pack("<III", 1, packet["power"], packet["main_flags"]))
+            else:
+                raise ValueError("unsupported event packet policy: " + packet["kind"])
+        expected = b"".join(records)
+        need(frame.get("hit_packets") == expected, "per-contact metadata differs from the event plan")
+        layout["hit_packets"] = expected
+    if "identity_ki_seed" in frame:
+        need(frame["identity_ki_seed"] == struct.pack("<4I", 1, 0, 0, 0x3f800000), "unknown Ki layout")
+        layout["identity_ki_seed"] = frame["identity_ki_seed"]
+    return b"".join(
+        struct.pack("<I", len(name)) + name.encode("ascii") + struct.pack("<I", len(value)) + value
+        for name, value in layout.items())
+
+
 def export_layout(source: Path, target: Path) -> None:
     """Export the single direct-contact layout consumed by Engine::open_with_context.
 
@@ -74,17 +114,7 @@ def export_layout(source: Path, target: Path) -> None:
     # attack shapes only alongside matching exporter and engine controls.
     need(not (frame.keys() & {"packet_kind", "aad_packet_kind", "weapon_element_packet", "hit_packets", "held_reaper"}),
          "layout export requires the default weapon packet")
-    layout = {name: bytes(len(frame[name])) for name in ("stat", "d0", "s_base", "d_base")}
-    need(len(frame["addresses"]) == 72, "unexpected frame address layout")
-    # Frame::same_layout uses seven canonical addresses. The last two
-    # u64 words are character values (packet attack and starting health).
-    layout["addresses"] = frame["addresses"][:56] + bytes(16)
-    if "identity_ki_seed" in frame:
-        need(frame["identity_ki_seed"] == struct.pack("<4I", 1, 0, 0, 0x3f800000), "unknown Ki layout")
-        layout["identity_ki_seed"] = frame["identity_ki_seed"]
-    files["frame.bin"] = b"".join(
-        struct.pack("<I", len(name)) + name.encode("ascii") + struct.pack("<I", len(raw)) + raw
-        for name, raw in layout.items())
+    files["frame.bin"] = public_frame(files["frame.bin"], plan)
     # Only slot ranges come from this base setup. The app supplies the owned
     # pool separately. Reject a nonempty static pool instead of dropping it.
     setup = files["gpu_setup.txt"].decode("ascii").splitlines()
@@ -302,6 +332,9 @@ def main() -> int:
     export = sub.add_parser("export-layout")
     export.add_argument("source", type=Path)
     export.add_argument("target", type=Path)
+    frame = sub.add_parser("export-frame")
+    frame.add_argument("source", type=Path, help="scene directory containing frame.bin and event_plan.json")
+    frame.add_argument("target", type=Path)
     certify = sub.add_parser("seal")
     certify.add_argument("scene", type=Path)
     certify.add_argument("--generated-main", type=Path, required=True)
@@ -317,6 +350,11 @@ def main() -> int:
         if args.command == "export-layout":
             export_layout(args.source, args.target)
             report = {"passed": True, "layout": str(args.target), "requires_player_context": True}
+        elif args.command == "export-frame":
+            public = public_frame((args.source / "frame.bin").read_bytes(), json.loads((args.source / "event_plan.json").read_bytes()))
+            with args.target.open("xb") as stream:
+                stream.write(public)
+            report = {"passed": True, "frame": str(args.target), "sha256": digest(public)}
         elif args.command == "seal":
             report = seal(args.scene, args.generated_main, args.app_commit, args.native_commit)
         else:
