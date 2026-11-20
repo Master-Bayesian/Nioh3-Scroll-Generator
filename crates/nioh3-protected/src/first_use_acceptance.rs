@@ -12,7 +12,7 @@ use std::{cell::RefCell, collections::BTreeMap, fs, path::Path};
 
 struct Recorded<'a> {
     inner: &'a dyn InventoryMemory,
-    reads: RefCell<BTreeMap<(u64, usize), Vec<u8>>>,
+    reads: RefCell<Vec<(u64, Vec<u8>)>>,
 }
 impl InventoryMemory for Recorded<'_> {
     fn module_base(&self) -> u64 {
@@ -26,9 +26,7 @@ impl InventoryMemory for Recorded<'_> {
     }
     fn read(&self, address: u64, size: usize) -> Result<Vec<u8>, RuntimeError> {
         let bytes = self.inner.read(address, size)?;
-        self.reads
-            .borrow_mut()
-            .insert((address, size), bytes.clone());
+        self.reads.borrow_mut().push((address, bytes.clone()));
         Ok(bytes)
     }
 }
@@ -46,18 +44,29 @@ fn hex(bytes: &[u8]) -> String {
     }
     s
 }
+
 impl Recorded<'_> {
     fn save(&self, dir: &Path) -> Result<(), HostError> {
         let mut bytes = BTreeMap::new();
-        for ((base, _), body) in self.reads.borrow().iter() {
+        let reads = self.reads.borrow();
+        for (base, body) in reads.iter() {
             for (i, v) in body.iter().enumerate() {
                 if bytes
                     .insert(base + i as u64, *v)
                     .is_some_and(|old| old != *v)
                 {
-                    return Err(failed(
-                        "overlapping host evidence changed; no coherent replay file",
-                    ));
+                    // Preserve time order. A changing address has no single value
+                    // that could faithfully represent both successful reads.
+                    let mut stream = std::io::BufWriter::new(
+                        fs::File::create(dir.join("ordered-reads.jsonl")).map_err(failed)?,
+                    );
+                    use std::io::Write;
+                    for (address, value) in reads.iter() {
+                        writeln!(stream, "{}", json!({"address":address,"bytes":hex(value)}))
+                            .map_err(failed)?;
+                    }
+                    stream.flush().map_err(failed)?;
+                    return Err(failed("host evidence changed; saved ordered reads only"));
                 }
             }
         }
@@ -165,5 +174,52 @@ pub fn export(
         capture(&nioh3_runtime::FixtureMemory::from_json(&raw).map_err(HostError::from_runtime)?)
     } else {
         loadout_live::with_memory(|m| capture(m.ok_or_else(|| failed("game not running"))?))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repeated_reads_with_changed_bytes_preserve_both_observations(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let fixture = |bytes| {
+            nioh3_runtime::FixtureMemory::from_json(&json!({
+                "pid":1,"creation_filetime":2,"module_base":4096,
+                "regions":[{"address":4100,"bytes":bytes}]
+            }))
+        };
+        let before = fixture("01ff")?;
+        let after = fixture("02ff")?;
+        let mut record = Recorded {
+            inner: &before,
+            reads: Default::default(),
+        };
+        record.read(4100, 2)?;
+        record.inner = &after;
+        record.read(4100, 2)?;
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("nioh-first-read-{nonce}"));
+        fs::create_dir(&dir)?;
+        assert!(record.save(&dir).is_err());
+        assert!(!dir.join("ordinary-read-memory.json").exists());
+        let log = dir.join("ordered-reads.jsonl");
+        let rows: Vec<Value> = fs::read_to_string(&log)?
+            .lines()
+            .map(serde_json::from_str)
+            .collect::<Result<_, _>>()?;
+        assert_eq!(
+            rows,
+            [
+                json!({"address":4100,"bytes":"01ff"}),
+                json!({"address":4100,"bytes":"02ff"})
+            ]
+        );
+        fs::remove_file(log)?;
+        fs::remove_dir(dir)?;
+        Ok(())
     }
 }
