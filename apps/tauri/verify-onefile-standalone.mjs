@@ -170,11 +170,42 @@ async function launch(f, label) {
         if (value.job_id && value.state !== 'completed') throw new Error(`Read-only request did not complete: ${method}`);
         return value.job_id ? value.result : value;
       };
+      const catalog = async (query) => (await invoke('save.loadout_bundles', {catalog_query:query})).catalog;
+      const strong = await catalog('锁镰 力攻击');
+      const water = await catalog('燕返·水');
       return {preview: await window.review.preview({seed:1, rarity:3, level:180, retain:false}),
-        saves: await invoke('save.discover', {}), runtime: await invoke('runtime.status', {})};
+        saves: await invoke('save.discover', {}), runtime: await invoke('runtime.status', {}),
+        catalog: {total:strong.total, status:strong.source_status, strong:strong.selections, water:water.selections}};
     });
     assert.equal(record.requests.preview.candidate.seed, 1); assert.deepEqual(record.requests.saves.saves, []);
     assert.equal(record.requests.runtime.safe_to_shutdown, true);
+    const catalog = record.requests.catalog;
+    assert.equal(catalog.status, 'ready');
+    assert(catalog.total >= 11885, 'Full PC202 action index is missing from the package');
+    assert(catalog.strong.some(s => s.action === 25047 && s.plan_ready && s.scene_ids.includes('kusarigama-strong')));
+    const water = catalog.water.find(s => s.action === 25358);
+    assert(water, 'Elemental action variant is not discoverable by name');
+    if (!water.plan_ready) {
+      assert.equal(water.scene_ids.length, 0);
+      assert(water.missing_facts.includes('installed_evaluation_plan'));
+    }
+    if (label === 'cold-clean' && report.gameFixture) {
+      await page.getByRole('button', {name:'配装优化', exact:true}).click();
+      const panel = page.getByTestId('loadout-catalog');
+      await panel.locator('summary').first().click();
+      const query = panel.getByRole('textbox');
+      await query.fill('锁镰 力攻击');
+      await panel.getByRole('button', {name:'查找', exact:true}).click();
+      const row = panel.locator('article').filter({hasText:'25047'});
+      await row.getByRole('button').click();
+      assert.equal(await page.getByRole('combobox', {name:'攻击', exact:true}).inputValue(), 'kusarigama-strong');
+      await query.fill('燕返·水');
+      await panel.getByRole('button', {name:'查找', exact:true}).click();
+      const variant = panel.locator('article').filter({hasText:'25358'});
+      await variant.waitFor();
+      assert.equal(await variant.getByRole('button').count(), water.plan_ready ? 1 : 0);
+      record.catalogUi = {selected:'kusarigama-strong', waterAction:water.action, waterSelectable:water.plan_ready};
+    }
     record.workerLog = (await readFile(join(f.profile,'logs','desktop.log'),'utf8')).split('\n').filter(line => line.includes('[worker-backend]'));
     assert.equal(record.workerLog.length, 3 * report.launches.filter(r => r.runtime === f.runtime).length);
     assert.deepEqual(await readdir(f.download), [basename(source)]);

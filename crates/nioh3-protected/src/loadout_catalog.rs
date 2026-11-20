@@ -60,18 +60,22 @@ impl Selection {
                 .all(|fact| !fact.is_empty() && fact.len() <= 256)
     }
 
-    fn matches(&self, query: &str) -> bool {
-        query.is_empty()
-            || [
-                self.resource.as_str(),
-                self.weapon.as_deref().unwrap_or(""),
-                self.name.as_deref().unwrap_or(""),
-                self.school.as_deref().unwrap_or(""),
-                self.attack_id.as_deref().unwrap_or(""),
-            ]
-            .into_iter()
-            .any(|text| text.to_lowercase().contains(query))
-            || self.action.to_string() == query
+    fn matches(&self, terms: &[&str]) -> bool {
+        if terms.is_empty() {
+            return true;
+        }
+        let fields = [
+            self.resource.as_str(),
+            self.weapon.as_deref().unwrap_or(""),
+            self.name.as_deref().unwrap_or(""),
+            self.school.as_deref().unwrap_or(""),
+            self.attack_id.as_deref().unwrap_or(""),
+        ]
+        .map(str::to_lowercase);
+        let action = self.action.to_string();
+        terms
+            .iter()
+            .all(|&term| action == term || fields.iter().any(|field| field.contains(term)))
     }
 }
 
@@ -154,10 +158,11 @@ pub(super) fn page(data_root: &Path, params: &Value) -> Result<Value, HostError>
     }
     let total = catalog.selections.len();
     let normalized = query.to_lowercase();
+    let terms: Vec<_> = normalized.split_whitespace().collect();
     let matching: Vec<_> = catalog
         .selections
         .iter()
-        .filter(|entry| entry.matches(&normalized))
+        .filter(|entry| entry.matches(&terms))
         .collect();
     if offset > matching.len() {
         return Err(HostError::invalid_request());
