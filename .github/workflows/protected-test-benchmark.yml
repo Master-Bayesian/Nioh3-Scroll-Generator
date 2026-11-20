@@ -1,0 +1,81 @@
+name: Protected test benchmark
+on:
+  push:
+    branches: [codex/ci-protected-benchmark-20261120]
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_TERM_COLOR: never
+  NIOH3_BENCH_PROFILE: ${{ matrix.profile }}
+  NIOH3_BENCH_TARGET: ${{ matrix.target }}
+jobs:
+  protected-tests:
+    name: Protected (${{ matrix.profile }}, ${{ matrix.target }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [default, save-opt2]
+        target: [cold, warm]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ci-node
+        with:
+          dependencies: 'false'
+          browser: 'false'
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
+        with:
+          toolchain: '1.99.0'
+      - name: Measure compile and full test command
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $evidence = Join-Path $env:NIOH3_CI_OUT 'protected-benchmark'
+          New-Item -ItemType Directory -Path $evidence | Out-Null
+          if (Test-Path -LiteralPath $env:CARGO_TARGET_DIR) { throw 'Benchmark requires a fresh compiled target' }
+          $manifest = 'crates/nioh3-protected/Cargo.toml'
+          $testArgs = @('test', '--locked', '--offline', '--manifest-path', $manifest)
+          if ($env:NIOH3_BENCH_PROFILE -eq 'save-opt2') {
+            $testArgs += @('--config', 'profile.test.package.nioh3-save.opt-level=2')
+          }
+          function Invoke-CargoTrial([string]$Name, [string[]]$CargoArgs) {
+            $timer = [Diagnostics.Stopwatch]::StartNew()
+            cargo @CargoArgs 2>&1 | ForEach-Object ToString | Set-Content -LiteralPath (Join-Path $evidence "$Name.log") -Encoding utf8
+            $code = $LASTEXITCODE
+            $timer.Stop()
+            if ($code -ne 0) { throw "Cargo phase $Name failed ($code)" }
+            return $timer.ElapsedMilliseconds
+          }
+          $fetch = Invoke-CargoTrial -Name fetch -CargoArgs @('fetch', '--locked', '--manifest-path', $manifest)
+          $warmup = $null
+          if ($env:NIOH3_BENCH_TARGET -eq 'warm') {
+            $warmup = Invoke-CargoTrial -Name warmup -CargoArgs ($testArgs + '--no-run')
+          }
+          $elapsed = Invoke-CargoTrial -Name tests -CargoArgs $testArgs
+          $targetBytes = (Get-ChildItem -LiteralPath $env:CARGO_TARGET_DIR -Recurse -File | Measure-Object -Property Length -Sum).Sum
+          [ordered]@{
+            sha = (git rev-parse HEAD)
+            sourceTree = (git rev-parse 'HEAD^{tree}')
+            image = $env:ImageVersion
+            cpu = @(Get-CimInstance Win32_Processor | Select-Object Name, NumberOfLogicalProcessors)
+            cargo = (cargo --version)
+            rustc = (rustc --version)
+            profile = $env:NIOH3_BENCH_PROFILE
+            target = $env:NIOH3_BENCH_TARGET
+            fetchMs = $fetch
+            warmupMs = $warmup
+            testCommandMs = $elapsed
+            targetBytes = $targetBytes
+            testArgs = $testArgs
+          } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $evidence 'result.json') -Encoding utf8
+      - name: Retain timings and complete Cargo output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: protected-${{ matrix.profile }}-${{ matrix.target }}-a${{ github.run_attempt }}
+          path: ${{ env.NIOH3_CI_OUT }}/protected-benchmark/
+          if-no-files-found: error
