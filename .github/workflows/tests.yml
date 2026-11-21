@@ -229,6 +229,21 @@ jobs:
         name: ci-result-a${{ github.run_attempt }}-build-1
         path: ${{ env.NIOH3_CI_OUT }}/results/build-1
         if-no-files-found: error
+    - name: Pack frontend dependencies
+      id: dependency-pack
+      continue-on-error: true
+      shell: pwsh
+      run: ./.github/actions/ci-node/dependency-archive.ps1 -Operation Pack -ArchiveDirectory "$env:NIOH3_CI_OUT/frontend-dependencies"
+    - name: Upload frontend dependencies
+      if: steps.dependency-pack.outcome == 'success'
+      continue-on-error: true
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: ci-frontend-dependencies-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/frontend-dependencies/
+        compression-level: 1
+        if-no-files-found: error
+        retention-days: 7
   frontend-tests:
     name: Full frontend (${{ matrix.id }})
     needs:
@@ -247,6 +262,7 @@ jobs:
       with:
         dependencies: 'true'
         browser: 'true'
+        dependency-artifact: ci-frontend-dependencies-a${{ github.run_attempt }}
     - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
       with:
         name: ci-plan-a${{ github.run_attempt }}
@@ -325,6 +341,7 @@ jobs:
       with:
         dependencies: 'true'
         browser: 'true'
+        dependency-artifact: ci-frontend-dependencies-a${{ github.run_attempt }}
     - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
       with:
         name: ci-plan-a${{ github.run_attempt }}

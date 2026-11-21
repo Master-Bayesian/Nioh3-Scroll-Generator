@@ -55,6 +55,13 @@ The frontend build group produces `bundle/workshop.json` and `workshop.html`.
 Set `NIOH3_CI_WORKSHOP_BUNDLE` to the verified manifest for UI groups. It binds
 the source inputs and actual HTML bytes; consumers do not rebuild shared paths.
 
+The frontend build also uploads the installed Windows `node_modules` once per
+run attempt. Full and shadow browser shards verify the source, package and lock
+hashes, Node/npm and runtime ABI, and TAR hash before installing the staged
+archive. An unavailable or rejected artifact selects the locked `npm ci` path
+and logs the reason. Chromium preparation and the full and shadow gates still
+run after either dependency path.
+
 `run.mjs --task <id>` is an explicit diagnostic profile for one case. Its receipt
 cannot satisfy a reference or shadow group. Use it to reproduce a selected test,
 not to claim full CI coverage.

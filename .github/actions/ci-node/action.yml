@@ -4,6 +4,9 @@ inputs:
   dependencies:
     description: Install the locked Node dependencies.
     default: 'true'
+  dependency-artifact:
+    description: Optional same-attempt archive of installed Windows frontend dependencies.
+    default: ''
   browser:
     description: Install the pinned Playwright Chromium runtime.
     default: 'false'
@@ -25,9 +28,30 @@ runs:
     - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
       with:
         node-version: '24'
-        cache: ${{ inputs.dependencies == 'true' && 'npm' || '' }}
+        cache: ${{ inputs.dependencies == 'true' && inputs.dependency-artifact == '' && 'npm' || '' }}
+    - name: Download frontend dependencies
+      id: dependency-download
+      if: inputs.dependency-artifact != ''
+      continue-on-error: true
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ${{ inputs.dependency-artifact }}
+        path: ${{ env.NIOH3_CI_OUT }}/frontend-dependencies
+    - name: Restore verified frontend dependencies
+      id: dependency-restore
+      if: inputs.dependency-artifact != ''
+      shell: pwsh
+      env:
+        DEPENDENCY_DOWNLOAD_OUTCOME: ${{ steps.dependency-download.outcome }}
+      run: '& "$env:GITHUB_ACTION_PATH/dependency-archive.ps1" -Operation Restore -ArchiveDirectory "$env:NIOH3_CI_OUT/frontend-dependencies" -DownloadOutcome $env:DEPENDENCY_DOWNLOAD_OUTCOME'
+    - name: Restore npm cache for dependency fallback
+      if: steps.dependency-restore.outputs.mode == 'npm-ci'
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '24'
+        cache: npm
     - name: Install locked dependencies
-      if: inputs.dependencies == 'true'
+      if: (inputs.dependencies == 'true' && inputs.dependency-artifact == '') || steps.dependency-restore.outputs.mode == 'npm-ci'
       shell: pwsh
       run: npm ci --no-fund
     - name: Restore pinned browser cache
