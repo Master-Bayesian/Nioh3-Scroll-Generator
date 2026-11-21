@@ -7,7 +7,22 @@
     "runner": "GitHub windows-latest; Node 24; Rust 1.99.0",
     "rawRustLogSha256": "822e370760f19f1aff63b5dcebbd6ab3e361223c1fbaa0f42b6a6819ed3d666f",
     "fallback": "Unrecorded cases use the explicit positive estimate in the inventory; no case is dropped.",
-    "scope": "Recorded baseline plus explicitly labelled proportional bootstrap estimates. New execution receipts record actual per-case durations."
+    "scope": "Recorded baseline plus explicitly labelled proportional bootstrap estimates. New execution receipts record actual per-case durations.",
+    "rustTests": {
+      "samples": [
+        {
+          "runId": 44866694481,
+          "attempt": 2,
+          "testedSha": "6d398a78c6b9853b1abeabfd6d7cd120525dd7fe"
+        },
+        {
+          "runId": 44873842022,
+          "attempt": 1,
+          "testedSha": "64d252e0de7345cc833255ee63bd71115bc434a1"
+        }
+      ],
+      "method": "Maximum successful task duration under the current Windows Rust profiles. Includes Cargo fetch, compile and test; excludes job setup."
+    }
   },
   "tasks": {
     "browser:live-equipment": {
@@ -147,32 +162,32 @@
       "basis": "initial locale estimate from recorded three-locale step; real case durations are emitted by the new runner"
     },
     "rust-test:domain": {
-      "durationMs": 20,
-      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+      "durationMs": 4975,
+      "basis": "current Windows task receipts in provenance.rustTests"
     },
     "rust-test:data": {
-      "durationMs": 14210,
-      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+      "durationMs": 16997,
+      "basis": "current Windows task receipts in provenance.rustTests"
     },
     "rust-test:worker": {
-      "durationMs": 57360,
-      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+      "durationMs": 65416,
+      "basis": "current Windows task receipts in provenance.rustTests"
     },
     "rust-test:save": {
-      "durationMs": 235230,
-      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+      "durationMs": 29293,
+      "basis": "current Windows task receipts in provenance.rustTests"
     },
     "rust-test:runtime": {
-      "durationMs": 38790,
-      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+      "durationMs": 49255,
+      "basis": "current Windows task receipts in provenance.rustTests"
     },
     "rust-test:protected": {
-      "durationMs": 641890,
-      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+      "durationMs": 114862,
+      "basis": "current Windows task receipts in provenance.rustTests"
     },
     "rust-test:tauri": {
-      "durationMs": 2870,
-      "basis": "sum of reported successful test-binary runtimes in the accepted baseline log; compilation/setup measured separately"
+      "durationMs": 16202,
+      "basis": "current Windows task receipts in provenance.rustTests"
     },
     "model:EnemyPreview": {
       "durationMs": 5164,
@@ -217,6 +232,10 @@
     "native:packaging": {
       "durationMs": 87000,
       "basis": "recorded packaged worker build/Python/selector E2E step"
+    },
+    "rust-test:launcher": {
+      "durationMs": 12244,
+      "basis": "current Windows task receipts in provenance.rustTests"
     }
   }
 }
