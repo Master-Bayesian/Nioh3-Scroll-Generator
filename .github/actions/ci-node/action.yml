@@ -1,0 +1,66 @@
+name: Prepare the selected Node CI environment
+description: Resolve external output roots, Node 24 and optional locked/browser dependencies.
+inputs:
+  dependencies:
+    description: Install the locked Node dependencies.
+    default: 'true'
+  dependency-artifact:
+    description: Optional same-attempt archive of installed Windows frontend dependencies.
+    default: ''
+  browser:
+    description: Install the pinned Playwright Chromium runtime.
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Resolve external CI roots
+      shell: pwsh
+      run: |
+        $root=Join-Path $env:RUNNER_TEMP 'nioh3-migration-build'
+        $out=Join-Path $env:RUNNER_TEMP 'nioh3-ci-output'
+        $temp=Join-Path $root 'tmp'
+        New-Item -ItemType Directory -Force $root,$out,$temp | Out-Null
+        "NIOH3_BUILD_ROOT=$root" >> $env:GITHUB_ENV
+        "CARGO_TARGET_DIR=$(Join-Path $root 'cargo-target')" >> $env:GITHUB_ENV
+        "NIOH3_CI_OUT=$out" >> $env:GITHUB_ENV
+        "TEMP=$temp" >> $env:GITHUB_ENV
+        "TMP=$temp" >> $env:GITHUB_ENV
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '24'
+        cache: ${{ inputs.dependencies == 'true' && inputs.dependency-artifact == '' && 'npm' || '' }}
+    - name: Download frontend dependencies
+      id: dependency-download
+      if: inputs.dependency-artifact != ''
+      continue-on-error: true
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ${{ inputs.dependency-artifact }}
+        path: ${{ env.NIOH3_CI_OUT }}/frontend-dependencies
+    - name: Restore verified frontend dependencies
+      id: dependency-restore
+      if: inputs.dependency-artifact != ''
+      shell: pwsh
+      env:
+        DEPENDENCY_DOWNLOAD_OUTCOME: ${{ steps.dependency-download.outcome }}
+      run: '& "$env:GITHUB_ACTION_PATH/dependency-archive.ps1" -Operation Restore -ArchiveDirectory "$env:NIOH3_CI_OUT/frontend-dependencies" -DownloadOutcome $env:DEPENDENCY_DOWNLOAD_OUTCOME'
+    - name: Restore npm cache for dependency fallback
+      if: steps.dependency-restore.outputs.mode == 'npm-ci'
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      with:
+        node-version: '24'
+        cache: npm
+    - name: Install locked dependencies
+      if: (inputs.dependencies == 'true' && inputs.dependency-artifact == '') || steps.dependency-restore.outputs.mode == 'npm-ci'
+      shell: pwsh
+      run: npm ci --no-fund
+    - name: Restore pinned browser cache
+      if: inputs.browser == 'true'
+      uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+      with:
+        path: ~/AppData/Local/ms-playwright
+        key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
+    - name: Verify the pinned browser installation
+      if: inputs.browser == 'true'
+      shell: pwsh
+      run: npx --no-install playwright install chromium

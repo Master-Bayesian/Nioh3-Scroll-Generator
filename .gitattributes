@@ -35,3 +35,13 @@ tests/fixtures/game-version-update-20260919/reports/resource-comparison-v2.02-ng
 # DirectCompute source identities are byte-exact across Windows checkouts.
 *.hlsl text eol=lf
 *.inl text eol=lf
+
+# Keep the versioned skill package identical to its installed deployment.
+skills/nioh3-ci-quality/** text eol=lf
+docs/engineering/ci-quality.md text eol=lf
+
+# CI identities and plans are portable across source checkouts.
+tools/ci/*.mjs text eol=lf
+tools/ci/*.json text eol=lf
+.github/workflows/tests.yml text eol=lf
+.github/actions/ci-*/action.yml text eol=lf

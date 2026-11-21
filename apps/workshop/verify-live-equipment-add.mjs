@@ -6,8 +6,8 @@ import {resolve,join} from 'node:path';
 import {build} from 'esbuild';
 import {chromium} from 'playwright';
 const root=resolve(import.meta.dirname,'../..');
-const evidence='D:/Nioh3_v080_deliverables/deliverables/codex-compatibility-policy-20261002';
-const output=join(evidence,'equipment-browser-'+new Date().toISOString().replace(/[:.]/g,'-'));
+const evidence=resolve(process.env.NIOH3_CI_TASK_OUTPUT||'D:/Nioh3_v080_deliverables/deliverables/codex-compatibility-policy-20261002');
+const output=process.env.NIOH3_CI_TASK_OUTPUT?evidence:join(evidence,'equipment-browser-'+new Date().toISOString().replace(/[:.]/g,'-'));
 await mkdir(output,{recursive:true});await mkdir(join(evidence,'tmp'),{recursive:true});
 const profile=await mkdtemp(join(evidence,'tmp','equipment-ui-'));
 const built=await build({stdin:{contents:`

@@ -3,14 +3,19 @@
 // escapes its box, overlaps other text, or a select hides its chosen option.
 // Fixture-only: no game, save or native host.
 import {chromium} from 'playwright';
-import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
 import path from 'node:path';
+import {mkdir, readFile, writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import {detectTextFit as detect} from './text-fit-detect.mjs';
+import {selectedLocales, workshopBundle} from '../../tools/ci/workshop-bundle.mjs';
 
 const root = path.resolve(import.meta.dirname, '../..');
-execFileSync(process.execPath, [path.join(root, 'apps/workshop/build.mjs')], {stdio: 'inherit'});
-const url = pathToFileURL(path.join(root, 'deliverables/frontend-v2/search-ui-demo-v2/index.html')).href;
+const bundle = workshopBundle(root);
+const url = pathToFileURL(bundle).href;
+const locales = selectedLocales(['zh-CN', 'en-US', 'ja-JP']);
+const output = path.resolve(process.env.NIOH3_CI_TASK_OUTPUT || 'deliverables/frontend-v2/text-fit');
+await mkdir(output, {recursive: true});
 
 const states = [
   ['search', async () => {}],
@@ -32,21 +37,30 @@ const states = [
 ];
 const browser = await chromium.launch();
 const failures = [];
+const cases = [];
+let completed = false;
+try {
 for (const [w, h] of [[1100, 740], [1600, 1000]]) {
-  for (const locale of ['zh-CN', 'en-US', 'ja-JP']) {
+  for (const locale of locales) {
     for (const [name, run] of states) {
       const page = await browser.newPage({viewport: {width: w, height: h}});
       await page.goto(url);
       await page.evaluate(l => localStorage.setItem('nioh3-ui-locale', l), locale);
       await page.reload(); await page.waitForTimeout(900);
-      if ((await run(page)) !== false) {
+      const applicable = (await run(page)) !== false;
+      if (applicable) {
         await page.waitForTimeout(500);
         for (const f of await page.evaluate(detect)) failures.push(`${w}x${h} ${locale} ${name}: ${f.k} "${f.txt ?? ''}" ${f.at ?? ''}`);
       }
+      cases.push({viewport: {width:w,height:h}, locale, state:name, status:applicable?'Checked':'NotApplicable'});
       await page.close();
     }
   }
 }
-await browser.close();
+completed = true;
+} finally {
+  await browser.close();
+  await writeFile(path.join(output, 'text-fit.json'), JSON.stringify({pass:completed&&failures.length===0,boundary:'Production web fixture only; no native/game/save access',locales,cases,failures,source:{bundleSha256:createHash('sha256').update(await readFile(bundle)).digest('hex')}}, null, 2)+'\n');
+}
 if (failures.length) { console.error(failures.join(String.fromCharCode(10))); process.exit(1); }
 console.log('Text fits in every checked page, state, locale and size');

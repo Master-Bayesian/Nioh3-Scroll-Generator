@@ -1,0 +1,13 @@
+[
+  {"name":"unknown-graph-pruned","overrides":{"IgnoreUnknownFault":true},"expected":"Invariant UnknownInputUsesFull is violated"},
+  {"name":"non-imported-input-pruned","overrides":{"IgnoreGlobalInputFault":true},"expected":"Invariant NonImportedInputUsesFull is violated"},
+  {"name":"shadow-prunes-reference","overrides":{"PruneReferenceFault":true},"expected":"Invariant ReferenceIsFull is violated"},
+  {"name":"integration-uses-pr-selection","overrides":{"SkipIntegrationFullFault":true},"expected":"Invariant IntegrationUsesFull is violated"},
+  {"name":"missing-inventory-executes","overrides":{"AllowMissingInventoryFault":true},"expected":"Invariant InventoryRequired is violated"},
+  {"name":"missing-report-passes","overrides":{"IgnoreMissingReportFault":true},"expected":"Invariant ReportsAreComplete is violated"},
+  {"name":"stale-source-passes","overrides":{"IgnoreStaleSourceFault":true},"expected":"Invariant SourceIsCurrent is violated"},
+  {"name":"failed-report-passes","overrides":{"IgnoreFailedReportFault":true},"expected":"Invariant ReportsAreSuccessful is violated"},
+  {"name":"duplicate-assignment","overrides":{"DuplicateAssignmentFault":true},"expected":"Invariant AssignmentIsUnique is violated"},
+  {"name":"missing-shadow-passes","overrides":{"IgnoreMissingShadowFault":true},"expected":"Invariant ShadowIsPresent is violated"},
+  {"name":"wrong-shadow-set-passes","overrides":{"IgnoreShadowMismatchFault":true},"expected":"Invariant ShadowMatchesSelection is violated"}
+]

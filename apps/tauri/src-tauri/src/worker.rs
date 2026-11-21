@@ -926,6 +926,20 @@ impl Worker {
         self.fail("TEST_TRANSPORT_LOST").await;
     }
 
+    /// Simulate a failed read side while the fixture's stdin remains open.
+    /// An EOF-driven clean exit cannot mask whether the broker actually reaps it.
+    #[cfg(test)]
+    pub async fn disconnect_with_held_input_for_test(&self) {
+        let held_input = self
+            .input
+            .lock()
+            .await
+            .take()
+            .expect("fixture worker input");
+        self.fail("TEST_TRANSPORT_LOST_WITH_OPEN_INPUT").await;
+        drop(held_input);
+    }
+
     /// The recorded exit status once this worker's process has exited.
     #[cfg(test)]
     pub async fn exit_status(&self) -> Option<std::process::ExitStatus> {

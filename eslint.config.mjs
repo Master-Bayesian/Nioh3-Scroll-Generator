@@ -20,11 +20,23 @@ export default tseslint.config(
     rules: asyncStateRules,
   },
   {
-    files: ['tools/ui-audit/verify-hell-equipment-seeds.mjs'],
+    files: ['tools/ui-audit/verify-hell-equipment-seeds.mjs', 'tools/ui-audit/verify-arc-expanded.mjs', 'apps/workshop/verify-text-fit.mjs', 'apps/workshop/verify-live-equipment-add.mjs', 'apps/workshop/verify-scroll-completion.mjs'],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
         project: './tsconfig.e2e.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    plugins: { '@typescript-eslint': tseslint.plugin },
+    rules: asyncStateRules,
+  },
+  {
+    files: ['tools/ci/**/*.mjs'],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        project: './tsconfig.ci.json',
         tsconfigRootDir: import.meta.dirname,
       },
     },

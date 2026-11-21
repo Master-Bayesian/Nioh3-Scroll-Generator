@@ -13,6 +13,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import {selectedLocales, workshopBundle} from '../ci/workshop-bundle.mjs';
 import { chromium } from "playwright";
 import { detectTextFit } from "../../apps/workshop/text-fit-detect.mjs";
 
@@ -23,7 +24,7 @@ const output = resolve(options.out || process.env.NIOH3_UI_OUTPUT ||
 await mkdir(dirname(output), { recursive: true });
 await mkdir(output); // A new run must not overwrite earlier evidence.
 const sha256 = value => createHash("sha256").update(value).digest("hex");
-const locales = (process.env.NIOH3_UI_LOCALES || "zh-CN,en-US,ja-JP").split(",").filter(Boolean);
+const locales = selectedLocales(['zh-CN', 'en-US', 'ja-JP']);
 const evidence = {
   schema: "nioh3-hell-equipment-seeds-browser-e2e/v1", status: "running", pass: false,
   repeat: "node tools/ui-audit/verify-hell-equipment-seeds.mjs --out <artifact-directory>",
@@ -444,8 +445,7 @@ try {
     await mkdir(dirname(snapshot), { recursive: true });
     await writeFile(snapshot, source);
   }
-  execFileSync(process.execPath, [resolve(repoRoot, "apps/workshop/build.mjs")], { cwd: repoRoot, stdio: "inherit" });
-  const bundle = await readFile(resolve(repoRoot, "deliverables/frontend-v2/search-ui-demo-v2/index.html"), "utf8");
+  const bundle = await readFile(workshopBundle(repoRoot), "utf8");
   evidence.source.bundleSha256 = sha256(bundle);
   await writeFile(resolve(output, "production-bundle.html"), bundle, "utf8");
   evidence.source.sharedBridgeSha256 = sha256(baseBridge);
