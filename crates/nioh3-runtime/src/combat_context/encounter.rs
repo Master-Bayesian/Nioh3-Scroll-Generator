@@ -136,6 +136,7 @@ pub struct PacketLayout {
 
 pub struct ControllerInput<'a> {
     pub layout: Option<PacketLayout>,
+    pub reference_target: Option<&'a [u8]>,
     pub parameter: &'a [u8; 336],
     pub first_index: u16,
     pub packet_row: usize,
@@ -191,6 +192,7 @@ impl SelectedAction {
         let refs = rows.iter().collect::<Vec<_>>();
         ControllerInput {
             layout: None,
+            reference_target: None,
             parameter: &parameter,
             first_index: self.first_index,
             packet_row: self.packet_row,
@@ -340,6 +342,43 @@ struct Reader<'a> {
     memory: &'a dyn InventoryMemory,
     pointers: BTreeMap<u64, u64>,
 }
+
+/// Address-independent captured opponent data is relocated to a private,
+/// disjoint heap before packing. Only the MAIN target pointer is redirected.
+fn install_reference_target(image: &mut Image, raw: &[u8], packet: u64, module: u64) -> R<()> {
+    let invalid = || layout("invalid fixed opponent image");
+    let (head, mut rest) = raw.split_first_chunk::<36>().ok_or_else(invalid)?;
+    let actor = u64_at(head, 24)?;
+    let heap = 0x4000_0000_0000..0x6000_0000_0000;
+    if &head[..8] != b"N3FOE001"
+        || u64_at(head, 8)? != packet
+        || u64_at(head, 16)? != module
+        || !heap.contains(&actor)
+    {
+        return Err(invalid());
+    }
+    let count = u32_at(head, 32)?;
+    let mut previous = heap.start;
+    let mut has_actor = false;
+    for _ in 0..count {
+        let (span, tail) = rest.split_first_chunk::<12>().ok_or_else(invalid)?;
+        let at = u64_at(span, 0)?;
+        let size = u32_at(span, 8)? as usize;
+        let end = add(at, size as u64)?;
+        if at < previous || size == 0 || end > heap.end {
+            return Err(invalid());
+        }
+        let (bytes, remaining) = tail.split_at_checked(size).ok_or_else(invalid)?;
+        image.set(at, bytes)?;
+        has_actor |= (at..end).contains(&actor);
+        previous = end;
+        rest = remaining;
+    }
+    if !rest.is_empty() || !has_actor {
+        return Err(invalid());
+    }
+    image.pointer(add(packet, 0x1c8)?, actor)
+}
 impl Reader<'_> {
     fn pointer(&mut self, address: u64) -> R<u64> {
         if let Some(v) = self.pointers.get(&address) {
@@ -457,6 +496,114 @@ fn recipe(key: &[u8; 32]) -> R<&'static Recipe> {
         .iter()
         .find(|recipe| &recipe.action_row_key == key)
         .ok_or_else(|| layout("selected attack has no encounter with verified inputs"))
+}
+
+/// Read the fixed-opponent operands of the installed PC202 layouts from one
+/// selected opponent. A recording InventoryMemory retains addresses and bytes;
+/// null branches stay absent, and a failed reachable read is reported.
+#[derive(serde::Serialize)]
+pub struct TargetOperandCoverage {
+    pub observed_ranges: usize,
+    pub missing: BTreeSet<String>,
+}
+
+pub fn observe_target_operands(
+    memory: &dyn InventoryMemory,
+    target: &super::target_conditions::TargetConditions,
+) -> R<TargetOperandCoverage> {
+    let mut reader = Reader {
+        memory,
+        pointers: BTreeMap::new(),
+    };
+    let mut ranges = BTreeSet::new();
+    let mut missing = BTreeSet::new();
+    for recipe in recipes()? {
+        for field in &recipe.fields {
+            if field.root == Root::TargetActor
+                && field.path.starts_with(&[0x3b0, 8, 0xe8, 0x40])
+                && field.path.len() > 4
+            {
+                // Row indices belong to the observed action. Read its list below.
+                continue;
+            }
+            let base = match field.root {
+                Root::TargetActor => target.actor,
+                Root::TargetOwner if field.path.first() == Some(&0x33b0) => continue, // Observed by native list order.
+                Root::TargetOwner => target.owner,
+                Root::TargetStat => target.stat,
+                Root::Module
+                | Root::SourceActor
+                | Root::SourceOwner
+                | Root::Stat
+                | Root::Source
+                | Root::D
+                | Root::Packet
+                | Root::Stack
+                | Root::Teb => continue,
+            };
+            let observed = (|| -> R<()> {
+                if let Some(address) = reader.address(base, &field.path)? {
+                    if !ranges.contains(&(address, field.n)) {
+                        read(memory, address, field.n)?;
+                        ranges.insert((address, field.n));
+                    }
+                }
+                Ok(())
+            })();
+            match observed {
+                Err(e @ RuntimeError::RegionNotReadable { .. }) => {
+                    missing.insert(format!(
+                        "{:?} {:?} ({} bytes): {e}",
+                        field.root, field.path, field.n
+                    ));
+                }
+                other => other?,
+            }
+        }
+    }
+    read(memory, target.stat, 0x900)?;
+    // 2E98F0 uses the observed animation's first row. An opponent idle in
+    // another animation need not have the historical template's row index.
+    if let Some(field) = reader.address(target.actor, &[0x3b0, 8, 0xe8])? {
+        let state = reader.pointer(field)?;
+        if state != 0 {
+            let parameter = reader.pointer(add(state, 0x20)?)?;
+            if parameter != 0 {
+                read(memory, parameter, 336)?;
+            }
+            let header = read(memory, add(state, 0x48)?, 4)?;
+            let first = u16::from_le_bytes([header[0], header[1]]);
+            let count = u16::from_le_bytes([header[2], header[3]]);
+            if count != 0 {
+                let table = reader.pointer(add(state, 0x40)?)?;
+                for i in 0..u32::from(count) {
+                    let at = reader.pointer(add(table, 8 * (u64::from(first) + u64::from(i)))?)?;
+                    if at != 0 {
+                        // The row modifier at +72 is consumed by the target
+                        // predicate. The broad capture also retains the row.
+                        read(memory, add(at, 0x72)?, 2)?;
+                        match read(memory, at, 192) {
+                            Err(e @ RuntimeError::RegionNotReadable { .. }) => {
+                                missing.insert(e.to_string());
+                            }
+                            other => {
+                                other?;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for offset in [
+        0x2ebc, 0x2ec0, 0x2ec4, 0x2f14, 0x2fa4, 0x2fa8, 0x2fac, 0x2ffc,
+    ] {
+        read(memory, add(target.owner, offset)?, 4)?;
+    }
+    Ok(TargetOperandCoverage {
+        observed_ranges: ranges.len(),
+        missing,
+    })
 }
 pub fn direct_encounter(
     memory: &dyn InventoryMemory,
@@ -734,7 +881,14 @@ fn project_encounter(
     for key in ["stat", "d", "packet", "stack"] {
         image.page(root(key)?);
     }
+    let replacement = controller.and_then(|c| c.reference_target);
+    if let Some(data) = replacement {
+        install_reference_target(&mut image, data, root("packet")?, module)?;
+    }
     for field in fields.values() {
+        if replacement.is_some() && field.root == Root::Packet && field.path == [0x1c8] {
+            continue;
+        }
         if membership.is_some()
             && field.root == Root::Module
             && matches!(field.path.as_slice(), [first,offset,..] if *first==MEMBERSHIP_GLOBAL as i64 && (0x2820..0x2860).contains(offset))

@@ -100,6 +100,17 @@ pub fn export(
     fixture: Option<&Path>,
     id: &str,
 ) -> Result<(), HostError> {
+    export_with_reference_target(data, save_copy, out, fixture, id, false)
+}
+
+pub fn export_with_reference_target(
+    data: &Path,
+    save_copy: &Path,
+    out: &Path,
+    fixture: Option<&Path>,
+    id: &str,
+    reference_target: bool,
+) -> Result<(), HostError> {
     let bundle = loadout::find_bundle(data, &json!({"bundle":id}))?;
     let dir = bundle.directory(data);
     let saved = fs::read(save_copy).map_err(failed)?;
@@ -122,6 +133,84 @@ pub fn export(
                 .as_deref()
                 .ok_or_else(|| failed("missing observed role"))?;
             json_file(&out.join("snapshot.json"), snap)?;
+            if reference_target {
+                use nioh3_runtime::combat_context::{
+                    encounter::observe_target_operands,
+                    target_conditions::{read_source_conditions, read_target_conditions},
+                };
+                let target = || {
+                    read_target_conditions(&memory, snap.roots.player, snap.roots.style_entity)
+                        .map_err(HostError::from_runtime)
+                };
+                let source = || {
+                    read_source_conditions(&memory, snap.roots.owner)
+                        .map_err(HostError::from_runtime)
+                };
+                let opponent = target()?;
+                let actor = source()?;
+                let tables = nioh3_loadout::pipeline::Tables::load(
+                    &fs::read(dir.join("tables.bin")).map_err(failed)?,
+                )
+                .map_err(failed)?;
+                let offset = snap.inputs.active_bank as usize * 0xf70
+                    + snap.inputs.held_weapon_slot as usize * 0xe8;
+                let key = u16::from_le_bytes([
+                    snap.inputs.inventory[offset],
+                    snap.inputs.inventory[offset + 1],
+                ]);
+                let native_category = tables
+                    .category(key)
+                    .ok_or_else(|| failed("unbound held category"))?;
+                let mut categories: Vec<_> = (0..24)
+                    .flat_map(|class| tables.categories_for_weapon_class(class))
+                    .collect();
+                categories.sort_unstable();
+                categories.dedup();
+                let progress =
+                    nioh3_runtime::combat_context::progression::read_progression_for_categories(
+                        &memory,
+                        snap,
+                        native_category,
+                        &categories,
+                    )
+                    .map_err(HostError::from_runtime)?;
+                let ranges =
+                    observe_target_operands(&memory, &opponent).map_err(HostError::from_runtime)?;
+                // These optional broad reads can include timers. Keep their
+                // provenance separate from the repeated semantic comparisons.
+                let mut broad = vec![
+                    ("player_owner", snap.roots.owner, 0x4000),
+                    ("target_owner", opponent.owner, 0x4000),
+                    ("player_actor", snap.roots.player, 0x1600),
+                    ("target_actor", opponent.actor, 0x1600),
+                ];
+                broad.extend(
+                    opponent
+                        .objects
+                        .iter()
+                        .map(|o| ("target_status", o.address, 0x94)),
+                );
+                let auxiliary:Vec<_> = broad.into_iter().map(|(role,address,size)|match memory.inner.read(address,size){
+                    Ok(bytes)=>json!({"role":role,"address":address,"bytes":hex(&bytes),"sha256":sha256(&bytes)}),
+                    Err(error)=>json!({"role":role,"address":address,"error":error.to_string()}),
+                }).collect();
+                json_file(
+                    &out.join("reference-auxiliary.json"),
+                    &json!({"scope":"single-pass auxiliary ranges","regions":auxiliary}),
+                )?;
+                if opponent != target()? || actor != source()? {
+                    return Err(failed("opponent or actor conditions changed during read"));
+                }
+                json_file(
+                    &out.join("reference-target.json"),
+                    &json!({
+                        "scope":"new fixed encounter observation","process":snap.process,
+                        "actor":snap.roots.player,"opponent":opponent,"actor_conditions":actor,
+                        "opponent_operand_ranges":ranges, "weapon_categories":categories,
+                        "progress_rule_digest":progress.rule_table_digest
+                    }),
+                )?;
+            }
             if !loadout_context::outfit_is_owned(
                 &snap.inputs.inventory,
                 snap.inputs.active_bank as usize * 0xf70,

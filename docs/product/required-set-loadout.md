@@ -52,6 +52,25 @@ wrong type or publish an equipped damage baseline for it.
 
 ## PC202 encounter verification
 
+An acceptance read with `first_use_export --reference-target selected` records
+the player counter, the membership list and the selected opponent's ordered
+status objects. It samples every native weapon category filter in the same
+role read. The target action's current first index and row count determine
+which target descriptors it reads. The target reference can briefly be empty
+while idle. On a changed read, retain the ordered log. For a known target,
+`tools/capture_loadout_consecutive.py` can capture two identical read-only
+sweeps for a full role replay.
+
+`tools/materialize_observed_loadout_target.py` binds the target and role
+observations to the same process, roots and source inputs and emits an
+independent benchmark. The fixed asset contains sparse normalized opponent
+bytes. Missing ancillary operands stay unknown; the source observations
+and save stay private. A scene that uses the asset declares
+`benchmark_target_sha256` in its descriptor and ships `benchmark_target.bin`.
+The ordinary worker verifies the digest and the numerical runtime checks the
+packet ABI and private target ranges. Changing the opponent creates a new
+context identity. No opponent selection is required to replay the fixed scene.
+
 The PC202 Samurai reader obtains the stance from the player's style object at
 `+0x85c`. High, middle and low were observed as 0, 1 and 2. The stance in an
 ordinary character snapshot and the action selected for scoring are separate

@@ -1,0 +1,5 @@
+[
+  {"name":"late-opponent-replaces-first","overrides":{"MixTarget":true},"expected":"Invariant SameOpponent is violated"},
+  {"name":"missing-field-zero-filled","overrides":{"IgnoreMissing":true},"expected":"Invariant RequiredInputsKnown is violated"},
+  {"name":"partial-role-published","overrides":{"UseFailedReplay":true},"expected":"Invariant RoleReplayComplete is violated"}
+]

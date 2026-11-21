@@ -162,6 +162,24 @@ def check_scene_layout(files: dict[str, bytes], layout: dict) -> dict:
     addresses = frame.get("addresses", b"")
     need(len(addresses) >= 72, "frame addresses missing")
     stat, damage, main = struct.unpack_from("<QQQ", addresses)
+    target = files.get("benchmark_target.bin")
+    expected = json.loads(files["bundle.json"]).get("benchmark_target_sha256")
+    if target is not None or expected is not None:
+        need(target is not None and expected == digest(target), "fixed opponent digest differs")
+        need(len(target) >= 36, "truncated fixed opponent")
+        magic, packet, module, actor, count = struct.unpack_from("<8sQQQI", target)
+        need(magic == b"N3FOE001" and packet == main and module == layout["MAIN_MODULE"],
+             "fixed opponent belongs to another encounter ABI")
+        offset, previous, actor_seen = 36, 0x400000000000, False
+        for _ in range(count):
+            need(offset + 12 <= len(target), "truncated fixed opponent range")
+            at, length = struct.unpack_from("<QI", target, offset)
+            offset += 12 + length
+            need(previous <= at and length > 0 and at + length <= 0x600000000000 and offset <= len(target),
+                 "invalid fixed opponent range")
+            actor_seen |= at <= actor < at + length
+            previous = at + length
+        need(offset == len(target) and actor_seen, "incomplete fixed opponent")
     need(len(frame.get("stat", b"")) == 0x900 and len(frame.get("d0", b"")) == 0xb00, "frame source buffers have wrong sizes")
     need(main + 0x218 == layout.get("MAIN_SCORE"), "scene frame MAIN address differs from compiled MAIN_SCORE")
     domain = layout.get("domain", [])
@@ -213,7 +231,7 @@ def verify_scene(files: dict[str, bytes], scene_id: str, app_commit: str | None 
     need(all(safe_name(name) for name in files), "unsafe scene file path")
     missing = REQUIRED - files.keys()
     need(not missing, "scene " + scene_id + " missing runtime files: " + ", ".join(sorted(missing)))
-    unexpected = files.keys() - (REQUIRED | {CONTRACT})
+    unexpected = files.keys() - (REQUIRED | {CONTRACT, "benchmark_target.bin"})
     need(not unexpected, "scene contains non-deployable or stale files: " + ", ".join(sorted(unexpected)))
     need(CONTRACT in files, "scene " + scene_id + " missing " + CONTRACT)
     contract = json.loads(files[CONTRACT])

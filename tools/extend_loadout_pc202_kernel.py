@@ -65,6 +65,9 @@ def extend(listing, image, scene, text, record, output, include_listing=None):
     # and float accumulation callees are already in the canonical listing.
     blocks = [(0x552644, 0x552654), (0x2081C50, 0x2081C8A), (0x791A6D, 0x791AA0)]
     if include_listing is not None:
+        # 792055 looks up the cap for the current owner's counter. Preserve
+        # both the missing-row return and the two numeric representations.
+        blocks.extend([(0x6084C0, 0x6084DF), (0x6084E0, 0x608505)])
         lo = 0x1FFE8B8
         last = next(
             ins

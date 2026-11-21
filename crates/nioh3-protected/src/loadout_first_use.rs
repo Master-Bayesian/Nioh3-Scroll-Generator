@@ -24,16 +24,37 @@ use nioh3_runtime::{
 use serde_json::{json, Value};
 use std::{fs, path::Path};
 
-fn selected_row(scene: &Path) -> Result<ActionRow, HostError> {
-    #[derive(serde::Deserialize)]
-    struct Descriptor {
-        resource_action: ActionRow,
+#[derive(serde::Deserialize)]
+struct AttackDescriptor {
+    resource_action: Option<ActionRow>,
+    weapon_class: Option<u32>,
+    selection_weapon_class: Option<u32>,
+    benchmark_target_sha256: Option<String>,
+}
+impl AttackDescriptor {
+    fn load(scene: &Path) -> Result<Self, HostError> {
+        let raw =
+            fs::read(scene.join("bundle.json")).map_err(|e| HostError::rejected(e.to_string()))?;
+        serde_json::from_slice(&raw).map_err(|e| HostError::rejected(e.to_string()))
     }
-    let bytes =
-        fs::read(scene.join("bundle.json")).map_err(|e| HostError::rejected(e.to_string()))?;
-    let descriptor: Descriptor =
-        serde_json::from_slice(&bytes).map_err(|e| HostError::rejected(e.to_string()))?;
-    Ok(descriptor.resource_action)
+    fn attack(&self) -> Result<&ActionRow, HostError> {
+        self.resource_action
+            .as_ref()
+            .ok_or_else(|| HostError::rejected("Missing selected resource action"))
+    }
+    fn target(&self, scene: &Path) -> Result<Option<Vec<u8>>, HostError> {
+        let Some(hash) = &self.benchmark_target_sha256 else {
+            return Ok(None);
+        };
+        let bytes = fs::read(scene.join("benchmark_target.bin"))
+            .map_err(|e| HostError::rejected(e.to_string()))?;
+        if sha256(&bytes) != *hash {
+            return Err(HostError::rejected(
+                "Fixed opponent differs from the attack descriptor",
+            ));
+        }
+        Ok(Some(bytes))
+    }
 }
 
 struct SceneLayout {
@@ -100,10 +121,13 @@ pub(crate) fn sample_encounter(
     let at =
         snap.inputs.active_bank as usize * 0xf70 + snap.inputs.held_weapon_slot as usize * 0xe8;
     let key = u16::from_le_bytes([snap.inputs.inventory[at], snap.inputs.inventory[at + 1]]);
-    let attack = selected_row(scene)?;
+    let descriptor = AttackDescriptor::load(scene)?;
+    let attack = descriptor.attack()?;
     let row = attack.resolve().map_err(invalid)?;
     let state = attack.controller().map_err(invalid)?;
+    let fixed_target = descriptor.target(scene)?;
     let controller = ControllerInput {
+        reference_target: fixed_target.as_deref(),
         layout: Some(SceneLayout::read(scene)?.packet),
         parameter: state.parameter,
         first_index: state.first_index,
@@ -126,6 +150,8 @@ pub(crate) fn sample_encounter(
 pub(crate) struct SourceRead {
     prefix: Vec<Submission>,
     scene_layout: SceneLayout,
+    descriptor: AttackDescriptor,
+    reference_target: Option<Vec<u8>>,
     projected_weapon_class: Option<u32>,
     category_prefixes: std::collections::BTreeMap<u32, Vec<Submission>>,
     guardians: Vec<GuardianSubmission>,
@@ -164,13 +190,12 @@ pub(crate) fn read(
     let key = u16::from_le_bytes([id[0], id[1]]);
     let category = tables.category(key).unwrap_or(0x3c2e);
     let scene_layout = SceneLayout::read(scene)?;
+    let descriptor = AttackDescriptor::load(scene)?;
+    let fixed_target = descriptor.target(scene)?;
     let projected_weapon_class = if scene_layout.binds_candidate_sources {
-        let descriptor: Value =
-            serde_json::from_slice(&load("bundle.json")?).map_err(|e| invalid(&e.to_string()))?;
-        descriptor["selection_weapon_class"]
-            .as_u64()
-            .or_else(|| descriptor["weapon_class"].as_u64())
-            .and_then(|c| u32::try_from(c).ok())
+        descriptor
+            .selection_weapon_class
+            .or(descriptor.weapon_class)
     } else {
         None
     };
@@ -273,6 +298,7 @@ pub(crate) fn read(
         progress.post_record_present,
         progress.digest(),
         projected_weapon_class,
+        &descriptor.benchmark_target_sha256,
         &category_prefixes,
     ))
     .map_err(|e| invalid(&e.to_string()))?;
@@ -280,6 +306,8 @@ pub(crate) fn read(
     identity.extend(sha256(&basis.materialized).bytes());
     Ok(SourceRead {
         scene_layout,
+        descriptor,
+        reference_target: fixed_target,
         prefix,
         projected_weapon_class,
         category_prefixes,
@@ -496,11 +524,12 @@ impl SourceRead {
             }),
         };
         frame = Frame::with_source_rebuild(&frame, &program).map_err(invalid)?;
-        let attack = selected_row(scene)?;
+        let attack = self.descriptor.attack()?;
         let row = attack.resolve().map_err(invalid)?;
         let state = attack.controller().map_err(invalid)?;
         let controller = ControllerInput {
             layout: Some(self.scene_layout.packet),
+            reference_target: self.reference_target.as_deref(),
             parameter: state.parameter,
             first_index: state.first_index,
             packet_row: attack.row as usize,
