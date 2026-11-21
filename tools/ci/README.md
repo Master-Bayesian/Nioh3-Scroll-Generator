@@ -30,12 +30,12 @@ Release preparation/promotion is unchanged.
   cancelled, stale or altered results fail. Empty assigned shards are recorded
   as NotApplicable rather than test passes.
 
-The `rust-test:protected` task passes
+The `rust-test:save` and `rust-test:protected` tasks pass
 `--config profile.test.package.nioh3-save.opt-level=2` to `cargo test`.
-Only that task uses this override. It uses the existing Cargo cache policy and
+These tasks use the existing Cargo cache policy and
 the complete test inventory. The [Windows cold/warm benchmark](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/actions/runs/44831602263)
 and the [full PR validation](https://github.com/Master-Bayesian/Nioh3-Scroll-Generator/actions/runs/44831331523)
-record the evidence for this setting.
+record the evidence for the protected task.
 
 ## Commands
 
