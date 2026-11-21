@@ -9,15 +9,13 @@ env:
   CARGO_TERM_COLOR: never
 jobs:
   save-tests:
-    name: Save (${{ matrix.profile }}, ${{ matrix.target }})
+    name: Save paired (${{ matrix.target }})
     runs-on: windows-latest
     env:
-      NIOH3_BENCH_PROFILE: ${{ matrix.profile }}
       NIOH3_BENCH_TARGET: ${{ matrix.target }}
     strategy:
       fail-fast: false
       matrix:
-        profile: [default, save-opt2]
         target: [cold, warm]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -30,53 +28,77 @@ jobs:
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d
         with:
           toolchain: '1.99.0'
-      - name: Measure compile and full test command
+      - name: Measure both test commands on this Windows runner
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $false
-          $evidence = Join-Path $env:NIOH3_CI_OUT 'save-benchmark'
-          New-Item -ItemType Directory -Path $evidence | Out-Null
-          if (Test-Path -LiteralPath $env:CARGO_TARGET_DIR) { throw 'Benchmark requires a fresh compiled target' }
+          $bench = Join-Path $env:NIOH3_CI_OUT 'save-benchmark'
+          $targetBase = $env:CARGO_TARGET_DIR
+          New-Item -ItemType Directory -Path $bench | Out-Null
           $manifest = 'crates/nioh3-save/Cargo.toml'
-          $testArgs = @('test', '--locked', '--offline', '--manifest-path', $manifest)
-          if ($env:NIOH3_BENCH_PROFILE -eq 'save-opt2') {
-            $testArgs += @('--config', 'profile.test.package.nioh3-save.opt-level=2')
-          }
-          function Invoke-CargoTrial([string]$Name, [string[]]$CargoArgs) {
+          function Invoke-CargoTrial([string]$Log, [string[]]$CargoArgs) {
             $timer = [Diagnostics.Stopwatch]::StartNew()
-            cargo @CargoArgs 2>&1 | ForEach-Object ToString | Set-Content -LiteralPath (Join-Path $evidence "$Name.log") -Encoding utf8
+            cargo @CargoArgs 2>&1 | ForEach-Object ToString | Set-Content -LiteralPath $Log -Encoding utf8
             $code = $LASTEXITCODE
             $timer.Stop()
-            if ($code -ne 0) { throw "Cargo phase $Name failed ($code)" }
+            if ($code -ne 0) { throw "Cargo phase $Log failed ($code)" }
             return $timer.ElapsedMilliseconds
           }
-          $fetch = Invoke-CargoTrial -Name fetch -CargoArgs @('fetch', '--locked', '--manifest-path', $manifest)
-          $warmup = $null
-          if ($env:NIOH3_BENCH_TARGET -eq 'warm') {
-            $warmup = Invoke-CargoTrial -Name warmup -CargoArgs ($testArgs + '--no-run')
+          $fetch = Invoke-CargoTrial -Log (Join-Path $bench 'fetch.log') -CargoArgs @('fetch', '--locked', '--manifest-path', $manifest)
+          $sha = git rev-parse HEAD
+          $tree = git rev-parse 'HEAD^{tree}'
+          $cpu = @(Get-CimInstance Win32_Processor | Select-Object Name, NumberOfLogicalProcessors)
+          $cargo = cargo --version
+          $rustc = rustc --version
+          $order = if ($env:NIOH3_BENCH_TARGET -eq 'cold') { @('default', 'save-opt2') } else { @('save-opt2', 'default') }
+          foreach ($profile in $order) {
+            $evidence = Join-Path $bench $profile
+            $env:CARGO_TARGET_DIR = "$targetBase-$profile"
+            $env:TEMP = Join-Path $env:NIOH3_BUILD_ROOT "tmp-$profile"
+            $env:TMP = $env:TEMP
+            if (Test-Path -LiteralPath $env:CARGO_TARGET_DIR) { throw 'Expected an empty compiled target' }
+            New-Item -ItemType Directory -Path $evidence, $env:TEMP | Out-Null
+            Copy-Item -LiteralPath (Join-Path $bench 'fetch.log') -Destination $evidence
+            $testArgs = @('test', '--locked', '--offline', '--manifest-path', $manifest)
+            if ($profile -eq 'save-opt2') {
+              $testArgs += @('--config', 'profile.test.package.nioh3-save.opt-level=2')
+            }
+            $warmup = $null
+            if ($env:NIOH3_BENCH_TARGET -eq 'warm') {
+              $warmup = Invoke-CargoTrial -Log (Join-Path $evidence 'warmup.log') -CargoArgs ($testArgs + '--no-run')
+            }
+            $elapsed = Invoke-CargoTrial -Log (Join-Path $evidence 'tests.log') -CargoArgs $testArgs
+            $targetBytes = (Get-ChildItem -LiteralPath $env:CARGO_TARGET_DIR -Recurse -File | Measure-Object -Property Length -Sum).Sum
+            [ordered]@{
+              sha = $sha
+              sourceTree = $tree
+              runner = $env:RUNNER_NAME
+              image = $env:ImageVersion
+              cpu = $cpu
+              cargo = $cargo
+              rustc = $rustc
+              profile = $profile
+              target = $env:NIOH3_BENCH_TARGET
+              order = $order
+              fetchMs = $fetch
+              warmupMs = $warmup
+              testCommandMs = $elapsed
+              targetBytes = $targetBytes
+              testArgs = $testArgs
+            } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $evidence 'result.json') -Encoding utf8
           }
-          $elapsed = Invoke-CargoTrial -Name tests -CargoArgs $testArgs
-          $targetBytes = (Get-ChildItem -LiteralPath $env:CARGO_TARGET_DIR -Recurse -File | Measure-Object -Property Length -Sum).Sum
-          [ordered]@{
-            sha = (git rev-parse HEAD)
-            sourceTree = (git rev-parse 'HEAD^{tree}')
-            image = $env:ImageVersion
-            cpu = @(Get-CimInstance Win32_Processor | Select-Object Name, NumberOfLogicalProcessors)
-            cargo = (cargo --version)
-            rustc = (rustc --version)
-            profile = $env:NIOH3_BENCH_PROFILE
-            target = $env:NIOH3_BENCH_TARGET
-            fetchMs = $fetch
-            warmupMs = $warmup
-            testCommandMs = $elapsed
-            targetBytes = $targetBytes
-            testArgs = $testArgs
-          } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $evidence 'result.json') -Encoding utf8
-      - name: Retain timings and complete Cargo output
+      - name: Retain the default test results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: save-${{ matrix.profile }}-${{ matrix.target }}-a${{ github.run_attempt }}
-          path: ${{ env.NIOH3_CI_OUT }}/save-benchmark/
+          name: save-default-${{ matrix.target }}-a${{ github.run_attempt }}
+          path: ${{ env.NIOH3_CI_OUT }}/save-benchmark/default/
+          if-no-files-found: error
+      - name: Retain the optimized test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: save-save-opt2-${{ matrix.target }}-a${{ github.run_attempt }}
+          path: ${{ env.NIOH3_CI_OUT }}/save-benchmark/save-opt2/
           if-no-files-found: error
