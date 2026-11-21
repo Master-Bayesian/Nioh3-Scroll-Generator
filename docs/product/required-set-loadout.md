@@ -1,5 +1,56 @@
 # Required-set loadout search
 
+The [working plan](loadout-plan.md) tracks current priorities, evidence and pending acceptance.
+
+## Beta product goal
+
+Given the current character and owned equipment, find the legal outfit
+that maximizes the score of **one player-selected attack**. The player
+chooses a form, weapon type, stance where applicable, quick attack,
+strong attack or a named skill variant, and at least one set tier. Every
+owned weapon eligible for that type belongs to the search domain.
+
+The primary score is the selected attack's final damage against the
+stated reference opponent. Keep target and hit assumptions consistent
+across outfits. Rebuild the character's attack, learned skill effects,
+set bonuses and eligible buffs for each outfit. For theoretical peak
+damage, apply the maximum jointly attainable state under the stated
+conditions, respecting prerequisites, stacking, caps and consumption.
+Show which buff assumptions the evaluator supports. A raw motion value
+is a property of a damage row; an effective multiplier used to compare
+outfits needs an explicit common reference and equipment-dependent effects.
+
+Resolve a selection to the native actions and damage events that belong
+to it. Count its physical and elemental damage in native order. Use a
+specific charge level, hit count or resource-stop condition where it
+changes the score. For a skill triggered after another attack, score the
+selected skill alone unless the selection explicitly includes the lead-in.
+
+A player-facing selection is verified when its label resolves to the
+intended move and the ordinary App search returns the native-checked damage
+and slot assignments over the requested domain. Report any unanswered
+candidates. A single-contact fixture verifies that contact's arithmetic;
+whole-move coverage also needs evidence for its damaging events. Validate
+shared rules across weapon types and request a player observation only for
+a remaining fact that can change the score or the winning outfit.
+
+### Follow a search through the implementation
+
+| Question | Production entry point | Evidence that answers it |
+| --- | --- | --- |
+| What did the player select? | `LoadoutOptimizer.tsx` submits the save digest, context and chosen bundle. `loadout_context::search_binding` joins them. | A WebView search selecting the intended named move and variant. |
+| Which outfits compete? | `loadout::slot_allows` and `Search::build_plan_with_sets` construct the owned-item domain. | Coverage accounting and matching ranked slot assignments, including tied scores. |
+| What changes when an item changes? | `source_rebuild::Program::pipeline` rebuilds candidate sources. `Engine::prepare_frame` produces native inputs. | Predict a held-out outfit from a starting role and compare its sources and stats with an independent game observation. |
+| Which damage belongs to the move? | `Engine::execution_events` and `assemble_execution` bind the ordered contacts to MAIN. | Check event identity and multiplicity against the move's evidence, then compare physical and elemental results with original MAIN. |
+
+Counterattack Deflect was a convenient way to obtain a known active status
+in training. Keep its observed damage as a regression control. For the
+general buff objective, track the source of each modifier, whether the
+candidate can receive it under the selected assumptions, how native code
+combines competing effects, and when MAIN observes the result. Several
+triggers may produce the same status key. A table of definitions establishes
+identities and parameters; simultaneous eligibility needs separate evidence.
+
 The local 0.8.13 integration candidate adds **Loadout Optimizer** to the
 desktop navigation. The player chooses a weapon type, an installed attack
 scene and at least one set tier. Several rules can be combined. The
@@ -38,9 +89,16 @@ The controller bank contains a validated parameter and the ordered local
 damage-row references for every catalog identity. Regenerate it with
 `tools/import_loadout_action_states.py`. The runtime checks it against the
 existing damage-row bank. The controller also covers actions with no direct
-rows. Those actions can refer to other event producers. A fixed-contact
-plan still requires the appropriate input route, contact order and event
-conditions. The number of rows alone does not determine the number of hits.
+rows. Those actions can refer to other event producers.
+
+For beta scoring, the picker resolves the selected attack name, form,
+weapon type, stance and variant to a native action. Controller button
+bindings are outside the scoring contract. For a single hit, select its
+damage row and declare the hit conditions. For a whole move, score the
+ordered contacts, including owned projectiles and their elemental damage.
+When charge or hold duration affects the result, specify the desired
+outcome, such as full charge or continuous hits until Ki runs out.
+The number of rows alone does not determine the number of hits.
 
 Ordinary gear refresh rebuilds the active form's source entries and retains
 the observed other form's entries. The search can project the requested

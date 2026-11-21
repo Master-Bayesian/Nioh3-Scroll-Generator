@@ -2,6 +2,9 @@
 
 `docs/` holds the repository's public documentation.
 
+- [Loadout optimizer working plan](product/loadout-plan.md) records beta priorities,
+  verified coverage and the next implementation decision for the optimizer worktree.
+
 - [Product feature catalog](product/FEATURES.md) records shipped user-visible
   behavior, safety boundaries, and implementation anchors. Version records live
   under `product/releases/`.
