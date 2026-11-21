@@ -105,7 +105,7 @@ export function LiveEquipmentSeedSearch({context, selectedSeed, locked, onWanted
   const result = search?.context === context ? search.result : null;
   return <fieldset className="live-equipment-seed-search" disabled={locked}>
     <legend>按词条查找种子</legend>
-    <div className="seed-panel live-equipment-seed-body">
+    <div className="live-equipment-seed-body">
     <p className="equipment-notes">搜索使用目标存档的难度和进度，不包含敌人或地区掉落加成；实际词条以游戏生成的预览为准。</p>
     {!saveId && <p className="equipment-notes">请先选择当前角色的目标存档，再按词条查找。</p>}
     {rules && !rules.known && <p className="equipment-notes">这件物品暂不支持按词条查找，可手动填写种子后生成实时预览。</p>}

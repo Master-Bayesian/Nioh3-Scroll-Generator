@@ -1133,7 +1133,7 @@ dialog:has(.favorites-review) > header { flex: 0 0 auto; }
 .character-queue .character-plan-lines>li>span{margin-left:2px}
 .character-queue-remove{width:auto;margin:0 0 0 auto;padding:0 7px;line-height:18px;border-radius:9px;background:transparent;color:#8b3a2a}
 .character-title-confirm{display:flex;align-items:center;gap:6px;margin:4px 0;font-weight:600;color:#6b4a12}
-.seed-panel{display:flex;flex-direction:column;gap:8px;margin:6px 0}
+.seed-panel,.live-equipment-seed-body{display:flex;flex-direction:column;gap:8px;margin:6px 0}
 .seed-want{display:flex;flex-direction:column;gap:5px}
 .seed-want-label{font-size:12px;color:#5b6f73}
 .seed-want-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
