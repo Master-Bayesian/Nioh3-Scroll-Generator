@@ -62,6 +62,12 @@ archive. An unavailable or rejected artifact selects the locked `npm ci` path
 and logs the reason. Chromium preparation and the full and shadow gates still
 run after either dependency path.
 
+The frontend build computes the independent shadow plan from the sealed plan
+using its installed TypeScript dependencies. The `static-2` job runs the
+`ci-1` orchestration acceptance with its own receipt. Browser shards can start
+as soon as their build and plan outputs are ready. The final gate still
+requires all normal receipts, including `ci-1`, and the applicable shadow run.
+
 `run.mjs --task <id>` is an explicit diagnostic profile for one case. Its receipt
 cannot satisfy a reference or shadow group. Use it to reproduce a selected test,
 not to claim full CI coverage.

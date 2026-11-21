@@ -62,10 +62,12 @@ jobs:
         fetch-depth: 1
         persist-credentials: false
     - uses: ./.github/actions/ci-node
+      id: static-node
       with:
         dependencies: 'true'
         browser: 'false'
     - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      id: static-plan
       with:
         name: ci-plan-a${{ github.run_attempt }}
         path: ${{ env.NIOH3_CI_OUT }}/plan
@@ -79,6 +81,17 @@ jobs:
       with:
         name: ci-result-a${{ github.run_attempt }}-${{ matrix.id }}
         path: ${{ env.NIOH3_CI_OUT }}/results/${{ matrix.id }}
+        if-no-files-found: error
+    - name: Exercise actual planner runner and aggregate fault controls
+      if: ${{ !cancelled() && matrix.id == 'static-2' && steps.static-node.outcome == 'success' && steps.static-plan.outcome == 'success' }}
+      shell: pwsh
+      run: node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group ci-1 --out "$env:NIOH3_CI_OUT/results/ci-1"
+    - name: Retain CI orchestration evidence
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always() && matrix.id == 'static-2'
+      with:
+        name: ci-result-a${{ github.run_attempt }}-ci-1
+        path: ${{ env.NIOH3_CI_OUT }}/results/ci-1
         if-no-files-found: error
   formal-models:
     name: Formal models (${{ matrix.id }})
@@ -195,6 +208,8 @@ jobs:
   frontend-build:
     needs: plan
     runs-on: windows-latest
+    outputs:
+      shadow: ${{ steps.shadow.outputs.shadow }}
     steps:
     - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       with:
@@ -208,6 +223,16 @@ jobs:
       with:
         name: ci-plan-a${{ github.run_attempt }}
         path: ${{ env.NIOH3_CI_OUT }}/plan
+    - name: Record independent selection without pruning
+      shell: pwsh
+      run: node tools/ci/shadow.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --out "$env:NIOH3_CI_OUT/shadow"
+      id: shadow
+    - name: Retain the independent shadow plan
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: ci-shadow-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/shadow
+        if-no-files-found: error
     - name: Check generated inputs and build immutable frontend bundles
       shell: pwsh
       run: node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group build-1 --out "$env:NIOH3_CI_OUT/results/build-1"
@@ -284,54 +309,16 @@ jobs:
         name: ci-result-a${{ github.run_attempt }}-${{ matrix.id }}
         path: ${{ env.NIOH3_CI_OUT }}/results/${{ matrix.id }}
         if-no-files-found: error
-  shadow-plan:
-    needs: plan
-    runs-on: windows-latest
-    outputs:
-      shadow: ${{ steps.shadow.outputs.shadow }}
-    steps:
-    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      with:
-        fetch-depth: 0
-        persist-credentials: false
-    - uses: ./.github/actions/ci-node
-      with:
-        dependencies: 'true'
-        browser: 'false'
-    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-      with:
-        name: ci-plan-a${{ github.run_attempt }}
-        path: ${{ env.NIOH3_CI_OUT }}/plan
-    - name: Exercise actual planner runner and aggregate fault controls
-      shell: pwsh
-      run: node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group ci-1 --out "$env:NIOH3_CI_OUT/results/ci-1"
-    - name: Record independent selection without pruning
-      shell: pwsh
-      run: node tools/ci/shadow.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --out "$env:NIOH3_CI_OUT/shadow"
-      id: shadow
-    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-      if: always()
-      with:
-        name: ci-shadow-plan-a${{ github.run_attempt }}
-        path: ${{ env.NIOH3_CI_OUT }}/shadow
-        if-no-files-found: error
-    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-      if: always()
-      with:
-        name: ci-result-a${{ github.run_attempt }}-ci-1
-        path: ${{ env.NIOH3_CI_OUT }}/results/ci-1
-        if-no-files-found: error
   shadow:
     name: Shadow frontend (${{ matrix.id }})
     if: needs.plan.outputs.comparison == 'Shadow'
     needs:
     - plan
     - frontend-build
-    - shadow-plan
     runs-on: windows-latest
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs['shadow-plan'].outputs.shadow) }}
+      matrix: ${{ fromJSON(needs['frontend-build'].outputs.shadow) }}
     steps:
     - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       with:
@@ -439,7 +426,6 @@ jobs:
     - rust-static
     - frontend-build
     - frontend-tests
-    - shadow-plan
     - shadow
     - rust-packaging
     - frontend-native
