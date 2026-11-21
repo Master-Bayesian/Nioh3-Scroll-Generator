@@ -13,8 +13,34 @@ Treat catalog bindings, observed damage, current CPU replay, and original MAIN a
 Whole-cast HP loss, per-contact HP loss, and split damage establish different facts. Keep the recorded
 measurement shape. Use `--check` for baseline regressions and `--require-match` for the unit's target witnesses.
 
-Follow the working plan for milestone checks, bounded Pro handoffs, and the one-window capture procedure.
-If shared project guidance is missing from a linked worktree, use the plan's host fallback.
+## Work-unit policy
+
+Use one chat per shared mechanism. Reconcile the active diff, checkpoint, and scoreboard.
+Close the unit after its target witnesses pass and the checkpoint records the source, receipt, and next action.
+Use subagents only for independent read-only investigations, and keep sequential edits, builds, and tests in the lead chat.
+
+Run affected native replay, the scoreboard gate, and relevant lint per unit. If the unit changes a
+state protocol, run the applicable TLA+ model and named fault in that unit. Run the plan's WebView,
+installer, device CUDA, and background-performance checks at applicable integration milestones.
+Follow the repository's required CI and release gates.
+
+## Shared guidance on this host
+
+When a linked worktree lacks shared guidance, look in `F:/Nioh3_ScrollEditor` or the primary
+checkout specified by `NIOH3_GUIDANCE_ROOT`. Use `AGENTS.md` for shared constraints,
+`docs/research/REA_WORKFLOW.md` for native work, `docs/research/EXPERIMENT_FAILURE_LEDGER.md`
+for substantive failures, and `docs/knowledge/CURRENT_HANDOFF.md` for coordination.
+
+## Pro and live game boundaries
+
+Give Pro a bounded GPU-independent question. Include mismatches, REA evidence, captured values,
+and exact inputs. Request a focused patch and predicted values. Admit the patch after local
+native replay, the target `--require-match` checks, and the baseline `--check` pass.
+
+Finish the available offline work and rehearse the collector. Send one complete player checklist
+with equipment, stance, target, re-lock after equipment menus, ordered actions, and observations.
+Wait for `开窗` before verifying the process and arming. Confirm when armed and tell the player
+to execute the listed actions. Wait for `完成` and verify the readback.
 
 ## Run
 
