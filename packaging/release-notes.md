@@ -3,7 +3,7 @@
 Download Nioh3Studio-0.8.14-win-x64.exe and run it directly, or update from the app. Microsoft Edge WebView2 remains a Windows prerequisite.
 
 - Live equipment addition can now search for seeds by selected effects. Choose the current character's save, select the effects you want, and pick a search result. You can still enter a seed manually.
-- Search uses the selected save's difficulty and progress. Live addition can proceed after you confirm a game-generated preview that contains every selected effect.
+- Search uses the selected save's difficulty and progress. After saving at a shrine, click Reload on the live equipment page before searching again. Live addition can proceed after you confirm a game-generated preview that contains every selected effect.
 - A recovered operation with unreadable effect requirements remains available for status checks and cancellation. Prepare a fresh operation to continue.
 
 ## Supported scope

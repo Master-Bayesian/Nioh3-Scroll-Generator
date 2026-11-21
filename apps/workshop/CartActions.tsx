@@ -150,7 +150,7 @@ export function SavePicker({ compact = false, refresh = true }: { compact?: bool
         <button
           disabled={state.busy}
           onClick={() =>
-            void saveSession!.refresh().catch((e) => setError(String(e)))
+            void saveSession!.refresh().then(() => setError(""), (e) => setError(String(e)))
           }
         >
           重新读取

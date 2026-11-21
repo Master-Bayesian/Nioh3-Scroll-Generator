@@ -29,10 +29,17 @@ const fixture=()=>{
   // The shared save picker scans for saves; this fixture has none.
   if(command.method==='save.discover')return{saves:[]};
   window.__calls.push(command);const p=command.params,id=p.operation_id;
-  const source=p.save_id==='other'?'d'.repeat(64):'c'.repeat(64);
-  if(command.method==='save.inventory')return{save_id:p.save_id,account_id:'123',snapshot_id:'b'.repeat(64),source_sha256:source,empty_slots:400,entries:[]};
+  const shrineSaved=p.save_id==='fixture'&&window.__shrineSaved;
+  const source=(p.save_id==='other'?'d':shrineSaved?'e':'c').repeat(64);
+  if(command.method==='save.inventory'){
+   if(window.__failInventoryRead)throw Error('FIXTURE_INVENTORY_READ_FAILED');
+   return{save_id:p.save_id,account_id:'123',snapshot_id:(shrineSaved?'f':'b').repeat(64),source_sha256:source,empty_slots:400,entries:[]};
+  }
   if(command.method==='save.operations')return{operations:[]};
-  if(command.method==='save.character')return{save_id:p.save_id,source_sha256:window.__mismatchedSaveRead?'e'.repeat(64):source,currencies:{},equipment_slots:2500,equipment:[],generation:{difficulty:3,difficulties:[{difficulty:3,progress:[1,2,3,4]}]}};
+  if(command.method==='save.character'){
+   const difficulty=shrineSaved?4:3,progress=shrineSaved?[2,3,4,5]:[1,2,3,4];
+   return{save_id:p.save_id,source_sha256:source,currencies:{},equipment_slots:2500,equipment:[],generation:{difficulty,difficulties:[{difficulty,progress}]}};
+  }
   if(command.method==='runtime.equipment_rules')return{item_id:p.item_id,known:true,rarity:p.rarity,level:p.level,random_pool:[{effect_id:44634,star:false,min:10,max:20,group:1,masks:[0,0]},{effect_id:44635,star:true,min:20,max:30,group:2,masks:[0,0]}]};
   if(command.method==='runtime.equipment_seeds'){
    if(window.__holdSearch)await new Promise(resolve=>{window.__releaseSearch=resolve;});
@@ -136,17 +143,42 @@ try{
   check(locale+' seed search requires selected save',await find.isDisabled());
   await selectSave('fixture');await selectWanted();
   check(locale+' effect picker selected two groups',await chips.count()===2);
-  await page.evaluate(()=>{window.__mismatchedSaveRead=true;});await resetCalls();await find.click();
-  await page.waitForFunction(()=>!document.querySelector('[data-action=find-equipment-seeds]').disabled);
-  check(locale+' changed save bytes require a fresh inventory load before seed lookup',await page.evaluate(()=>
-   window.__calls.some(c=>c.method==='save.character')&&!window.__calls.some(c=>c.method==='runtime.equipment_seeds')));
-  await page.evaluate(()=>{window.__mismatchedSaveRead=false;});
-  await backup.fill('123');await resetCalls();await find.click();await outcomes.first().waitFor();
-  check(locale+' selected save provides difficulty and progress',await page.evaluate(()=>{
-   const read=window.__calls.find(c=>c.method==='save.character'),search=window.__calls.find(c=>c.method==='runtime.equipment_seeds');
-   return read.params.save_id==='fixture'&&search.params.difficulty===3&&search.params.progress.join(',')==='1,2,3,4'
-    &&JSON.stringify(search.params.want)==='[[44634],[44635]]';
-  }));
+  const savePicker=page.locator('.live-equipment-save');
+  const reload=savePicker.getByRole('button',{name:{'zh-CN':'重新读取','en-US':'Reload','ja-JP':'再読み込み'}[locale],exact:true});
+  const scan=savePicker.getByRole('button',{name:{'zh-CN':'重新检测','en-US':'Scan again','ja-JP':'再検出'}[locale],exact:true});
+  await backup.fill('123');
+  await find.click();await outcomes.nth(1).click();
+  await page.evaluate(()=>{window.__shrineSaved=true;});
+  await resetCalls();await find.click();
+  await page.locator('.live-equipment-seed-search .notice').waitFor();
+  check(locale+' shrine save blocks lookup against stale inventory',await page.evaluate(()=>
+   window.__calls.map(c=>c.method).join('|')==='save.character')&&await outcomes.count()===0&&await backup.inputValue()==='123');
+  const staleNotice=page.locator('.live-equipment-seed-search .notice');
+  const staleShot=join(output,'equipment-'+locale+'-shrine-save-stale.png');
+  await staleNotice.scrollIntoViewIfNeeded();await page.screenshot({path:staleShot,fullPage:true});report.screenshots.push(staleShot);
+  await scan.click();
+  check(locale+' scan keeps the target and does not reload its inventory',await page.evaluate(()=>
+   window.__selectedSave==='fixture'&&!window.__calls.some(c=>c.method==='save.inventory')));
+  check(locale+' reload is available on the live search page',await reload.isVisible());
+
+  await page.evaluate(()=>{window.__failInventoryRead=true;});
+  await reload.click();
+  await savePicker.locator('.notice').waitFor();
+  check(locale+' failed reload leaves search blocked and the target selected',
+   await find.isDisabled()&&await savePicker.locator('select').inputValue()==='fixture');
+  await page.evaluate(()=>{window.__failInventoryRead=false;});
+  await resetCalls();await reload.click();
+  await page.waitForFunction(()=>window.__selectedSave==='fixture');
+  check(locale+' successful reload clears the previous errors and keeps the wanted effects',
+   await savePicker.locator('.notice').count()===0&&await staleNotice.count()===0&&await chips.count()===2);
+  await find.click();await outcomes.first().waitFor();
+  const shrineTrace=await page.evaluate(()=>window.__calls.filter(c=>c.method.startsWith('save.')||c.method==='runtime.equipment_seeds'));
+  const [inventory,history,read,search]=shrineTrace;
+  check(locale+' shrine save, reload and search use the newly saved difficulty and progress',
+   shrineTrace.map(c=>c.method).join('|')==='save.inventory|save.operations|save.character|runtime.equipment_seeds'&&
+   [inventory,history,read].every(c=>c.params.save_id==='fixture')&&
+   search.params.difficulty===4&&search.params.progress.join(',')==='2,3,4,5'&&
+   JSON.stringify(search.params.want)==='[[44634],[44635]]');
   check(locale+' lookup creates no native preview or insertion',(await calls()).length===0);
   check(locale+' lookup does not silently select a matching manual seed',await backup.inputValue()==='123'&&await selectedOutcome.count()===0);
   await outcomes.nth(1).click();
@@ -208,7 +240,7 @@ try{
   await cancel.click();await settled('cancelled');
   const geometry=await page.locator('.live-equipment-add').evaluate(el=>({scroll:el.scrollWidth,width:el.clientWidth,dpr:devicePixelRatio}));
   check(locale+' no horizontal overflow',geometry.scroll<=geometry.width+2);
-  report.locales.push({locale,geometry,rejected,lost,unknown,failedStatus});await page.close();
+  report.locales.push({locale,geometry,rejected,lost,unknown,failedStatus,shrineTrace});await page.close();
  }
  report.pass=true;
 }catch(error){report.error=error.stack||String(error);}
