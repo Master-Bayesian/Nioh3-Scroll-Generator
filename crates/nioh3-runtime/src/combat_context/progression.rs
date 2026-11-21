@@ -140,6 +140,8 @@ pub struct ProgressionSources {
     pub variants: Vec<Submission>,
     pub configured_progress: Vec<Submission>,
     pub slotted_progress: Vec<Submission>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub category_skills: BTreeMap<u32, Vec<Submission>>,
     pub late_clan: [Submission; 4],
     pub core_unlock_thresholds: [i32; 8],
     pub post_record_present: [[bool; 4]; 2],
@@ -316,7 +318,7 @@ impl Parameters<'_> {
 
 /// Validate membership using the same keyed list and bucket identities as the
 /// native container. Its complete list alone does not establish native lookup.
-fn graph(
+pub(super) fn graph(
     memory: &dyn InventoryMemory,
     address: u64,
     width: usize,
@@ -500,12 +502,19 @@ const CATEGORIES: [u32; 16] = [
     0x1909, 0x5fff, 0x6e73, 0x5455, 0x5095, 0x1c17, 0x2d3f, 0x72b1, 0x5e1b, 0x027c, 0x0d2f, 0x17d6,
     0x04e6, 0x2552, 0x1302, 0x33c9,
 ];
+struct SkillLayers {
+    configured: Vec<Submission>,
+    slotted: Vec<Submission>,
+    alternatives: BTreeMap<u32, Vec<Submission>>,
+}
+
 fn skill_sources(
     tables: &Parameters<'_>,
     snapshot: &CombatSnapshot,
     category: u32,
     slots: &[u8],
-) -> R<(Vec<Submission>, Vec<Submission>)> {
+    alternatives: &[u32],
+) -> R<SkillLayers> {
     let defs = tables.table(0x130, 192)?;
     let params = tables.table(0x598, 148)?;
     let by_key: BTreeMap<_, _> = defs
@@ -541,7 +550,6 @@ fn skill_sources(
             "configured ranks no longer match their native buckets",
         ));
     }
-    let selected = CATEGORIES.iter().position(|v| *v == category);
     let emit = |out: &mut Vec<Submission>, key, aux| {
         let rank = configured.get(&key).map_or(1, |s| u32::from(s.rank));
         if let Some(row) = effects.get(&(key, rank)) {
@@ -558,31 +566,46 @@ fn skill_sources(
             }
         }
     };
-    let mut learned = Vec::new();
-    for row in defs.as_chunks::<192>().0.iter() {
-        let key = word(row, 24);
-        if !configured.get(&key).is_some_and(|s| s.enabled != 0) {
-            continue;
+    let for_category = |category| {
+        let selected = CATEGORIES.iter().position(|v| *v == category);
+        let mut learned = Vec::new();
+        for row in defs.as_chunks::<192>().0.iter() {
+            let key = word(row, 24);
+            if !configured.get(&key).is_some_and(|s| s.enabled != 0) {
+                continue;
+            }
+            let c = i32::from(row[0xac] as i8);
+            let allowed = match c {
+                23 => true,
+                21 => snapshot.inputs.mode == 0,
+                22 => snapshot.inputs.mode == 1,
+                _ => c == selected.map_or(-1, |v| v as i32) || row[0x1c] & 0x40 != 0,
+            };
+            if row[0xb9] == 0 || (row[0xb9] == 1 && row[0x1c] & 1 == 0 && allowed) {
+                emit(&mut learned, key, row[0xb9] == 0);
+            }
         }
-        let c = i32::from(row[0xac] as i8);
-        let allowed = match c {
-            23 => true,
-            21 => snapshot.inputs.mode == 0,
-            22 => snapshot.inputs.mode == 1,
-            _ => c == selected.map_or(-1, |v| v as i32) || row[0x1c] & 0x40 != 0,
-        };
-        if row[0xb9] == 0 || (row[0xb9] == 1 && row[0x1c] & 1 == 0 && allowed) {
-            emit(&mut learned, key, row[0xb9] == 0);
+        let mut slotted = Vec::new();
+        for i in selected.into_iter().chain([21, 22, 23]) {
+            let key = word(slots, i * 8);
+            if key != 0 && by_key.get(&key).is_some_and(|r| r[0xb9] == 1) {
+                emit(&mut slotted, key, false);
+            }
         }
+        (learned, slotted)
+    };
+    let (configured, slotted) = for_category(category);
+    let mut variants = BTreeMap::new();
+    for &other in alternatives.iter().filter(|&&k| k != category) {
+        let (mut learned, slots) = for_category(other);
+        learned.extend(slots);
+        variants.insert(other, learned);
     }
-    let mut slotted = Vec::new();
-    for i in selected.into_iter().chain([21, 22, 23]) {
-        let key = word(slots, i * 8);
-        if key != 0 && by_key.get(&key).is_some_and(|r| r[0xb9] == 1) {
-            emit(&mut slotted, key, false);
-        }
-    }
-    Ok((learned, slotted))
+    Ok(SkillLayers {
+        configured,
+        slotted,
+        alternatives: variants,
+    })
 }
 
 fn post_selection(memory: &dyn InventoryMemory, snap: &CombatSnapshot) -> R<[[bool; 4]; 2]> {
@@ -620,6 +643,7 @@ fn collect(
     memory: &dyn InventoryMemory,
     snap: &CombatSnapshot,
     category: u32,
+    alternatives: &[u32],
 ) -> R<ProgressionSources> {
     let base = snap.module_base;
     let progress = snap.roots.progress;
@@ -691,7 +715,7 @@ fn collect(
     let counter = q(memory, add(q(memory, add(base, COUNTERS)?)?, 8)?)?;
     let (completion, minimum, variants) = area_sources(&tables, counter, profile[0x45])?;
     let slots = read(memory, add(progress, 0x60a0)?, 24 * 8)?;
-    let (configured_progress, slotted_progress) = skill_sources(&tables, snap, category, &slots)?;
+    let skills = skill_sources(&tables, snap, category, &slots, alternatives)?;
     let mut parameter_hash = Sha256::new();
     for (offset, width) in [(0x3f0, 256), (0x408, 64), (0x118, 84)] {
         let rows = tables.table(offset, width)?;
@@ -706,8 +730,9 @@ fn collect(
         completion,
         minimum,
         variants,
-        configured_progress,
-        slotted_progress,
+        configured_progress: skills.configured,
+        slotted_progress: skills.slotted,
+        category_skills: skills.alternatives,
         late_clan,
         core_unlock_thresholds: tables.core_thresholds()?,
         post_record_present: post_selection(memory, snap)?,
@@ -723,11 +748,20 @@ pub fn read_progression(
     snapshot: &CombatSnapshot,
     category: u32,
 ) -> R<ProgressionSources> {
+    read_progression_for_categories(memory, snapshot, category, &[])
+}
+
+pub fn read_progression_for_categories(
+    memory: &dyn InventoryMemory,
+    snapshot: &CombatSnapshot,
+    category: u32,
+    alternatives: &[u32],
+) -> R<ProgressionSources> {
     if memory.process() != snapshot.process || memory.module_base() != snapshot.module_base {
         return Err(layout("progress inputs belong to another process"));
     }
-    let first = collect(memory, snapshot, category)?;
-    let second = collect(memory, snapshot, category)?;
+    let first = collect(memory, snapshot, category, alternatives)?;
+    let second = collect(memory, snapshot, category, alternatives)?;
     let still_current = matches!(read_combat_snapshot(memory)?, SnapshotOutcome::Ready(now)
         if now.process==snapshot.process && now.roots==snapshot.roots && now.inputs==snapshot.inputs);
     if first != second || !still_current {

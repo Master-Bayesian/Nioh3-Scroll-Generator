@@ -27,6 +27,36 @@ workflow.
 
 ## Ownership and formal controls
 
+The PC202 Samurai reader obtains the stance from the player's style object at
+`+0x85c`. High, middle and low were observed as 0, 1 and 2. The stance in an
+ordinary character snapshot and the action selected for scoring are separate
+inputs. A replay can run a middle-stance action on a retained character.
+
+Each Samurai encounter carries its own fixed opponent's elemental STAT
+entries, owner modifiers and status records. Candidate equipment can reach
+reads that the currently worn weapon never executes. The player's
+materializer, category, source maps and ordinary membership list come from
+the character read. The scorer preserves the executed order of contacts and
+exposes physical and elemental totals separately.
+
+The Odachi branch at `791A70` reads the candidate's held record. Its public
+plan identifies that record and the compiled input domain covers words at
+`+0`, `+0x14` and `+0x18`. To regenerate the kernel, apply
+`tools/pc202_native_mul32.patch` to the native translator and run
+`tools/extend_loadout_pc202_kernel.py` on the original group listing,
+known-byte image, scene, and verified PC202 text. Compile the resulting
+inputs in `generated/held-record/<group>` for both host and device. The
+extension preserves the base trace weights and includes both return paths
+of the item helper. The normal source prefix is recompiled for every
+included weapon category whose plan binds the actor category and source.
+
+For native acceptance, `standalone_search --audit-native-inputs` exports
+the ordered candidate and contact words for each answered outfit, together
+with its physical and elemental result bits. Replaying these inputs in
+original MAIN tests the numerical calculation. A separate unchanged-source
+WebView2 run tests the first read, search, coverage and published gear slots.
+Measurements combined across weapon changes are labeled as controls.
+
 - `LoadoutDiscovery` maps request IDs to the page discovery reducer.
   A stale response cannot replace the current page state. A failed
   discovery exposes the retry action.

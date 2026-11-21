@@ -36,6 +36,52 @@ const ACTION_STATE: u64 = 0x6000_0000_0000;
 const ACTION_PARAM: u64 = ACTION_STATE + 0x1000;
 const ACTION_TABLE: u64 = ACTION_STATE + 0x10000;
 const ACTION_ROWS: u64 = ACTION_STATE + 0x100000;
+const MEMBERSHIP_GLOBAL: u64 = 79330664;
+const MEMBERSHIP_OFFSET: u64 = 0x2820;
+
+/// 78C974 tests a 16-bit key in the manager's FNV-1a bucket table. Rebuild
+/// a complete equivalent lookup from the checked list and bucket membership.
+fn install_membership(image: &mut Image, header: u64, keys: &BTreeMap<u32, Vec<u8>>) -> R<()> {
+    let sentinel = ACTION_STATE + 0x500000;
+    let buckets = sentinel + 0x1000;
+    let nodes = sentinel + 0x80000;
+    let count = (keys.len().max(8)).next_power_of_two();
+    let mut grouped = vec![Vec::new(); count];
+    for &key in keys.keys() {
+        let key = u16::try_from(key).map_err(|_| layout("invalid membership key"))?;
+        let hash = key
+            .to_le_bytes()
+            .iter()
+            .fold(0xcbf29ce484222325u64, |h, b| {
+                (h ^ u64::from(*b)).wrapping_mul(0x100000001b3)
+            });
+        grouped[hash as usize & (count - 1)].push(key);
+    }
+    image.pointer(header + 8, sentinel)?;
+    image.pointer(header + 16, keys.len() as u64)?;
+    image.pointer(header + 24, buckets)?;
+    image.pointer(header + 32, buckets + 16 * count as u64)?;
+    image.pointer(header + 48, (count - 1) as u64)?;
+    let mut previous = sentinel;
+    let mut node = nodes;
+    for (i, group) in grouped.iter().enumerate() {
+        let first = if group.is_empty() { sentinel } else { node };
+        for key in group {
+            image.pointer(previous, node)?;
+            image.pointer(node + 8, previous)?;
+            image.set(node + 16, &key.to_le_bytes())?;
+            previous = node;
+            node += 24;
+        }
+        image.pointer(buckets + 16 * i as u64, first)?;
+        image.pointer(
+            buckets + 16 * i as u64 + 8,
+            if group.is_empty() { sentinel } else { previous },
+        )?;
+    }
+    image.pointer(previous, sentinel)?;
+    image.pointer(sentinel + 8, previous)
+}
 
 /// The ordinary mode-1 unimbued projectile constructor. Only the descriptor
 /// words read by the verified damage path are installed. Other bytes stay
@@ -390,7 +436,15 @@ pub fn direct_encounter(
         held_slot: s.inputs.held_weapon_slot,
         hell_weapon: s.inputs.inventory[equipped + 0x1a] & 0x10 != 0,
     };
-    materialize_encounter(memory, &role, stat, category, row_key, row)
+    project_encounter(
+        memory,
+        &role,
+        stat,
+        category,
+        row_key,
+        row,
+        Some(&s.source_raw),
+    )
 }
 
 /// The roots already verified by the combat snapshot reader. Host replays
@@ -416,6 +470,18 @@ pub fn materialize_encounter(
     row_key: &[u8; 32],
     row: &[u8; 192],
 ) -> R<Encounter> {
+    project_encounter(memory, s, stat, category, row_key, row, None)
+}
+
+fn project_encounter(
+    memory: &dyn InventoryMemory,
+    s: &EncounterRole,
+    stat: &[u8],
+    category: u32,
+    row_key: &[u8; 32],
+    row: &[u8; 192],
+    source: Option<&[u8]>,
+) -> R<Encounter> {
     let r = recipe(row_key)?;
     let root = |key: &str| {
         r.roots
@@ -437,6 +503,38 @@ pub fn materialize_encounter(
         pointers: BTreeMap::new(),
     };
     let mut image = Image::default();
+    if let Some(source) = source {
+        // 2EB61B bounds the 74-way dispatch; the table entries are PC202 RVAs.
+        image.set(
+            add(root("module")?, 0x2ebe08)?,
+            include_bytes!("pc202_action_flag_targets.bin"),
+        )?;
+        // PC202 794596 compares the opponent's indexed STAT scalar against
+        // this immutable .rdata constant (00 00 7a 44).
+        image.set(add(root("module")?, 0x3bd4810)?, &1000_f32.to_le_bytes())?;
+        // PC202 2081C7D scales the held item's table result from percent.
+        image.set(add(root("module")?, 0x3bd4890)?, &0.01_f32.to_le_bytes())?;
+        image.pointer(add(root("stat")?, 0x7d8)?, root("source")?)?;
+        // These element branches are first reached by replacement weapons.
+        // The observed status scalar is optional in older sparse replays.
+        for (offset, size) in [(0x89, 1), (0x92, 1), (0x3c0, 16)] {
+            image.set(
+                add(root("d")?, offset)?,
+                &read(memory, add(s.materializer, offset)?, size)?,
+            )?;
+        }
+        for offset in [0x2e68, 0x2e6c] {
+            if let Ok(value) = read(memory, add(s.owner, offset)?, 4) {
+                image.set(add(root("source_owner")?, offset)?, &value)?;
+            }
+        }
+        for offset in MAP_OFFSETS {
+            let rows = source
+                .get(offset..offset + 0xc04)
+                .ok_or_else(|| layout("missing source aggregate storage"))?;
+            image.set(add(root("source")?, offset as u64)?, rows)?;
+        }
+    }
     let aad = root("attack_data")?;
     image.pointer(add(root("packet")?, 0x190)?, aad)?;
     r.selected_action.install(&mut image, aad, row)?;
@@ -460,6 +558,31 @@ pub fn materialize_encounter(
     let hell = u32::from(s.hell_weapon);
     let flags = hell << 16;
     let module = root("module")?;
+    let membership = if source.is_some() {
+        let holder = reader.pointer(add(s.module_base, MEMBERSHIP_GLOBAL)?)?;
+        match super::progression::graph(memory, add(holder, MEMBERSHIP_OFFSET)?, 24, 2) {
+            Ok(keys) => Some(keys),
+            Err(RuntimeError::RegionNotReadable { .. }) => None,
+            Err(error) => return Err(error),
+        }
+    } else {
+        None
+    };
+    if let Some(keys) = &membership {
+        let holder = r
+            .fields
+            .iter()
+            .find_map(|f| {
+                if let ValueKind::Pointer { to } = f.value {
+                    if f.root == Root::Module && f.path == [MEMBERSHIP_GLOBAL as i64] {
+                        return Some(to);
+                    }
+                }
+                None
+            })
+            .ok_or_else(|| layout("membership manager missing from recipe"))?;
+        install_membership(&mut image, add(holder, MEMBERSHIP_OFFSET)?, keys)?;
+    }
     if let Some(teb) = r.roots.get("teb") {
         image.page(*teb);
     }
@@ -467,6 +590,12 @@ pub fn materialize_encounter(
         image.page(root(key)?);
     }
     for field in &r.fields {
+        if membership.is_some()
+            && field.root == Root::Module
+            && matches!(field.path.as_slice(), [first,offset,..] if *first==MEMBERSHIP_GLOBAL as i64 && (0x2820..0x2860).contains(offset))
+        {
+            continue;
+        }
         let live = field.root.live(s);
         let address = match live {
             Some(base) => match reader.address(base, &field.path)? {

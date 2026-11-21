@@ -56,7 +56,7 @@ const child = spawn(host, ['--user-data-dir', profile], {
 });
 let stderr = '';
 child.stderr.on('data', bytes => { stderr = (stderr + bytes).slice(-24_000); });
-const evidence = { passed: false, backend, context: sourceMode === 'first-use' ? 'empty profile / ordinary reader on retained bytes, controlled unarmed inputs' : 'retained replay', gameAccess: 'none', saveWrites: 0, pageErrors: [] };
+const evidence = { passed: false, backend, context: fixture.observation_scope ?? (sourceMode === 'first-use' ? 'empty profile / ordinary reader on retained bytes, controlled unarmed inputs' : 'retained replay'), gameAccess: 'none', saveWrites: 0, pageErrors: [] };
 let browser, page;
 try {
   const until = Date.now() + 45_000;
@@ -105,7 +105,7 @@ try {
     };
   });
   await page.getByRole('button', { name: '配装优化', exact: true }).click();
-  await selectLoadoutScene(page, JSON.parse(await readFile(new URL('../../data/loadout/kusarigama-strong/bundle.json', import.meta.url), 'utf8')));
+  await selectLoadoutScene(page, JSON.parse(await readFile(join(root, 'host-data', 'loadout', fixture.scene_id ?? 'kusarigama-strong', 'bundle.json'), 'utf8')));
   const context = page.getByTestId('loadout-context');
   await page.waitForFunction(() => {
     const state = document.querySelector('[data-testid="loadout-discovery-panel"]')?.dataset.state;
@@ -131,7 +131,7 @@ try {
 
   await page.getByRole('combobox', { name: '添加套装条件', exact: true }).selectOption(String(0xB2C1));
   const tier = page.getByRole('combobox', { name: '生效件数', exact: true });
-  await tier.selectOption('5');
+  await tier.selectOption(String(fixture.required_pieces ?? 5));
   await page.screenshot({ path: join(output, 'query.png') });
   await start.click();
   const result = page.getByTestId('loadout-result-coverage');
@@ -146,9 +146,11 @@ try {
   assert.equal(score.searched, baseline.progress.completed);
   assert.equal(score.answered, baseline.progress.answered);
   assert.equal(score.no_path + score.refused + score.source_uncomputed, 0);
-  assert.equal(score.current.damage, 629);
-  assert.equal(score.current.damage_details.physical, 610);
-  assert.equal(score.current.damage_details.elemental, 19);
+  const equipped = fixture.equipped ?? {total: 629, physical: 610, elemental: 19};
+  assert.equal(score.current.damage, equipped.total);
+  assert.equal(score.current.damage_details.physical, equipped.physical);
+  assert.equal(score.current.damage_details.elemental, equipped.elemental);
+  if (equipped.contacts) assert.deepEqual(score.current.damage_details.contacts, equipped.contacts);
   assert.equal(score.best.length, 20);
   const expected = baseline.ranked.slice(0, score.best.length);
   const assignments = rows => rows.map(item => [item.slot, item.slot_index ?? item.save_slot]);
@@ -161,98 +163,100 @@ try {
     current: score.current.damage_details, winner: score.best[0] };
   console.log('Verified ' + score.answered + ' scored outfits and ' + score.best.length + ' published ranks on ' + backend);
   await page.screenshot({ path: join(output, 'result.png') });
-  evidence.locales = ['zh-CN'];
-  if (backend === 'card') {
-    for (const [locale, label] of [['en-US', 'English'], ['ja-JP', '日本語'], ['zh-CN', '简体中文']]) {
-      await page.locator('.language-button').click();
-      await page.locator('.side-popup').getByRole('button', { name: label, exact: true }).click();
-      await page.waitForFunction(value => document.documentElement.lang === value, locale);
-      assert.equal(await result.getAttribute('data-coverage'), 'complete');
-      assert(await page.getByTestId('loadout-search-start').isVisible());
-      if (locale === 'en-US') {
-        const scope = await page.getByTestId('loadout-source-model-scope').innerText();
-        assert.match(scope, /reconstructed inputs/);
-        assert.doesNotMatch(scope, /\p{Script=Han}/u);
-        assert.match(await page.getByTestId('loadout-weapon-domain').innerText(), /12 owned and 12 included/);
-        assert(await page.getByRole('option', { name: 'Strong attack (first hit)', exact: true }).count());
-      }
-      if (locale !== 'zh-CN') {
-        await page.screenshot({ path: join(output, 'result-' + locale + '.png') });
-        evidence.locales.push(locale);
+  if (!fixture.ranking_only) {
+    evidence.locales = ['zh-CN'];
+    if (backend === 'card') {
+      for (const [locale, label] of [['en-US', 'English'], ['ja-JP', '日本語'], ['zh-CN', '简体中文']]) {
+        await page.locator('.language-button').click();
+        await page.locator('.side-popup').getByRole('button', { name: label, exact: true }).click();
+        await page.waitForFunction(value => document.documentElement.lang === value, locale);
+        assert.equal(await result.getAttribute('data-coverage'), 'complete');
+        assert(await page.getByTestId('loadout-search-start').isVisible());
+        if (locale === 'en-US') {
+          const scope = await page.getByTestId('loadout-source-model-scope').innerText();
+          assert.match(scope, /reconstructed inputs/);
+          assert.doesNotMatch(scope, /\p{Script=Han}/u);
+          assert.match(await page.getByTestId('loadout-weapon-domain').innerText(), /12 owned and 12 included/);
+          assert(await page.getByRole('option', { name: 'Strong attack (first hit)', exact: true }).count());
+        }
+        if (locale !== 'zh-CN') {
+          await page.screenshot({ path: join(output, 'result-' + locale + '.png') });
+          evidence.locales.push(locale);
+        }
       }
     }
+
+    await page.locator('.loadout-list > li.open').first()
+      .getByRole('button', { name: '穿上这套（写入存档）', exact: true }).click();
+    const plan = page.locator('.loadout-page .character-save-plan');
+    await plan.waitFor();
+    assert(await plan.getByRole('button', { name: '写入存档', exact: true }).isDisabled());
+    const preview = await jobFor('save.prepare_character_edit');
+    assert(preview?.result?.preview?.worn?.length > 0, 'Missing verified wardrobe preview');
+    const selected = new Map(score.best[0].items.map(item => [item.slot_index, item.slot]));
+    assert(preview.result.preview.worn.filter(line => line.after !== null).every(line => selected.get(line.slot_index) === line.after));
+    evidence.preview = preview.result.preview.worn;
+    await page.screenshot({ path: join(output, 'wear-preview.png') });
+    await plan.getByRole('button', { name: '放弃', exact: true }).click();
+    await plan.waitFor({ state: 'hidden' });
+
+    await tier.selectOption('2');
+    await start.click();
+    await page.waitForFunction(() => {
+      const jobs = Object.values(window.__loadoutE2e.jobs);
+      return jobs.some(job => job.kind === 'save.loadout_search' && job.state === 'running'
+        && job.progress?.stage === 'evaluation');
+    }, { timeout: 30000 });
+    await page.getByTestId('loadout-search-cancel').click();
+    await page.getByTestId('loadout-search-cancelled').waitFor({ timeout: 60000 });
+    assert.equal(await result.count(), 0);
+    const cancelled = await jobFor('save.loadout_search');
+    assert.equal(cancelled.state, 'failed');
+    assert.equal(cancelled.result, null);
+    assert.match(cancelled.error.message, /LOADOUT_SEARCH_CANCELLED/);
+    evidence.cancelled = { terminal: cancelled.state, error: cancelled.error, progress: cancelled.progress };
+    await page.screenshot({ path: join(output, 'cancelled.png') });
+    const runProtected = async command => {
+      const job = await page.evaluate(cmd => window.operations.execute(cmd), command);
+      assert(job?.job_id, 'Expected a protected job for ' + command.method);
+      const deadline = Date.now() + 30000;
+      while (Date.now() < deadline) {
+        const state = await page.evaluate(id => window.operations.snapshot('save', id), job.job_id);
+        if (state.state === 'failed') throw Error(state.error?.message);
+        if (state.state === 'completed') return state.result;
+        await delay(100);
+      }
+      throw Error('Timed out waiting for ' + command.method);
+    };
+    const binding = contextJob.result;
+    const source = { save_id: binding.save_id, source_sha256: binding.source_sha256,
+      context_id: binding.context_id };
+    const swapSearch = await runProtected({
+      method: 'save.loadout_search',
+      params: { ...source, bundle: binding.bundle, client_request_id: crypto.randomUUID(),
+        items: [[193, 0], [363, 0], [37, 9], [216, 9], [335, 9]].map(([slot_index, slot]) => ({ slot_index, slot })),
+        sets: [{ options: [{ key: 0xF4CB, pieces: 2 }], at_least: 1 }], limits: {} },
+    });
+    assert.equal(swapSearch.backend, backend);
+    assert.equal(swapSearch.complete, true);
+    assert.equal(swapSearch.answered, 10);
+    const swapped = swapSearch.best.find(item => item.move_previous_weapon_to_slot === 1);
+    assert(swapped?.items.some(item => item.slot === 0 && item.slot_index === 193));
+    const swapPlan = await runProtected({
+      method: 'save.prepare_character_edit',
+      params: { ...source, wear: { school: 'ninja', move_previous_weapon_to_slot: 1,
+        items: swapped.items.map(({ slot, slot_index }) => ({ slot, slot_index })) } },
+    });
+    const moved = swapPlan.preview.worn;
+    assert(moved.some(line => line.slot_index === 193 && line.before === 1 && line.after === 0));
+    assert(moved.some(line => line.slot_index === 153 && line.before === 0 && line.after === 1));
+    await runProtected({ method: 'save.discard', params: { plan_id: swapPlan.plan_id } });
+    evidence.spareSwap = { assigned: swapped.items, moved, candidateDamage: swapped.damage };
   }
-
-  await page.locator('.loadout-list > li.open').first()
-    .getByRole('button', { name: '穿上这套（写入存档）', exact: true }).click();
-  const plan = page.locator('.loadout-page .character-save-plan');
-  await plan.waitFor();
-  assert(await plan.getByRole('button', { name: '写入存档', exact: true }).isDisabled());
-  const preview = await jobFor('save.prepare_character_edit');
-  assert(preview?.result?.preview?.worn?.length > 0, 'Missing verified wardrobe preview');
-  const selected = new Map(score.best[0].items.map(item => [item.slot_index, item.slot]));
-  assert(preview.result.preview.worn.filter(line => line.after !== null).every(line => selected.get(line.slot_index) === line.after));
-  evidence.preview = preview.result.preview.worn;
-  await page.screenshot({ path: join(output, 'wear-preview.png') });
-  await plan.getByRole('button', { name: '放弃', exact: true }).click();
-  await plan.waitFor({ state: 'hidden' });
-
-  await tier.selectOption('2');
-  await start.click();
-  await page.waitForFunction(() => {
-    const jobs = Object.values(window.__loadoutE2e.jobs);
-    return jobs.some(job => job.kind === 'save.loadout_search' && job.state === 'running'
-      && job.progress?.stage === 'evaluation');
-  }, { timeout: 30000 });
-  await page.getByTestId('loadout-search-cancel').click();
-  await page.getByTestId('loadout-search-cancelled').waitFor({ timeout: 60000 });
-  assert.equal(await result.count(), 0);
-  const cancelled = await jobFor('save.loadout_search');
-  assert.equal(cancelled.state, 'failed');
-  assert.equal(cancelled.result, null);
-  assert.match(cancelled.error.message, /LOADOUT_SEARCH_CANCELLED/);
-  evidence.cancelled = { terminal: cancelled.state, error: cancelled.error, progress: cancelled.progress };
-  await page.screenshot({ path: join(output, 'cancelled.png') });
-  const runProtected = async command => {
-    const job = await page.evaluate(cmd => window.operations.execute(cmd), command);
-    assert(job?.job_id, 'Expected a protected job for ' + command.method);
-    const deadline = Date.now() + 30000;
-    while (Date.now() < deadline) {
-      const state = await page.evaluate(id => window.operations.snapshot('save', id), job.job_id);
-      if (state.state === 'failed') throw Error(state.error?.message);
-      if (state.state === 'completed') return state.result;
-      await delay(100);
-    }
-    throw Error('Timed out waiting for ' + command.method);
-  };
-  const binding = contextJob.result;
-  const source = { save_id: binding.save_id, source_sha256: binding.source_sha256,
-    context_id: binding.context_id };
-  const swapSearch = await runProtected({
-    method: 'save.loadout_search',
-    params: { ...source, bundle: binding.bundle, client_request_id: crypto.randomUUID(),
-      items: [[193, 0], [363, 0], [37, 9], [216, 9], [335, 9]].map(([slot_index, slot]) => ({ slot_index, slot })),
-      sets: [{ options: [{ key: 0xF4CB, pieces: 2 }], at_least: 1 }], limits: {} },
-  });
-  assert.equal(swapSearch.backend, backend);
-  assert.equal(swapSearch.complete, true);
-  assert.equal(swapSearch.answered, 10);
-  const swapped = swapSearch.best.find(item => item.move_previous_weapon_to_slot === 1);
-  assert(swapped?.items.some(item => item.slot === 0 && item.slot_index === 193));
-  const swapPlan = await runProtected({
-    method: 'save.prepare_character_edit',
-    params: { ...source, wear: { school: 'ninja', move_previous_weapon_to_slot: 1,
-      items: swapped.items.map(({ slot, slot_index }) => ({ slot, slot_index })) } },
-  });
-  const moved = swapPlan.preview.worn;
-  assert(moved.some(line => line.slot_index === 193 && line.before === 1 && line.after === 0));
-  assert(moved.some(line => line.slot_index === 153 && line.before === 0 && line.after === 1));
-  await runProtected({ method: 'save.discard', params: { plan_id: swapPlan.plan_id } });
-  evidence.spareSwap = { assigned: swapped.items, moved, candidateDamage: swapped.damage };
   const log = await logs();
   evidence.ipcMethods = log.calls.map(row => row.method);
   assert(!evidence.ipcMethods.includes('save.commit'));
-  assert(evidence.ipcMethods.includes('save.discard'));
+  if (!fixture.ranking_only) assert(evidence.ipcMethods.includes('save.discard'));
   assert.equal(await hash(fixturePath), fixture.source_sha256, 'Acceptance changed the source file');
   assert.deepEqual(evidence.pageErrors, []);
   evidence.geometry = await page.evaluate(() => ({ width: innerWidth, height: innerHeight, dpr: devicePixelRatio }));

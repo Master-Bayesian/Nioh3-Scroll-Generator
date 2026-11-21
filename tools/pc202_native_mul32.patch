@@ -1,0 +1,13 @@
+--- a/research/damage/native/translate/gen.py
++++ b/research/damage/native/translate/gen.py
+@@ -178,6 +178,10 @@
+             fn = "shl" if mn == "sal" else mn
+             c = "1" if len(ops) == 1 else (str(ops[1].imm) if ops[1].type == x86.X86_OP_IMM else "(u32)(rcx & 0xff)")
+             out.append(f"{{ u64 r = op_{fn}(f, {self.rd(ops[0])}, {c}, {n0}); {self.wr(ops[0], 'r')} }}")
++        elif mn == "mul" and len(ops) == 1 and n0 == 4:
++            # Unsigned EAX * r/m32 -> EDX:EAX. Only CF and OF are defined.
++            out.append(f"{{ u64 p = (u64)(u32)rax * (u32)({self.rd(ops[0])}); "
++                       "rax = (u32)p; rdx = (u32)(p >> 32); f.cf = f.of = rdx != 0; }")
+         elif mn == "imul":
+             if len(ops) == 1:
+                 s = self.rd(ops[0])

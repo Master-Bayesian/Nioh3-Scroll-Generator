@@ -174,10 +174,22 @@ def check_scene_layout(files: dict[str, bytes], layout: dict) -> dict:
     need(all(any(lo <= address and address + 4 <= hi for lo, hi in domain) for address in addresses_hit), "hit address outside compiled MAIN domain")
     plan = json.loads(files["event_plan.json"])
     need(plan.get("main_address") == main, "event plan MAIN differs from frame")
+    if (source := plan.get("candidate_source_address")) is not None:
+        need(type(source) is int and source > 0 and all(
+            any(lo <= source + offset and source + offset + 0xc04 <= hi for lo, hi in domain)
+            for offset in (0x35d0, 0x4728)), "compiled MAIN does not accept the candidate SOURCE maps")
     need(plan.get("hit_values_sha256") == digest(files["hits.txt"]), "event plan hit values are stale")
     empty_actor_buffers = (len(addresses) == 72 and not any(addresses[56:])
                            and all(name in frame and not any(frame[name])
                                    for name in ("stat", "d0", "s_base", "d_base")))
+    if source is not None:
+        category = plan.get("candidate_category_field")
+        need(type(category) is int and any(lo <= category and category + 4 <= hi for lo, hi in domain),
+             "compiled MAIN does not accept the equipped weapon category")
+        if (record := plan.get("candidate_inventory_record")) is not None:
+            need(type(record) is int and all(
+                any(lo <= record + offset and record + offset + 4 <= hi for lo, hi in domain)
+                for offset in (0, 0x14, 0x18)), "compiled MAIN does not accept the held item fields")
     templates = plan.get("templates", [])
     fixed_contacts = None
     if plan.get("mode") == {"kind": "fixed_contacts"} and len(templates) == int(lines[0]) and all(

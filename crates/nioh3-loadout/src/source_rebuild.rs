@@ -111,6 +111,8 @@ pub struct Program {
     pub schema: String,
     pub binding: Binding,
     pub prefix: Vec<Submission>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub category_prefixes: std::collections::BTreeMap<u32, Vec<Submission>>,
     pub active_guardian: u8,
     pub guardian_requirement: u16,
     pub guardians: Vec<GuardianSubmission>,
@@ -168,7 +170,9 @@ impl Program {
         {
             return Err("source rebuild normal-owner contract is not supported");
         }
-        if self.prefix.len() > 4096
+        if (!self.category_prefixes.is_empty() && b.scope != EvidenceScope::CurrentProgress)
+            || self.category_prefixes.values().any(|p| p.len() > 4096)
+            || self.prefix.len() > 4096
             || self.active_guardian > 1
             || self.guardians.len() > 12
             || self.cores.len() != 8
@@ -209,7 +213,7 @@ impl Program {
         Ok(())
     }
 
-    pub(crate) fn check_candidate(&self, tables: &Tables, c: &Character) -> R<()> {
+    fn candidate_prefix(&self, tables: &Tables, c: &Character) -> R<&[Submission]> {
         if c.inv.len() != 0x2018 {
             return Err("source rebuild candidate inventory extent differs");
         }
@@ -285,16 +289,17 @@ impl Program {
             .items
             .row(u32::from(key))
             .map_or(0x3c2e, |row| u32_at(row, 0x58));
-        if category != self.binding.native_item_category {
-            return Err("candidate weapon category requires a new source compiler prefix");
+        if category == self.binding.native_item_category {
+            return Ok(&self.prefix);
         }
-        Ok(())
-    }
-
-    pub(super) fn submit_prefix(&self, tables: &Tables, source: &mut Source, mode: i32) {
-        for op in &self.prefix {
-            tables.aggregate(source, mode, op.group, op.value);
+        let reference_key = u16_at(&self.reference_inventory, bank * BANK + slot * ITEM);
+        if tables.item_type_class(reference_key) != tables.item_type_class(key) {
+            return Err("candidate weapon belongs to another TYPE");
         }
+        self.category_prefixes
+            .get(&category)
+            .map(Vec::as_slice)
+            .ok_or("candidate weapon category requires a new source compiler prefix")
     }
 
     pub fn rules(&self) -> SourceRules<'_> {
@@ -327,7 +332,7 @@ impl Program {
         ops: &[(u16, i64)],
         output: &mut Scratch,
     ) -> R<()> {
-        self.check_candidate(tables, c)?;
+        let submissions = self.candidate_prefix(tables, c)?;
         if !ops.is_empty() || !f.native_before.is_empty() || !f.native_after.is_empty() {
             return Err("normal source rebuild cannot mix fitted or flattened source layers");
         }
@@ -335,10 +340,13 @@ impl Program {
         let mut state = Scratch::new();
         state.source.mode = c.mode;
         state.source.thresholds = attrs.map(|a| a as u32);
-        self.submit_prefix(tables, &mut state.source, c.mode);
+        for entry in submissions {
+            tables.aggregate(&mut state.source, c.mode, entry.group, entry.value);
+        }
         let prefix = state.source.maps.clone();
         core.core_maps = prefix.clone();
-        tables.collect_pipeline(f, &core, attrs, &[], output, Some(self))?;
+        let slot15_attack =
+            tables.collect_pipeline(f, &core, attrs, &[], output, Some((self, submissions)))?;
 
         // Equipment collection, sets, guardian gates and late SOURCE groups
         // depend on the same inventory and inputs in both passes. Inherited
@@ -349,6 +357,7 @@ impl Program {
         self.finish(tables, &core, &mut output.source)?;
         core.core_maps = output.source.maps.clone();
         tables.refresh_prepared_attacks(&core, attrs, output)?;
+        Tables::add_slot15_attack(&mut output.stat, slot15_attack);
         tables.materialize_entries(&core, attrs, &pre_tail, &mut output.stat, &mut output.d)?;
         output.source_rebuild_trace = Some(Trace {
             prefix,

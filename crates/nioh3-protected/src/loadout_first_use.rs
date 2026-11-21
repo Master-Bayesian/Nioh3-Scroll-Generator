@@ -18,7 +18,7 @@ use nioh3_loadout::pipeline::{
 use nioh3_runtime::combat_context::encounter::direct_encounter;
 use nioh3_runtime::combat_context::progression::{unarmed_levels, ActorBaseline};
 use nioh3_runtime::{
-    combat_context::{progression::read_progression, CombatSnapshot},
+    combat_context::{progression::read_progression_for_categories, CombatSnapshot},
     InventoryMemory,
 };
 use serde_json::{json, Value};
@@ -69,6 +69,7 @@ pub(crate) fn sample_encounter(
 
 pub(crate) struct SourceRead {
     prefix: Vec<Submission>,
+    category_prefixes: std::collections::BTreeMap<u32, Vec<Submission>>,
     guardians: Vec<GuardianSubmission>,
     cores: Vec<CoreInput>,
     late: [Submission; 4],
@@ -104,7 +105,17 @@ pub(crate) fn read(
         .ok_or_else(|| invalid("held weapon outside the current inventory"))?;
     let key = u16::from_le_bytes([id[0], id[1]]);
     let category = tables.category(key).unwrap_or(0x3c2e);
-    let progress = read_progression(memory, snapshot, category).map_err(HostError::from_runtime)?;
+    let plan: Value =
+        serde_json::from_slice(&load("event_plan.json")?).map_err(|e| invalid(&e.to_string()))?;
+    let categories = if plan["candidate_category_field"].as_u64().is_some()
+        && plan["candidate_source_address"].as_u64().is_some()
+    {
+        tables.weapon_categories(key)
+    } else {
+        Vec::new()
+    };
+    let progress = read_progression_for_categories(memory, snapshot, category, &categories)
+        .map_err(HostError::from_runtime)?;
     if progress.rule_table_digest != parameters.rule_table_digest() {
         return Err(invalid(
             "live guardian or core parameter tables differ from installed scene",
@@ -128,6 +139,17 @@ pub(crate) fn read(
         .into_iter()
         .flatten()
         .map(submission)
+        .collect();
+    let common = &prefix
+        [..prefix.len() - progress.configured_progress.len() - progress.slotted_progress.len()];
+    let category_prefixes: std::collections::BTreeMap<_, _> = progress
+        .category_skills
+        .iter()
+        .map(|(&category, skills)| {
+            let mut entries = common.to_vec();
+            entries.extend(skills.iter().map(submission));
+            (category, entries)
+        })
         .collect();
     let late = progress.late_clan.each_ref().map(submission);
     let active_guardian = source[0x70];
@@ -187,12 +209,14 @@ pub(crate) fn read(
         &late,
         progress.post_record_present,
         progress.digest(),
+        &category_prefixes,
     ))
     .map_err(|e| invalid(&e.to_string()))?;
     identity.extend(sha256(&basis.stat).bytes());
     identity.extend(sha256(&basis.materialized).bytes());
     Ok(SourceRead {
         prefix,
+        category_prefixes,
         guardians,
         cores,
         late,
@@ -386,6 +410,7 @@ impl SourceRead {
                 }),
             },
             prefix: self.prefix.clone(),
+            category_prefixes: self.category_prefixes.clone(),
             active_guardian: self.active_guardian,
             guardian_requirement: self.guardian_requirement,
             guardians: self.guardians.clone(),
@@ -536,17 +561,24 @@ pub(crate) fn verify_equipped(
         .source_rebuild_trace
         .as_ref()
         .ok_or_else(|| invalid("engine did not rebuild current sources"))?;
-    let bank = snap.inputs.mode as usize;
     let agrees = |a: &[nioh3_loadout::pipeline::Entry],
                   b: &[nioh3_runtime::combat_context::AggregateEntry]| {
         a.iter()
             .map(|v| (v.key, v.base, v.dup))
             .eq(b.iter().map(|v| (v.key, v.base, v.dup)))
     };
-    if !agrees(&trace.completed_core[bank], &snap.inputs.core_groups[bank])
-        || !agrees(&scratch.source.maps[bank], &snap.inputs.groups[bank])
-    {
-        return Err(invalid("engine source maps differ from the current role"));
+    for bank in 0..2 {
+        if bank != snap.inputs.mode as usize && !engine.writes_candidate_source_maps() {
+            // Older programs leave the observed inactive bank intact in MAIN.
+            continue;
+        }
+        if !agrees(&trace.completed_core[bank], &snap.inputs.core_groups[bank])
+            || !agrees(&scratch.source.maps[bank], &snap.inputs.groups[bank])
+        {
+            return Err(invalid(&format!(
+                "engine source maps differ in bank {bank}"
+            )));
+        }
     }
     if (
         actual.primary_attack,
@@ -559,14 +591,19 @@ pub(crate) fn verify_equipped(
         expected.defense,
         expected.health,
     ) {
-        return Err(invalid(
-            "rebuilt primary/secondary attack, defense or health differs from the game",
-        ));
+        return Err(invalid(&format!(
+            "equipped stats differ (rebuilt/observed): primary {}/{}, secondary {}/{:?}, defense {}/{}, health {}/{}",
+            actual.primary_attack, expected.primary_attack, actual.secondary_attack, expected.secondary_attack,
+            actual.defense, expected.defense, actual.health, expected.health
+        )));
     }
     let details = engine.damage_details(&c, &pack, &mut engine.work());
-    let Outcome::Damage(score) = engine.evaluate(&c, &pack, &Limits::NONE, &mut engine.work())
-    else {
-        return Err(invalid("equipped attack could not be scored"));
+    let outcome = engine.evaluate(&c, &pack, &Limits::NONE, &mut engine.work());
+    let Outcome::Damage(score) = outcome else {
+        return Err(invalid(&format!(
+            "equipped attack could not be scored: {outcome:?}, {:?}",
+            engine.cpu_diagnostics()
+        )));
     };
     let DamageDetails::Available { contacts, .. } = details.verify_total(score) else {
         return Err(invalid(

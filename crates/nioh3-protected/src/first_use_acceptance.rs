@@ -133,7 +133,50 @@ pub fn export(
             json_file(&out.join("source-inputs.json"), &source.report())?;
             let context = source.context(&memory, snap, data, &dir)?;
             let engine = Engine::open_with_context(&dir, &context).map_err(failed)?;
-            loadout_first_use::verify_equipped(&engine, snap)?;
+            {
+                use nioh3_loadout::pipeline::{Frame, Scratch};
+                let encoded = engine
+                    .encoded_context()
+                    .ok_or_else(|| failed("missing scoring context"))?;
+                let frame = Frame::load(context.frame()).map_err(failed)?;
+                let character = Frame::characters(
+                    encoded
+                        .file("characters.bin")
+                        .ok_or_else(|| failed("missing character"))?,
+                )
+                .map_err(failed)?
+                .into_iter()
+                .next()
+                .ok_or_else(|| failed("empty character"))?;
+                let mut scratch = Scratch::new();
+                engine
+                    .tables()
+                    .pipeline(&frame, &character, &engine.start_attrs, &[], &mut scratch)
+                    .map_err(failed)?;
+                let observed_stat = memory
+                    .read(snap.roots.stat, 0x900)
+                    .map_err(HostError::from_runtime)?;
+                let cols = |bytes: &[u8], index: usize| -> Vec<u32> {
+                    bytes[0x24 + index * 64..0x24 + index * 64 + 32]
+                        .as_chunks::<4>()
+                        .0
+                        .iter()
+                        .map(|w| u32::from_le_bytes(*w))
+                        .collect()
+                };
+                let records:Vec<_> = (0..5).map(|i|json!({"prepared":cols(&scratch.stat,i),"observed":cols(&observed_stat,i)})).collect();
+                json_file(
+                    &out.join("equipped-stages.json"),
+                    &json!({"attack_gain":context.manifest().non_gear.attack_gain,"records":records,"character":context.manifest().character}),
+                )?;
+            }
+            let verification = loadout_first_use::verify_equipped(&engine, snap);
+            let unverified = out.join("unverified");
+            let out = if verification.is_ok() {
+                out
+            } else {
+                unverified.as_path()
+            };
             let bundle = out.join("bundle");
             let private = bundle.join("context");
             fs::create_dir_all(&private).map_err(failed)?;
@@ -166,7 +209,7 @@ pub fn export(
                 &out.join("inventory.json"),
                 &json!({"schema":"nioh3-current-whole-backpack/v1","only_reads_save":true,"source_sha256":sha256(&saved),"searchable_items":rows.len(),"records":rows}),
             )?;
-            Ok(())
+            verification
         };
         let result = capture_role();
         if result.is_err() {

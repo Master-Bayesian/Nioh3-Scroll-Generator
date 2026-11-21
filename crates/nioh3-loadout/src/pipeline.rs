@@ -1467,7 +1467,8 @@ impl Tables {
         Ok(())
     }
 
-    fn slot15(&self, c: &Character, s: &mut Scratch) -> R<()> {
+    fn slot15(&self, c: &Character, s: &mut Scratch) -> R<u32> {
+        let mut attack_gain = 0;
         let item = &c.inv[c.active * BANK + 15 * ITEM..][..ITEM];
         let key = u16_at(item, 0) as u32;
         if let Some(parameter) = self.items.row(key).filter(|_| key != 0) {
@@ -1486,13 +1487,7 @@ impl Tables {
                 .wrapping_mul(u32_at(parameter, 0xF8));
             let defense =
                 (u32_at(parameter, 0x50).wrapping_add(product / 1000) as i32).max(1) as u32;
-            for i in 0..6 {
-                for off in [0, 4] {
-                    let at = 0x24 + 64 * i + off;
-                    let v = u32_at(&s.stat, at).wrapping_add(attack & 65535);
-                    put_u32(&mut s.stat, at, v);
-                }
-            }
+            attack_gain = attack & 65535;
             let v = u32_at(&s.stat, 0x1C8).wrapping_add(defense);
             put_u32(&mut s.stat, 0x1C8, v);
             self.collect(&mut s.source, item, false, c.mode, 255)?;
@@ -1516,7 +1511,18 @@ impl Tables {
                 }
             }
         }
-        Ok(())
+        Ok(attack_gain)
+    }
+
+    // Original slot 15 contributes once to both attack channels of all six records.
+    // Apply after the final weapon preparation, including the selected-source refresh.
+    fn add_slot15_attack(stat: &mut [u8], gain: u32) {
+        for index in 0..6 {
+            for offset in [0x24, 0x28] {
+                let at = offset + 64 * index;
+                put_u32(stat, at, u32_at(stat, at).wrapping_add(gain));
+            }
+        }
     }
 
     fn curve(&self, reward: &[u8], coordinate: u16) -> u32 {
@@ -1648,6 +1654,20 @@ impl Tables {
             .filter(|row| u16_at(row, 0x152) == key)
             .map(|row| u32_at(row, 0x15C))
             .filter(|class| *class <= 64)
+    }
+
+    pub fn weapon_categories(&self, equipped: u16) -> Vec<u32> {
+        let Some(class) = self.item_type_class(equipped) else {
+            return Vec::new();
+        };
+        let mut categories = self.items.rows[8..]
+            .chunks_exact(self.items.stride)
+            .filter(|row| u32_at(row, 0x15c) == class)
+            .map(|row| u32_at(row, 0x58))
+            .collect::<Vec<_>>();
+        categories.sort_unstable();
+        categories.dedup();
+        categories
     }
 
     pub fn category(&self, key: u16) -> Option<u32> {
@@ -2055,7 +2075,8 @@ impl Tables {
         if let Some(program) = &f.source_rebuild {
             return program.pipeline(self, f, c, attrs, ops, s);
         }
-        self.collect_pipeline(f, c, attrs, ops, s, None)?;
+        let gain = self.collect_pipeline(f, c, attrs, ops, s, None)?;
+        Self::add_slot15_attack(&mut s.stat, gain);
         self.materialize_pipeline(c, attrs, s)
     }
 
@@ -2066,8 +2087,8 @@ impl Tables {
         attrs: &[i32; 7],
         ops: &[(u16, i64)],
         s: &mut Scratch,
-        program: Option<&source_rebuild::Program>,
-    ) -> R<()> {
+        program: Option<(&source_rebuild::Program, &[source_rebuild::Submission])>,
+    ) -> R<u32> {
         s.stat.copy_from_slice(&f.stat);
         // Original818E85..818ED4: Heart row90 u16+4, binary32 scaling,
         // CVTTSS2SI64, then equipment/qualification/source materialization.
@@ -2128,8 +2149,10 @@ impl Tables {
             s.source.set_reduction[b] = false;
             s.source.set_pieces[b].clear();
         }
-        if let Some(program) = program {
-            program.submit_prefix(self, &mut s.source, c.mode);
+        if let Some((_, prefix)) = program {
+            for entry in prefix {
+                self.aggregate(&mut s.source, c.mode, entry.group, entry.value);
+            }
         } else {
             for &(group, value) in &f.native_before {
                 self.aggregate(&mut s.source, c.mode, group, value);
@@ -2139,12 +2162,12 @@ impl Tables {
         self.body(c, attrs, s)?;
         // Original817515 skips only the active contribution. Reserve slot15
         // remains eligible when the active slot is empty (81751E onward).
-        self.slot15(c, s)?;
+        let slot15_attack = self.slot15(c, s)?;
         self.set_rewards(c.mode, &mut s.source)?;
         if program.is_none() {
             s.legacy_source_signature = Some(self.legacy_source_signature(c, attrs, &s.source)?);
         }
-        if let Some(program) = program {
+        if let Some((program, _)) = program {
             program.after_sets(self, c, s)?;
         } else {
             for &(group, value) in &f.native_after {
@@ -2159,7 +2182,7 @@ impl Tables {
         put_f32(&mut s.stat, 0x7A0, self.opt_d84f + ratio * self.opt_dc22);
         put_u64(&mut s.stat, 8, f.owner);
         put_u64(&mut s.stat, 0x7C0, f.dest);
-        Ok(())
+        Ok(slot15_attack)
     }
 
     fn materialize_pipeline(&self, c: &Character, attrs: &[i32; 7], s: &mut Scratch) -> R<()> {
@@ -2690,6 +2713,10 @@ impl Frame {
     /// Primary packet location in the immutable attack image.
     pub fn main_address(&self) -> u64 {
         self.main_addr
+    }
+
+    pub(crate) fn stat_address(&self) -> u64 {
+        self.stat_addr
     }
 
     /// Normalized owner in the typed equipment producer's private namespace.

@@ -199,6 +199,12 @@ struct Document {
     initial_epoch: u64,
     initial_phase: Phase,
     main_address: u64,
+    #[serde(default)]
+    candidate_source_address: Option<u64>,
+    #[serde(default)]
+    candidate_category_field: Option<u64>,
+    #[serde(default)]
+    candidate_inventory_record: Option<u64>,
     template_layout_sha256: String,
     hit_values_sha256: String,
     runtime_extensions_closed: bool,
@@ -361,6 +367,12 @@ fn apply_boundaries(
 }
 
 impl EventProgram {
+    pub(super) fn candidate_source_layout(&self) -> Option<(u64, u64, Option<u64>)> {
+        self.document
+            .candidate_source_address
+            .zip(self.document.candidate_category_field)
+            .map(|(source, category)| (source, category, self.document.candidate_inventory_record))
+    }
     pub fn compile(
         bytes: &[u8],
         frame: &Frame,
@@ -553,13 +565,23 @@ impl EventProgram {
             }
             Mode::FixedContacts | Mode::HeldReaper => {}
         }
+        if doc.candidate_source_address.is_some() != doc.candidate_category_field.is_some()
+            || (doc.candidate_inventory_record.is_some() && doc.candidate_source_address.is_none())
+        {
+            return Err("incomplete candidate source layout".into());
+        }
         let patches = rows
             .iter()
-            .map(|row| {
+            .enumerate()
+            .map(|(i, row)| {
+                let actor_category = frame.has_source_rebuild()
+                    && doc.candidate_source_address.is_some()
+                    && matches!(doc.templates[i].packet, Packet::PreparedActor);
                 addresses
                     .iter()
                     .copied()
                     .zip(row.iter().copied())
+                    .filter(|(address, _)| !actor_category || *address != doc.main_address + 0x144)
                     .map(|(address, value)| WordPatch::full(address, value))
                     .collect()
             })

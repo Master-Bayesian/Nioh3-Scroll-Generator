@@ -12,6 +12,9 @@ use std::sync::{Arc, OnceLock};
 #[path = "event_program.rs"]
 mod event_program;
 use event_program::{EventProgram, ExecutionEvent};
+#[path = "candidate_source_maps.rs"]
+mod candidate_source_maps;
+use candidate_source_maps::CandidateSourceMaps;
 #[cfg(test)]
 #[path = "legacy_source_guard_tests.rs"]
 mod legacy_source_guard_tests;
@@ -165,6 +168,7 @@ pub struct Engine {
     defense: u32,
     hits: Hits,
     event_program: Option<EventProgram>,
+    candidate_source_maps: Option<Box<CandidateSourceMaps>>,
     pub start_attrs: [i32; 7],
     /// Groups that can move this attack's damage, and the table-driven groups that write health or defense.
     pub live_groups: HashSet<u16>,
@@ -598,6 +602,10 @@ impl Engine {
     }
 
     /// Inspectable exact context buffers used by both CPU parsing and nk_open.
+    pub fn writes_candidate_source_maps(&self) -> bool {
+        self.candidate_source_maps.is_some()
+    }
+
     pub fn encoded_context(&self) -> Option<&EncodedContext> {
         self.context.as_ref()
     }
@@ -678,6 +686,29 @@ impl Engine {
                 .map_err(|reason| bad(dir, "event_plan.json", &reason))
             })
             .transpose()?;
+        let candidate_source_maps = if frame.has_source_rebuild() {
+            event_program
+                .as_ref()
+                .and_then(EventProgram::candidate_source_layout)
+                .map(|(address, category, inventory_record)| {
+                    let context = context
+                        .as_ref()
+                        .ok_or_else(|| bad(dir, "context", "missing SOURCE map image"))?;
+                    CandidateSourceMaps::new(
+                        context,
+                        frame.stat_address(),
+                        frame.main_address(),
+                        address,
+                        category,
+                        inventory_record,
+                    )
+                    .map(Box::new)
+                    .map_err(|e| bad(dir, "context", &e))
+                })
+                .transpose()?
+        } else {
+            None
+        };
         let setup = parse_setup_bytes(dir, &input("gpu_setup.txt")?)?;
         frame
             .rebase_source(&tables, &character, &setup.attrs)
@@ -716,6 +747,7 @@ impl Engine {
             defense: setup.defense,
             hits: Hits { addresses, rows },
             event_program,
+            candidate_source_maps,
             start_attrs: setup.attrs,
             live_groups,
             survival_groups,
@@ -1412,6 +1444,39 @@ impl Engine {
             self.defense,
             &mut w.scratch,
         )?;
+        if let Some(maps) = &self.candidate_source_maps {
+            maps.append(&w.scratch.source.maps, &mut w.scratch.writes)?;
+            let bank = w.character.active * BANK;
+            let slot = usize::from(w.character.inv[bank + 0xf68] == 0);
+            let at = bank + slot * ITEM;
+            if let Some(record) = maps.inventory_record {
+                // F6790 checks presence. 552644 reads the value at +14
+                // unless bit 23 in the candidate's flags suppresses it.
+                for offset in [0, 0x14, 0x18] {
+                    w.scratch.writes.push((
+                        record + offset as u64,
+                        crate::pipeline::u32_at(&w.character.inv, at + offset),
+                    ));
+                }
+            }
+            let key = u16::from_le_bytes([w.character.inv[at], w.character.inv[at + 1]]);
+            let category = self.tables.category(key).unwrap_or(0x3c2e);
+            w.scratch.writes.push((maps.actor_category, category));
+            w.scratch
+                .writes
+                .push((self.frame.main_address() + 0x144, category));
+            if !self.frame.uses_weapon_element() {
+                let element = crate::pipeline::u32_at(&w.scratch.pred, 0x3c);
+                let power = if element == u32::MAX {
+                    100
+                } else {
+                    crate::pipeline::u32_at(&w.scratch.pred, 0x40)
+                };
+                w.scratch
+                    .writes
+                    .push((self.frame.main_address() + 0x18, power));
+            }
+        }
         if let Some((slot, baseline)) = self
             .context
             .as_ref()
@@ -1920,6 +1985,7 @@ impl Engine {
                 rows: vec![vec![0]],
             },
             event_program: None,
+            candidate_source_maps: None,
             start_attrs: [5, 45, 15, 200, 5, 60, 155],
             live_groups: HashSet::new(),
             survival_groups: HashSet::new(),

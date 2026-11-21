@@ -56,6 +56,7 @@ pub(super) fn fixture() -> (Tables, Frame, Character, Program) {
             source_scalar_words: [0; 9],
         },
         prefix: vec![],
+        category_prefixes: Default::default(),
         active_guardian: 0,
         guardian_requirement: 100,
         guardians: vec![],
@@ -81,6 +82,31 @@ fn total(source: &Source, group: u16) -> Option<u32> {
         .iter()
         .find(|e| e.key == group)
         .map(|e| e.base.wrapping_add(u32::from(e.dup)))
+}
+
+#[test]
+fn scroll_attack_survives_selected_refresh_for_occupied_and_empty_records() -> R<()> {
+    let (tables, mut frame, mut character, mut program) = fixture();
+    let mut without = Scratch::new();
+    frame.source_rebuild = Some(program.clone());
+    tables.pipeline(&frame, &character, &ATTRS, &[], &mut without)?;
+    let mut scroll = item(0xe604, 0, None);
+    scroll[6..8].copy_from_slice(&180u16.to_le_bytes());
+    let at = character.active * BANK + 15 * ITEM;
+    character.inv[at..at + ITEM].copy_from_slice(&scroll);
+    program.reference_inventory = character.inv.clone();
+    frame.source_rebuild = Some(program);
+    let mut with = Scratch::new();
+    tables.pipeline(&frame, &character, &ATTRS, &[], &mut with)?;
+    let gain = tables.slot15(&character, &mut Scratch::new())?;
+    assert!(gain > 0);
+    for record in 0..6 {
+        for channel in [0x24, 0x28] {
+            let offset = record * 64 + channel;
+            assert_eq!(u32_at(&with.stat, offset), u32_at(&without.stat, offset) + gain);
+        }
+    }
+    Ok(())
 }
 
 #[test]

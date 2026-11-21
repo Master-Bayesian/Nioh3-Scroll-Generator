@@ -112,7 +112,7 @@ const USAGE: &str = concat!(
     "[outfits-this-run] [linear|spread] --set <id> <minimum-tier> ",
     "[--set <id> <minimum-tier> ...] [--verify-unpruned] ",
     "[--profile] [--no-reuse] [--cuda-reuse] [--batch <1..4096>] [--audit] [--cancel-file <path>] ",
-    "[--cancel-after-checks <n>]"
+    "[--cancel-after-checks <n>] [--audit-native-inputs]"
 );
 
 struct Diagnostics {
@@ -121,6 +121,7 @@ struct Diagnostics {
     cuda_reuse: bool,
     batch: usize,
     audit: bool,
+    native_inputs: bool,
     cancel_file: Option<PathBuf>,
     cancel_after_checks: Option<u64>,
 }
@@ -136,6 +137,7 @@ fn parse_sets(
         cuda_reuse: false,
         batch: 2048,
         audit: false,
+        native_inputs: false,
         cancel_file: None,
         cancel_after_checks: None,
     };
@@ -169,6 +171,11 @@ fn parse_sets(
             }
             [flag, rest @ ..] if flag == "--audit" => {
                 diagnostics.audit = true;
+                flags = rest;
+            }
+            [flag, rest @ ..] if flag == "--audit-native-inputs" => {
+                diagnostics.audit = true;
+                diagnostics.native_inputs = true;
                 flags = rest;
             }
             [flag, batch, rest @ ..] if flag == "--batch" => {
@@ -434,9 +441,27 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         // Never include this verification work in performance measurements.
         if diagnostics.audit {
+            if diagnostics.native_inputs {
+                let equipped = Candidate {
+                    attrs: engine.start_attrs,
+                    items: [None; nioh3_loadout::engine::SLOTS],
+                };
+                let details = engine.damage_details(&equipped, &pack, &mut work);
+                let (outfit, contacts) = engine.native_words(&equipped, &pack, &mut work)?;
+                write_atomic(
+                    &output.join("EQUIPPED.json"),
+                    &json!({"top_case":{
+                        "components":details,"native_outfit_words":outfit,"native_hit_words":contacts
+                    }}),
+                )?;
+            }
             let audit_started = Instant::now();
             let trace_path = output.join("AUDIT_ROWS.jsonl");
             let mut writer = BufWriter::new(fs::File::create(&trace_path)?);
+            let mut native_inputs = diagnostics
+                .native_inputs
+                .then(|| fs::File::create(output.join("NATIVE_INPUTS.jsonl")).map(BufWriter::new))
+                .transpose()?;
             let mut audit = sweep.audit_session(kind == ScorerKind::Cuda)?;
             audit.set_device_reuse_enabled(device_reuse);
             let mut compared = 0;
@@ -456,11 +481,32 @@ fn main() -> Result<(), Box<dyn Error>> {
                 outside_limits += batch.outside_limits;
                 unanswered += batch.unanswered;
                 for row in batch.rows {
+                    if let Some(file) = native_inputs.as_mut() {
+                        if let Some(expected) = &row.cpu_components {
+                            let candidate = Candidate {
+                                attrs: row.attrs,
+                                items: row.items,
+                            };
+                            let (outfit, contacts) =
+                                engine.native_words(&candidate, &pack, &mut work)?;
+                            serde_json::to_writer(
+                                &mut *file,
+                                &json!({
+                                    "ordinal": row.ordinal, "outfit": outfit, "contacts": contacts,
+                                    "expected": expected,
+                                }),
+                            )?;
+                            file.write_all(b"\n")?;
+                        }
+                    }
                     serde_json::to_writer(&mut writer, &row)?;
                     writer.write_all(b"\n")?;
                 }
             }
             writer.flush()?;
+            if let Some(file) = native_inputs.as_mut() {
+                file.flush()?;
+            }
             drop(writer);
             if compared != state.progress.completed
                 || answered != state.progress.answered

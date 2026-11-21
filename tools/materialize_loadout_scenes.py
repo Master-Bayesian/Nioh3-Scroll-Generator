@@ -10,6 +10,15 @@ from compile_loadout_event_inputs import compile_descriptors
 from verify_loadout_release import public_frame, seal, verify_scene_directory
 
 
+def bind_candidate_sources(plan, recipe):
+    field, = (f for f in recipe["fields"] if f["root"] == "source_actor" and f["path"] == [944, 8, 2664])
+    plan.update(candidate_source_address=recipe["roots"]["source"], candidate_category_field=field["at"])
+    held = recipe["roots"]["source_owner"] + 0x590
+    if all(any(f["at"] == held + offset and f["n"] == 4 and f["root"] == "source_owner"
+               for f in recipe["fields"]) for offset in (0, 0x14, 0x18)):
+        plan["candidate_inventory_record"] = held
+
+
 def stage(source, base, generated, groups, resolver, output, source_commit, native_commit):
     names = (
         "katana-light", "katana-mid-strong-current", "katana-mid-sword-ki-current",
@@ -18,6 +27,10 @@ def stage(source, base, generated, groups, resolver, output, source_commit, nati
     )
     verify_scene_directory(base, source_commit, scene_id="kusarigama-strong")
     output.mkdir(parents=True, exist_ok=False)
+    recipes = Path(__file__).resolve().parents[1] / "crates/nioh3-runtime/src/combat_context"
+    samurai = json.loads((recipes / "samurai_direct_pc202.json").read_bytes())
+    samurai.append(json.loads((recipes / "water_projectile_pc202.json").read_bytes()))
+    by_key = {bytes(r["action_row_key"]): r for r in samurai}
     shutil.copytree(base, output / "kusarigama-strong")
     families = json.loads(groups.read_bytes())["groups"]
     for name in names:
@@ -33,6 +46,11 @@ def stage(source, base, generated, groups, resolver, output, source_commit, nati
         bindings = plan["provenance"]["row_bindings"]
         root = bindings[0]
         match, = root["exact_action_matches"]
+        key = match["resource"].encode() + b"\0" + struct.pack("<HI", match["action"], match["row"]) + bytes.fromhex(match["parameter_sha256"])
+        recipe = by_key[hashlib.sha256(key).digest()]
+        bind_candidate_sources(plan, recipe)
+        if "candidate_inventory_record" in plan:
+            kernel = generated / "held-record" / family["id"]
         descriptor["resource_action"] = {**match, "row_sha256": root["row_sha256"]}
         raw = (src / "hits.txt").read_bytes()
         address = root["aad_address"]
@@ -41,11 +59,6 @@ def stage(source, base, generated, groups, resolver, output, source_commit, nati
         projectile_scene = any(t["packet"]["kind"] != "prepared_actor" for t in plan["templates"])
         offsets = [0x13c, 0x144, 0x148]
         if projectile_scene:
-            path = Path(__file__).resolve().parents[1] / "crates/nioh3-runtime/src/combat_context/water_projectile_pc202.json"
-            recipe = json.loads(path.read_bytes())
-            key = match["resource"].encode() + b"\0" + struct.pack("<HI", match["action"], match["row"]) + bytes.fromhex(match["parameter_sha256"])
-            if hashlib.sha256(key).digest() != bytes(recipe["action_row_key"]):
-                raise ValueError("No projectile constructor for this action")
             offsets += [0x198, 0x19c, 0x280, 0x284, 0x288, 0x28c, 0x290, 0x29c]
         allowed = {main + offset for offset in offsets}
         if any(not (address <= word < address + 192 or word in allowed)

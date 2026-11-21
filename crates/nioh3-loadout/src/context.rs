@@ -661,6 +661,9 @@ pub struct EncodedContext {
     input_digest: String,
 }
 impl EncodedContext {
+    pub(crate) fn read_known<const N: usize>(&self, address: u64) -> Result<[u8; N], ContextError> {
+        known_bytes(&self.scene, address)
+    }
     pub fn file(&self, name: &str) -> Option<&[u8]> {
         match name {
             "characters.bin" => Some(&self.characters),
