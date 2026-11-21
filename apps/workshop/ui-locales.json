@@ -6383,6 +6383,54 @@
     "所选装备的搜索结果或生成条件已变化。请重新搜索并选择结果，再加入清单。": [
       "The selected equipment search result or generation conditions changed. Search again and choose a result before adding it.",
       "選択した装備の検索結果または生成条件が変わりました。再検索して結果を選んでから、追加してください。"
+    ],
+    "按词条查找种子": [
+      "Find seeds by effects",
+      "特殊効果からシードを検索"
+    ],
+    "搜索使用目标存档的难度和进度，不包含敌人或地区掉落加成；实际词条以游戏生成的预览为准。": [
+      "Search uses the target save's difficulty and progress, without enemy or region drop bonuses. Check the effects in the game's preview.",
+      "検索には対象セーブの難易度と進行状況を使用します。敵や地域のドロップ補正は含まれません。実際の特殊効果はゲームのプレビューで確認してください。"
+    ],
+    "请先选择当前角色的目标存档，再按词条查找。": [
+      "Select the current character's target save to search by effects.",
+      "特殊効果から検索するには、現在のキャラクターの対象セーブを選択してください。"
+    ],
+    "这件物品暂不支持按词条查找，可手动填写种子后生成实时预览。": [
+      "Effect search is unavailable for this item. Enter a seed manually to generate a live preview.",
+      "このアイテムは特殊効果から検索できません。シードを手入力するとリアルタイムプレビューを生成できます。"
+    ],
+    "无法读取目标存档的难度和进度，请重新读取后再查找。": [
+      "Could not read the target save's difficulty and progress. Reload it and search again.",
+      "対象セーブの難易度と進行状況を読み取れませんでした。再読み込みしてから検索してください。"
+    ],
+    "目标存档难度": [
+      "Target save difficulty",
+      "対象セーブの難易度"
+    ],
+    "匹配种子数": [
+      "Matching seeds",
+      "一致したシード数"
+    ],
+    "目标存档的生成条件下没有匹配结果。可减少所选词条，或到神社保存当前进度后重新查找。": [
+      "No matches under the target save's generation conditions. Select fewer effects, or save your progress at a shrine and search again.",
+      "対象セーブの生成条件では一致する結果がありません。選択する特殊効果を減らすか、社で現在の進行状況を保存してから再検索してください。"
+    ],
+    "本次要求的词条": [
+      "Required effects for this addition",
+      "今回の追加で必要な特殊効果"
+    ],
+    "游戏预览未包含全部所选词条，不能确认添加。请取消本次添加，核对目标存档与当前角色及进度后重新查找。": [
+      "The game's preview is missing selected effects, so addition cannot be confirmed. Cancel, check the target save against the current character and progress, then search again.",
+      "ゲームのプレビューに選択した特殊効果が揃っていないため、追加を確定できません。今回の追加をキャンセルし、対象セーブと現在のキャラクター・進行状況を確認してから再検索してください。"
+    ],
+    "查找中…": [
+      "Searching…",
+      "検索中…"
+    ],
+    "无法核对已保存的词条条件。请取消本次添加，然后重新准备。": [
+      "The saved effect requirements cannot be verified. Cancel this addition and prepare it again.",
+      "保存済みの特殊効果条件を確認できません。今回の追加をキャンセルして、もう一度準備してください。"
     ]
   },
   "game": {

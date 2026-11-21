@@ -1,0 +1,16 @@
+[
+  {
+    "name": "publish-obsolete-search",
+    "overrides": {
+      "AcceptObsoleteSearch": true
+    },
+    "expected": "Invariant ResultsAreCurrent is violated"
+  },
+  {
+    "name": "review-without-effect-match",
+    "overrides": {
+      "SkipPreviewReview": true
+    },
+    "expected": "Invariant ConfirmedPreviewIsReviewable is violated"
+  }
+]

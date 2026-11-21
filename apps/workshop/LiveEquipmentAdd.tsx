@@ -2,26 +2,37 @@ import React, {useEffect, useMemo, useRef, useState, useSyncExternalStore} from 
 import type {EquipmentAddition} from "../../packages/contracts/protected-responses";
 import {ADD_CATALOG,ADD_SETS,ADD_TYPES,FacetFilter,MAJOR_ORDER,SET_MAJOR,matchesClass,nameLabel} from "./equipment-facets";
 import {data} from "./model";
-import {plainGameText} from "./game-text";
+import {fillTemplateSlots,plainGameText} from "./game-text";
 import {Notice} from "./Notice";
 import {errorText} from "./public-errors";
 import {runtimeObserver, saveSession} from "./save-workspace";
 import {SavePicker} from "./CartActions";
+import {LiveEquipmentSeedSearch, type LiveEquipmentSearchContext} from "./LiveEquipmentSeedSearch";
+import {matchesWanted,type WantedEffect} from "./equipment-seed-options";
 import "../desktop/src/operations-api";
 
 type Addition=EquipmentAddition["equipment_add"];
 const STORAGE="nioh3-live-equipment-add";
 const catalog=ADD_CATALOG;
-const effectName=(id:number)=>data.editorEffects.find(row=>row.id===String(id))?.name||`0x${id.toString(16).toUpperCase()}`;
+const effectName=(id:number)=>fillTemplateSlots(plainGameText(data.editorEffects.find(row=>row.id===String(id))?.name||`0x${id.toString(16).toUpperCase()}`),"增益效果","异常状态").replaceAll("{}","（特定对象）");
 // This catalog has Chinese item names only. Keep exact game names instead of
 // translating their substrings as unrelated interface terms.
 const itemName=(id:number)=>{const name=catalog.find(row=>row.id===id)?.name;return name?nameLabel(plainGameText(name)):String(id);};
-function storedOperation():string|null {
-  const value=localStorage.getItem(STORAGE);
-  if(!value)return null;
-  const parsed=JSON.parse(value) as {operation_id?:string};
-  if(!parsed.operation_id || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(parsed.operation_id))throw Error("INVALID_EQUIPMENT_OPERATION");
-  return parsed.operation_id;
+type WantedReview = {kind: "known"; groups: number[][]} | {kind: "invalid"};
+const manualReview: WantedReview = {kind: "known", groups: []};
+
+function storedOperation(): {operationId: string; review: WantedReview} | null {
+  const value = localStorage.getItem(STORAGE);
+  if (!value) return null;
+  const parsed = JSON.parse(value) as {operation_id?: unknown; wanted?: number[][]} | null;
+  if (typeof parsed?.operation_id !== "string" || !/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(parsed.operation_id)) {
+    throw Error("INVALID_EQUIPMENT_OPERATION");
+  }
+  const groups = parsed.wanted ?? [];
+  const valid = parsed.wanted !== null && Array.isArray(groups) && groups.length <= 7 &&
+    groups.every(ids => Array.isArray(ids) && ids.length > 0 && ids.length <= 16 &&
+      ids.every(id => Number.isInteger(id) && id >= 0 && id <= 65535));
+  return {operationId: parsed.operation_id, review: valid ? {kind: "known", groups} : {kind: "invalid"}};
 }
 function integer(value:string,min:number,max:number):number|null {
   if(!/^\d+$/.test(value))return null;
@@ -32,7 +43,7 @@ function integer(value:string,min:number,max:number):number|null {
 export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;onAdded?:()=>void}) {
   const [query,setQuery]=useState(""),[kind,setKind]=useState(""),[type,setType]=useState(""),[school,setSchool]=useState("");
   const [item,setItem]=useState<number|null>(null);
-  const [level,setLevel]=useState("180"),[plus,setPlus]=useState("20"),[rarity,setRarity]=useState("4"),[seed,setSeed]=useState("0");
+  const [level,setLevel]=useState("180"),[plus,setPlus]=useState("20"),[rarity,setRarity]=useState("4"),[manualSeed,setManualSeed]=useState("0");
   // The checkpoint backs up the save chosen in the shared picker; with none chosen the worker picks the only save.
   const save=useSyncExternalStore(saveSession?saveSession.subscribe:()=>()=>{},saveSession?saveSession.getSnapshot:()=>null);
   const backupPath=save?.selected?.path??"";
@@ -40,16 +51,33 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
   const [operation,setOperation]=useState<string|null>(null),[result,setResult]=useState<Addition|null>(null);
   const [busy,setBusy]=useState(false),[confirmed,setConfirmed]=useState(false),[message,setMessage]=useState("");
   const [dropping,setDropping]=useState(false);
+  const [wanted, setWanted] = useState<WantedEffect[]>([]);
+  const [wantedReview, setWantedReview] = useState<WantedReview>(manualReview);
+  const [selection, setSelection] = useState<{context: LiveEquipmentSearchContext; seed: string} | null>(null);
   const mounted=useRef(false),running=useRef(false),current=useRef<string|null>(null);
   const callbacks=useRef({onBusy,onAdded});callbacks.current={onBusy,onAdded};
   const rows=useMemo(()=>catalog.filter(row=>matchesClass(row.id,row,kind,type)&&(!school||row.school===school)&&(!query||(`${row.name} ${row.id} ${row.major} ${row.type}`).toLowerCase().includes(query.toLowerCase()))),[query,kind,type,school]);
-  const numbers={level:integer(level,1,65535),plus:integer(plus,0,65535),rarity:integer(rarity,0,5),seed:integer(seed,0,65535)};
+  const selectedSave = save?.selected ?? null;
+  const selectedInventory = save?.inventory?.save_id === selectedSave?.save_id ? save?.inventory : null;
+  const context = useMemo<LiveEquipmentSearchContext>(() => ({
+    item, level: integer(level, 1, 65535), plus: integer(plus, 0, 65535), rarity: integer(rarity, 0, 5),
+    saveId: selectedSave?.save_id ?? null, source: selectedInventory?.source_sha256 ?? null, wanted,
+  }), [item, level, plus, rarity, selectedSave, selectedInventory, wanted]);
+  const selectedSeed = selection?.context === context ? selection.seed : null;
+  const seed = selectedSeed ?? manualSeed;
+  const numbers = {level: context.level, plus: context.plus, rarity: context.rarity, seed: integer(seed, 0, 65535)};
+  function changeSeed(value: string) {
+    setSelection(null);
+    setManualSeed(value);
+  }
   const valid=item!==null&&Object.values(numbers).every(value=>value!==null);
   const locked=busy||operation!==null;
   const terminal=result&&["verified","dispatched_unverified","cancelled","rejected_before_dispatch","rejected_before_insertion"].includes(result.state);
+  const previewMatches = wantedReview.kind === "known" && !!result?.preview && matchesWanted(result.preview.effects, wantedReview.groups);
 
   async function request(action:"prepare"|"execute"|"status"|"recover"|"cancel",id:string) {
     if(running.current)return;
+    if(action==="execute"&&(!confirmed||result?.state!=="prepared"||!result.plan_digest||!previewMatches))return;
     running.current=true;setBusy(true);callbacks.current.onBusy?.(true);setMessage("");setRecoveryMessage("");
     try {
       const submit=()=>action==="prepare" ? window.operations.execute({method:"runtime.equipment_add_prepare",params:{operation_id:id,item_id:item!,level:numbers.level!,plus:numbers.plus!,rarity:numbers.rarity!,seed:numbers.seed!,...(backupPath.trim()?{save_path:backupPath.trim()}:{})}})
@@ -91,19 +119,20 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
   }
   useEffect(()=>{
     mounted.current=true;
-    try {const id=storedOperation();if(id){current.current=id;setOperation(id);void request("status",id);}}
+    try {const stored=storedOperation();if(stored){const id=stored.operationId;current.current=id;setOperation(id);setWantedReview(stored.review);void request("status",id);}}
     catch(error){setMessage(errorText(error));}
     return ()=>{mounted.current=false;callbacks.current.onBusy?.(false);};
   },[]);
   function prepare(){
     if(!valid||locked)return;
     const id=crypto.randomUUID();
-    try{localStorage.setItem(STORAGE,JSON.stringify({operation_id:id}));}
+    const required=wanted.map(entry=>entry.ids);
+    try{localStorage.setItem(STORAGE,JSON.stringify({operation_id:id,wanted:required}));}
     catch(error){setMessage(errorText(error));return;}
-    current.current=id;setOperation(id);setResult(null);setConfirmed(false);void request("prepare",id);
+    current.current=id;setOperation(id);setWantedReview({kind: "known", groups: required});setResult(null);setConfirmed(false);void request("prepare",id);
   }
   function clear(){
-    localStorage.removeItem(STORAGE);current.current=null;setOperation(null);setResult(null);setConfirmed(false);setMessage("");setRecoveryMessage("");setDropping(false);
+    localStorage.removeItem(STORAGE);current.current=null;setOperation(null);setResult(null);setWantedReview(manualReview);setConfirmed(false);setMessage("");setRecoveryMessage("");setDropping(false);
   }
   function newItem(){
     if(!terminal||busy)return;
@@ -117,8 +146,10 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
   }
   const preview=result?.preview;
   return <section className="live-equipment-add">
-    <h2>实时添加装备</h2>
-    <p>先由游戏按种子生成预览，确认后再加入背包。难度、进度和已习得信息由当前游戏角色决定。</p>
+    <header className="live-equipment-heading">
+      <h2>实时添加装备</h2>
+      <p>先由游戏按种子生成预览，确认后再加入背包。难度、进度和已习得信息由当前游戏角色决定。</p>
+    </header>
     <p className="equipment-notes">请先读档进入角色，操作时让游戏停在菜单。添加后到神社存档即可保存，无需关闭游戏。</p>
     <div className="live-equipment-layout">
       <div className="live-equipment-picker">
@@ -128,18 +159,29 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
       </div>
       <div className="live-equipment-form">
         <h3>{item===null?"请选择装备":itemName(item)}</h3>
-        <div className="live-equipment-fields">{([["level","等级",level,setLevel],["plus","+值",plus,setPlus],["rarity","稀有度",rarity,setRarity],["seed","生成种子",seed,setSeed]] as const).map(([key,label,value,setter])=><label key={key}><span>{label}</span><input data-field={key} inputMode="numeric" value={value} disabled={locked} onChange={event=>setter(event.target.value)}/></label>)}</div>
-        {saveSession&&<fieldset className="live-equipment-save" disabled={locked}><SavePicker compact refresh={false}/></fieldset>}
-        <p className="equipment-notes">添加前会备份上面选中的存档。</p>
-        <p className="equipment-notes">种子范围为 0–65535。不同种子会得到不同词条；预览没有想要的结果时，可取消后换种子。</p>
-        <button data-action="prepare-equipment" className="primary" disabled={!valid||locked} onClick={prepare}>生成实时预览</button>
+        <div className="live-equipment-fields">{([["level","等级",level,setLevel],["plus","+值",plus,setPlus],["rarity","稀有度",rarity,setRarity],["seed","生成种子",seed,changeSeed]] as const).map(([key,label,value,setter])=><label key={key}><span>{label}</span><input data-field={key} inputMode="numeric" value={value} disabled={locked} onChange={event=>setter(event.target.value)}/></label>)}</div>
+        <div className="live-equipment-backup">
+          {saveSession&&<fieldset className="live-equipment-save" disabled={locked}><SavePicker compact refresh={false}/></fieldset>}
+          <p className="equipment-notes">添加前会备份上面选中的存档。</p>
+        </div>
+        <LiveEquipmentSeedSearch context={context} selectedSeed={selectedSeed} locked={locked||!!save?.busy}
+          onWanted={setWanted} onSelect={selectedSeed=>setSelection({context, seed:selectedSeed})}
+          onResetSelection={()=>setSelection(null)} effectName={effectName}
+          onBusy={value=>{setBusy(value);callbacks.current.onBusy?.(value);}}/>
+        <div className="live-equipment-prepare">
+          <p className="equipment-notes">种子范围为 0–65535。不同种子会得到不同词条；预览没有想要的结果时，可取消后换种子。</p>
+          <button data-action="prepare-equipment" className="primary" disabled={!valid||locked} onClick={prepare}>生成实时预览</button>
+        </div>
         <Notice text={message}/>
         <Notice text={recoveryMessage}/>
         {result&&<div data-state={result.state}>
           {preview&&<div className="live-equipment-preview"><h3>游戏生成的装备</h3><p>{itemName(preview.item_id)} · {preview.level} +{preview.plus} · <span>稀有度</span> {preview.rarity}</p><ul>{preview.effects.filter(effect=>effect.effect_id!==0xffffffff).map((effect,index)=><li key={index}><span>{effect.star?"✦ ":""}{effectName(effect.effect_id)}</span><b>{effect.value}</b></li>)}</ul></div>}
           {result.state==="prepared"&&<>
-            <label className="live-equipment-confirm"><input data-action="confirm-equipment" type="checkbox" checked={confirmed} disabled={busy} onChange={event=>setConfirmed(event.target.checked)}/>我已核对预览，确认添加这一件装备</label>
-            <div className="live-equipment-actions"><button data-action="execute-equipment" className="primary" disabled={busy||!confirmed||!result.plan_digest} onClick={()=>operation&&void request("execute",operation)}>确认加入背包</button><button data-action="cancel-equipment" disabled={busy} onClick={()=>operation&&void request("cancel",operation)}>取消本次添加</button></div>
+            {wantedReview.kind==="known"&&wantedReview.groups.length>0&&<p className="equipment-notes"><span>本次要求的词条</span>：{wantedReview.groups.map(ids=>effectName(ids[0])).join("、")}</p>}
+            {wantedReview.kind==="invalid"&&<Notice text="无法核对已保存的词条条件。请取消本次添加，然后重新准备。"/>}
+            {wantedReview.kind==="known"&&!previewMatches&&<Notice text="游戏预览未包含全部所选词条，不能确认添加。请取消本次添加，核对目标存档与当前角色及进度后重新查找。"/>}
+            <label className="live-equipment-confirm"><input data-action="confirm-equipment" type="checkbox" checked={confirmed} disabled={busy||!previewMatches} onChange={event=>setConfirmed(event.target.checked)}/>我已核对预览，确认添加这一件装备</label>
+            <div className="live-equipment-actions"><button data-action="execute-equipment" className="primary" disabled={busy||!previewMatches||!confirmed||!result.plan_digest} onClick={()=>operation&&void request("execute",operation)}>确认加入背包</button><button data-action="cancel-equipment" disabled={busy} onClick={()=>operation&&void request("cancel",operation)}>取消本次添加</button></div>
           </>}
           {result.state==="uncertain"&&<p>结果尚未确认。请读取状态或恢复核对，程序不会再次执行添加。</p>}
           {result.state==="verified"&&<Notice tone="success" text="装备已加入背包并回读核对。到神社存档后即可保存。"/>}
