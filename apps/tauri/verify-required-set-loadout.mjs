@@ -147,10 +147,15 @@ try {
   assert.equal(score.answered, baseline.progress.answered);
   assert.equal(score.no_path + score.refused + score.source_uncomputed, 0);
   const equipped = fixture.equipped ?? {total: 629, physical: 610, elemental: 19};
-  assert.equal(score.current.damage, equipped.total);
-  assert.equal(score.current.damage_details.physical, equipped.physical);
-  assert.equal(score.current.damage_details.elemental, equipped.elemental);
-  if (equipped.contacts) assert.deepEqual(score.current.damage_details.contacts, equipped.contacts);
+  if (fixture.different_weapon_type) {
+    assert.equal(score.current.status, 'different_weapon_type');
+    assert.equal(score.current.damage, null);
+  } else {
+    assert.equal(score.current.damage, equipped.total);
+    assert.equal(score.current.damage_details.physical, equipped.physical);
+    assert.equal(score.current.damage_details.elemental, equipped.elemental);
+    if (equipped.contacts) assert.deepEqual(score.current.damage_details.contacts, equipped.contacts);
+  }
   assert.equal(score.best.length, 20);
   const expected = baseline.ranked.slice(0, score.best.length);
   const assignments = rows => rows.map(item => [item.slot, item.slot_index ?? item.save_slot]);

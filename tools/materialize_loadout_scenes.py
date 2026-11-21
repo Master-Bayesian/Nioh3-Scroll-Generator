@@ -19,7 +19,7 @@ def bind_candidate_sources(plan, recipe):
         plan["candidate_inventory_record"] = held
 
 
-def stage(source, base, generated, groups, resolver, output, source_commit, native_commit):
+def stage(source, base, generated, groups, resolver, output, source_commit, native_commit, additional_scenes=()):
     names = (
         "katana-light", "katana-mid-strong-current", "katana-mid-sword-ki-current",
         "samurai-odachi-mid-quick", "samurai-odachi-mid-strong", "samurai-dual-swords-mid-quick",
@@ -33,7 +33,9 @@ def stage(source, base, generated, groups, resolver, output, source_commit, nati
     by_key = {bytes(r["action_row_key"]): r for r in samurai}
     shutil.copytree(base, output / "kusarigama-strong")
     families = json.loads(groups.read_bytes())["groups"]
-    for name in names:
+    for name in dict.fromkeys((*names, *additional_scenes)):
+        if name in ("", ".", "..") or Path(name).name != name:
+            raise ValueError("Invalid scene directory name")
         src = source / name
         dest = output / name
         dest.mkdir()
@@ -47,7 +49,16 @@ def stage(source, base, generated, groups, resolver, output, source_commit, nati
         root = bindings[0]
         match, = root["exact_action_matches"]
         key = match["resource"].encode() + b"\0" + struct.pack("<HI", match["action"], match["row"]) + bytes.fromhex(match["parameter_sha256"])
-        recipe = by_key[hashlib.sha256(key).digest()]
+        recipe = by_key.get(hashlib.sha256(key).digest())
+        if recipe is None:
+            if any(t["packet"]["kind"] != "prepared_actor" for t in plan["templates"]):
+                raise ValueError(f"{name} requires an owned projectile binding")
+            layouts = [r for r in (*samurai, json.loads((recipes / "kusarigama_strong_pc202.json").read_bytes()))
+                       if not r.get("projectiles") and r["roots"]["packet"] == plan["main_address"]
+                       and r["form"] == {"samurai": 0, "ninja": 1}[descriptor["school"]]]
+            if not layouts:
+                raise ValueError(f"{name} has no compatible native packet layout")
+            recipe = layouts[0]
         bind_candidate_sources(plan, recipe)
         if "candidate_inventory_record" in plan:
             kernel = generated / "held-record" / family["id"]
@@ -131,4 +142,6 @@ if __name__ == "__main__":
         parser.add_argument(arg, type=Path)
     parser.add_argument("source_commit")
     parser.add_argument("native_commit")
+    parser.add_argument("--scene", dest="additional_scenes", action="append", default=[],
+                        help="Also stage this source-bound fixed-contact scene using the shared form layout")
     stage(**vars(parser.parse_args()))

@@ -206,6 +206,7 @@ export function loadoutLimitsFromText(maxLoad: string, minDefense: string, minHe
  */
 export function describeChange(row: Row, current: Current): string[] {
   if (current.status === "ambiguous") return ["你现在同一部位穿着两件可参与计算的装备，无法和当前穿戴对比。"];
+  if (current.status === "different_weapon_type") return ["当前手持的武器类型无法使用所选招式。排名按背包中所选类型的武器计算。"];
   if (current.status !== "answered" || current.damage == null)
     return ["你现在穿的这套暂时算不出伤害，只能看下面的排名。"];
   const lines: string[] = [];

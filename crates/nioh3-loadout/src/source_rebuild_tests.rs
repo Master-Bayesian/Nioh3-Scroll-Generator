@@ -56,6 +56,7 @@ pub(super) fn fixture() -> (Tables, Frame, Character, Program) {
             source_scalar_words: [0; 9],
         },
         prefix: vec![],
+        projected_weapon_class: None,
         category_prefixes: Default::default(),
         active_guardian: 0,
         guardian_requirement: 100,
@@ -103,7 +104,10 @@ fn scroll_attack_survives_selected_refresh_for_occupied_and_empty_records() -> R
     for record in 0..6 {
         for channel in [0x24, 0x28] {
             let offset = record * 64 + channel;
-            assert_eq!(u32_at(&with.stat, offset), u32_at(&without.stat, offset) + gain);
+            assert_eq!(
+                u32_at(&with.stat, offset),
+                u32_at(&without.stat, offset) + gain
+            );
         }
     }
     Ok(())

@@ -1,0 +1,5 @@
+[
+  {"name":"incorrect-form-binding","overrides":{"AllowOtherForm":true},"expected":"Invariant FormMatches is violated"},
+  {"name":"retain-wrong-weapon","overrides":{"KeepWrongWeapon":true},"expected":"Invariant RankedType is violated"},
+  {"name":"compare-incompatible-baseline","overrides":{"ScoreWrongBaseline":true},"expected":"Invariant BaselineApplicable is violated"}
+]

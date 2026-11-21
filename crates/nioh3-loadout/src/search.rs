@@ -1238,7 +1238,9 @@ impl<'a> Search<'a> {
                 .copied()
                 .filter(|&row| slot != 0 || self.weapon_row_admitted(row))
                 .collect();
-            let keep = if slot == 0
+            let keep = if slot == 0 && !self.engine.current_weapon_matches_scene() {
+                false
+            } else if slot == 0
                 && self.source_admission == SourceAdmissionPolicy::CapturedWeaponOnly
             {
                 // None always keeps the actual captured body. An enhanced

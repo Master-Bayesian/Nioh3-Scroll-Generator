@@ -595,6 +595,9 @@ fn search_with_observer(
         params,
         enhanced.then_some(engine),
     )?;
+    if !engine.current_weapon_matches_scene() && !pack.ranges.iter().any(|r| r.0 == 0 && r.2 > 0) {
+        return Err(HostError::rejected("LOADOUT_NO_WEAPON_OF_SELECTED_TYPE"));
+    }
     // Keep the physical spare assignments before aligning the current
     // outfit display to the scene. ExactSweep checks the displaced records.
     let assigned_spares: Vec<_> = pack
@@ -978,11 +981,15 @@ fn current_outfit(
         })
         .collect();
     let mut w = engine.work();
-    let (status, damage) = match engine.evaluate(&candidate, pack, &Limits::NONE, &mut w) {
-        Outcome::Damage(bits) => ("answered", Some(f32::from_bits(bits))),
-        Outcome::NoPath => ("no_path", None),
-        Outcome::Refused(_) => ("refused", None),
-        Outcome::OutsideLimits => ("refused", None),
+    let (status, damage) = if !engine.current_weapon_matches_scene() {
+        ("different_weapon_type", None)
+    } else {
+        match engine.evaluate(&candidate, pack, &Limits::NONE, &mut w) {
+            Outcome::Damage(bits) => ("answered", Some(f32::from_bits(bits))),
+            Outcome::NoPath => ("no_path", None),
+            Outcome::Refused(_) => ("refused", None),
+            Outcome::OutsideLimits => ("refused", None),
+        }
     };
     let details = match damage {
         Some(damage) => publication_damage_details(

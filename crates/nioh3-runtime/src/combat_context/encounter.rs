@@ -128,36 +128,75 @@ fn static_bytes(hex: &str, size: usize) -> R<Vec<u8>> {
         .collect()
 }
 
-impl SelectedAction {
-    fn install(&self, image: &mut Image, packet_row_address: u64, packet_row: &[u8; 192]) -> R<()> {
-        image.pointer(self.controller_link, ACTION_STATE)?;
+#[derive(Clone, Copy)]
+pub struct PacketLayout {
+    pub address: u64,
+    pub direct_only: bool,
+}
+
+pub struct ControllerInput<'a> {
+    pub layout: Option<PacketLayout>,
+    pub parameter: &'a [u8; 336],
+    pub first_index: u16,
+    pub packet_row: usize,
+    pub rows: &'a [&'a [u8; 192]],
+}
+
+impl ControllerInput<'_> {
+    fn install(
+        &self,
+        image: &mut Image,
+        link: u64,
+        packet_row_address: u64,
+        packet_row: &[u8; 192],
+    ) -> R<()> {
+        image.pointer(link, ACTION_STATE)?;
         image.pointer(ACTION_STATE + 0x20, ACTION_PARAM)?;
-        image.set(ACTION_PARAM, &static_bytes(&self.parameter, 336)?)?;
+        image.set(ACTION_PARAM, self.parameter)?;
         image.pointer(ACTION_STATE + 0x40, ACTION_TABLE)?;
         image.set(ACTION_STATE + 0x48, &self.first_index.to_le_bytes())?;
         let count = u16::try_from(self.rows.len())
             .map_err(|_| layout("invalid static action row count"))?;
         image.set(ACTION_STATE + 0x4a, &count.to_le_bytes())?;
-        if self.packet_row >= self.rows.len() {
-            return Err(layout("invalid first action row"));
+        if self.rows.get(self.packet_row).copied() != Some(packet_row) {
+            return Err(layout("attack parameter and packet use different rows"));
         }
-        for (i, raw) in self.rows.iter().enumerate() {
-            let bytes = static_bytes(raw, 192)?;
+        for (i, &bytes) in self.rows.iter().enumerate() {
             let address = if i == self.packet_row {
-                if bytes != packet_row {
-                    return Err(layout("attack parameter and packet use different rows"));
-                }
                 packet_row_address
             } else {
                 ACTION_ROWS + 192 * i as u64
             };
-            image.set(address, &bytes)?;
+            image.set(address, bytes)?;
             image.pointer(
                 ACTION_TABLE + 8 * (u64::from(self.first_index) + i as u64),
                 address,
             )?;
         }
         Ok(())
+    }
+}
+
+impl SelectedAction {
+    fn install(&self, image: &mut Image, packet_row_address: u64, packet_row: &[u8; 192]) -> R<()> {
+        let fixed = || layout("invalid retained controller record");
+        let parameter = static_bytes(&self.parameter, 336)?
+            .try_into()
+            .map_err(|_| fixed())?;
+        let rows = self
+            .rows
+            .iter()
+            .map(|r| static_bytes(r, 192)?.try_into().map_err(|_| fixed()))
+            .collect::<R<Vec<[u8; 192]>>>()?;
+        let refs = rows.iter().collect::<Vec<_>>();
+        ControllerInput {
+            layout: None,
+            parameter: &parameter,
+            first_index: self.first_index,
+            packet_row: self.packet_row,
+            rows: &refs,
+        }
+        .install(image, self.controller_link, packet_row_address, packet_row)
     }
 }
 #[derive(Deserialize)]
@@ -221,7 +260,7 @@ struct Field {
     #[serde(flatten)]
     value: ValueKind,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum ValueKind {
     Read,
@@ -395,7 +434,7 @@ impl ParameterTable {
     }
 }
 
-fn recipe(key: &[u8; 32]) -> R<&'static Recipe> {
+fn recipes() -> R<&'static Vec<Recipe>> {
     static RECIPES: OnceLock<Result<Vec<Recipe>, serde_json::Error>> = OnceLock::new();
     RECIPES
         .get_or_init(|| {
@@ -410,7 +449,11 @@ fn recipe(key: &[u8; 32]) -> R<&'static Recipe> {
             Ok(recipes)
         })
         .as_ref()
-        .map_err(|_| layout("invalid built-in PC202 encounters"))?
+        .map_err(|_| layout("invalid built-in PC202 encounters"))
+}
+
+fn recipe(key: &[u8; 32]) -> R<&'static Recipe> {
+    recipes()?
         .iter()
         .find(|recipe| &recipe.action_row_key == key)
         .ok_or_else(|| layout("selected attack has no encounter with verified inputs"))
@@ -422,6 +465,18 @@ pub fn direct_encounter(
     category: u32,
     row_key: &[u8; 32],
     row: &[u8; 192],
+) -> R<Encounter> {
+    direct_encounter_with_controller(memory, s, stat, category, row_key, row, None)
+}
+
+pub fn direct_encounter_with_controller(
+    memory: &dyn InventoryMemory,
+    s: &CombatSnapshot,
+    stat: &[u8],
+    category: u32,
+    row_key: &[u8; 32],
+    row: &[u8; 192],
+    controller: Option<&ControllerInput>,
 ) -> R<Encounter> {
     let equipped =
         s.inputs.active_bank as usize * BANK_BYTES + s.inputs.held_weapon_slot as usize * 0xe8;
@@ -441,9 +496,9 @@ pub fn direct_encounter(
         &role,
         stat,
         category,
-        row_key,
-        row,
+        (row_key, row),
         Some(&s.source_raw),
+        controller,
     )
 }
 
@@ -470,7 +525,7 @@ pub fn materialize_encounter(
     row_key: &[u8; 32],
     row: &[u8; 192],
 ) -> R<Encounter> {
-    project_encounter(memory, s, stat, category, row_key, row, None)
+    project_encounter(memory, s, stat, category, (row_key, row), None, None)
 }
 
 fn project_encounter(
@@ -478,11 +533,51 @@ fn project_encounter(
     s: &EncounterRole,
     stat: &[u8],
     category: u32,
-    row_key: &[u8; 32],
-    row: &[u8; 192],
+    selected_row: (&[u8; 32], &[u8; 192]),
     source: Option<&[u8]>,
+    controller: Option<&ControllerInput>,
 ) -> R<Encounter> {
-    let r = recipe(row_key)?;
+    let (row_key, row) = selected_row;
+    let requested = controller.and_then(|state| state.layout);
+    let shared = requested.filter(|v| v.direct_only);
+    let mut fields = BTreeMap::new();
+    let r = if let Some(layout_id) = shared {
+        // A layout identifies the native ABI and fixed opponent. The selected
+        // action owns its controller, and the observed actor owns its weapon.
+        let mut family = recipes()?.iter().filter(|r| {
+            r.form == s.form
+                && r.projectiles.is_empty()
+                && r.roots.get("packet") == Some(&layout_id.address)
+        });
+        let base = family
+            .next()
+            .ok_or_else(|| layout("unknown direct encounter ABI"))?;
+        for member in std::iter::once(base).chain(family) {
+            if member.roots != base.roots
+                || member.selected_action.controller_link != base.selected_action.controller_link
+            {
+                return Err(layout("inconsistent direct encounter ABI"));
+            }
+            for field in &member.fields {
+                let previous: Option<&Field> = fields.insert((field.at, field.n), field);
+                if let Some(prev) = previous {
+                    if prev.value != field.value {
+                        return Err(layout("conflicting direct encounter operands"));
+                    }
+                }
+            }
+        }
+        base
+    } else {
+        let fixed = recipe(row_key)?;
+        if requested.is_some_and(|q| fixed.roots.get("packet") != Some(&q.address)) {
+            return Err(layout("incompatible projectile or fixed encounter ABI"));
+        }
+        for field in &fixed.fields {
+            fields.insert((field.at, field.n), field);
+        }
+        fixed
+    };
     let root = |key: &str| {
         r.roots
             .get(key)
@@ -492,7 +587,7 @@ fn project_encounter(
     if stat.len() != 0x900
         || s.form != r.form
         || s.held_slot != r.held_slot
-        || category != r.item_category
+        || (controller.is_none() && category != r.item_category)
     {
         return Err(layout(
             "current role does not match this encounter's form, held slot and weapon category",
@@ -515,15 +610,61 @@ fn project_encounter(
         // PC202 2081C7D scales the held item's table result from percent.
         image.set(add(root("module")?, 0x3bd4890)?, &0.01_f32.to_le_bytes())?;
         image.pointer(add(root("stat")?, 0x7d8)?, root("source")?)?;
-        // These element branches are first reached by replacement weapons.
-        // The observed status scalar is optional in older sparse replays.
-        for (offset, size) in [(0x89, 1), (0x92, 1), (0x3c0, 16)] {
+        // The reset footprint identifies numeric storage for every weapon.
+        // Read its actual baseline; no reset defaults are used as observations.
+        let damage = read(memory, s.materializer, 0xb00)?;
+        let materializer = root("d")?;
+        for &(start, end, _) in super::reset::DAMAGE {
+            image.set(add(materializer, start as u64)?, &damage[start..end])?;
+        }
+        let target = root("target_stat")?;
+        let benchmark = include_bytes!("pc202_benchmark_stats.bin")
+            .as_chunks::<{ 8 + 0x900 + 1 + 32 }>()
+            .0
+            .iter()
+            .find(|row| row[..8] == target.to_le_bytes());
+        let source_stat = root("stat")?;
+        if let Some(bytes) = benchmark {
+            let target_owner = root("target_owner")?;
+            for (i, offset) in [
+                0x2ebc, 0x2ec0, 0x2ec4, 0x2f14, 0x2fa4, 0x2fa8, 0x2fac, 0x2ffc,
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                if bytes[8 + 0x900] & (1 << i) != 0 {
+                    let start = 8 + 0x900 + 1 + 4 * i;
+                    image.set(add(target_owner, offset)?, &bytes[start..start + 4])?;
+                }
+            }
+        }
+        for &(start, end, _) in super::reset::STAT {
+            if let Some(bytes) = benchmark {
+                image.set(add(target, start as u64)?, &bytes[8 + start..8 + end])?;
+            }
+            image.set(add(source_stat, start as u64)?, &stat[start..end])?;
+        }
+        // 40264C/F65D8 resolve the held record from the actual inventory
+        // bank and its slot selector. This binding is common to both forms.
+        let inventory = add(s.owner, 0x590)?;
+        let bank = u(memory, add(inventory, 0x1ee0)?)?;
+        if bank > 1 {
+            return Err(layout("invalid held inventory bank"));
+        }
+        let bank_offset = u64::from(bank) * 0xf70;
+        let selector = read(memory, add(inventory, bank_offset + 0xf68)?, 1)?[0];
+        let held_offset = bank_offset + u64::from(selector == 0) * 0xe8;
+        let private_inventory = add(root("source_owner")?, 0x590)?;
+        image.set(add(private_inventory, 0x1ee0)?, &bank.to_le_bytes())?;
+        image.set(add(private_inventory, bank_offset + 0xf68)?, &[selector])?;
+        for word in [0, 0x14, 0x18] {
+            let offset = held_offset + word;
             image.set(
-                add(root("d")?, offset)?,
-                &read(memory, add(s.materializer, offset)?, size)?,
+                add(private_inventory, offset)?,
+                &read(memory, add(inventory, offset)?, 4)?,
             )?;
         }
-        for offset in [0x2e68, 0x2e6c] {
+        for offset in [0x2e68, 0x2e6c, 0x3668] {
             if let Ok(value) = read(memory, add(s.owner, offset)?, 4) {
                 image.set(add(root("source_owner")?, offset)?, &value)?;
             }
@@ -537,7 +678,11 @@ fn project_encounter(
     }
     let aad = root("attack_data")?;
     image.pointer(add(root("packet")?, 0x190)?, aad)?;
-    r.selected_action.install(&mut image, aad, row)?;
+    if let Some(input) = controller {
+        input.install(&mut image, r.selected_action.controller_link, aad, row)?;
+    } else {
+        r.selected_action.install(&mut image, aad, row)?;
+    }
     for projectile in &r.projectiles {
         projectile.install(&mut image, root("source_actor")?)?;
     }
@@ -589,7 +734,7 @@ fn project_encounter(
     for key in ["stat", "d", "packet", "stack"] {
         image.page(root(key)?);
     }
-    for field in &r.fields {
+    for field in fields.values() {
         if membership.is_some()
             && field.root == Root::Module
             && matches!(field.path.as_slice(), [first,offset,..] if *first==MEMBERSHIP_GLOBAL as i64 && (0x2820..0x2860).contains(offset))
@@ -598,9 +743,11 @@ fn project_encounter(
         }
         let live = field.root.live(s);
         let address = match live {
-            Some(base) => match reader.address(base, &field.path)? {
-                Some(at) => Some(at),
-                None => continue,
+            Some(base) => match reader.address(base, &field.path) {
+                Ok(Some(at)) => Some(at),
+                Ok(None) => continue,
+                Err(RuntimeError::RegionNotReadable { .. }) if shared.is_some() => continue,
+                Err(error) => return Err(error),
             },
             None => None,
         };
@@ -611,97 +758,103 @@ fn project_encounter(
                 .map(<[u8]>::to_vec)
                 .ok_or_else(|| layout("invalid encounter operand width"))
         };
-        let bytes = match &field.value {
-            ValueKind::Read => read(memory, live_address()?, field.n)?,
-            ValueKind::InitializedThread { guard_rva } => {
-                // 624535 compares the current static guard with the thread's
-                // initialization epoch (signed JG). Model a scoring thread
-                // already synchronized to this initialized PC202 parameter.
-                let guard = u(memory, add(s.module_base, *guard_rva)?)?;
-                if guard as i32 >= -1 {
-                    return Err(layout("reference parameter is not initialized"));
-                }
-                word(u64::from(guard))?
-            }
-            ValueKind::Zero => vec![0; field.n],
-            ValueKind::Benchmark { bits } => {
-                if live.is_some() || bits.len() != 2 * field.n {
-                    return Err(layout("invalid fixed opponent or action field"));
-                }
-                (0..bits.len())
-                    .step_by(2)
-                    .map(|i| {
-                        u8::from_str_radix(&bits[i..i + 2], 16)
-                            .map_err(|_| layout("invalid benchmark byte"))
-                    })
-                    .collect::<R<Vec<_>>>()?
-            }
-            ValueKind::Weapon => {
-                let value = match field.path.as_slice() {
-                    [8] => u32_at(stat, 0x24)?.wrapping_add(u32_at(stat, 0x2c)?),
-                    [12] => u32_at(stat, 0x30)?,
-                    [16] => u32_at(stat, 0x34)?,
-                    [20] => u32_at(stat, 0x3c)?,
-                    // PC202 2B42C6/2B444C initialize packet+18 to 100.
-                    // An unimbued weapon leaves that constructor value intact.
-                    [24] if u32_at(stat, 0x3c)? == u32::MAX => 100,
-                    [24] => u32_at(stat, 0x40)?,
-                    [0x144] => category,
-                    [0x298] => flags,
-                    [0x29a] => hell,
-                    _ => return Err(layout("unknown direct weapon field")),
-                };
-                word(u64::from(value))?
-            }
-            ValueKind::Pointer { to } => {
-                let mut dest = *to;
-                if let Some(at) = address {
-                    let actual = reader.pointer(at)?;
-                    if actual == 0 {
-                        dest = 0;
-                    } else if bindings
-                        .insert(*to, actual)
-                        .is_some_and(|prev| prev != actual)
-                        || live_objects
-                            .insert(actual, *to)
-                            .is_some_and(|prev| prev != *to)
-                    {
-                        return Err(layout("virtual object has conflicting current bindings"));
+        let field_bytes = (|| -> R<Vec<u8>> {
+            Ok(match &field.value {
+                ValueKind::Read => read(memory, live_address()?, field.n)?,
+                ValueKind::InitializedThread { guard_rva } => {
+                    // 624535 compares the current static guard with the thread's
+                    // initialization epoch (signed JG). Model a scoring thread
+                    // already synchronized to this initialized PC202 parameter.
+                    let guard = u(memory, add(s.module_base, *guard_rva)?)?;
+                    if guard as i32 >= -1 {
+                        return Err(layout("reference parameter is not initialized"));
                     }
+                    word(u64::from(guard))?
                 }
-                word(dest)?
-            }
-            ValueKind::ModulePointer { rva } => {
-                if let Some(at) = address {
-                    if reader.pointer(at)? != add(s.module_base, *rva)? {
-                        return Err(layout(
-                            "encounter object has another PC202 type or function",
-                        ));
+                ValueKind::Zero => vec![0; field.n],
+                ValueKind::Benchmark { bits } => {
+                    if live.is_some() || bits.len() != 2 * field.n {
+                        return Err(layout("invalid fixed opponent or action field"));
                     }
+                    (0..bits.len())
+                        .step_by(2)
+                        .map(|i| {
+                            u8::from_str_radix(&bits[i..i + 2], 16)
+                                .map_err(|_| layout("invalid benchmark byte"))
+                        })
+                        .collect::<R<Vec<_>>>()?
                 }
-                word(add(module, *rva)?)?
-            }
-            ValueKind::VectorEnd {
-                begin_path,
-                virtual_begin,
-                extent,
-            } => {
-                let Some(at) = reader.address(
-                    live.ok_or_else(|| layout("vector endpoint has no owner"))?,
+                ValueKind::Weapon => {
+                    let value = match field.path.as_slice() {
+                        [8] => u32_at(stat, 0x24)?.wrapping_add(u32_at(stat, 0x2c)?),
+                        [12] => u32_at(stat, 0x30)?,
+                        [16] => u32_at(stat, 0x34)?,
+                        [20] => u32_at(stat, 0x3c)?,
+                        // PC202 2B42C6/2B444C initialize packet+18 to 100.
+                        // An unimbued weapon leaves that constructor value intact.
+                        [24] if u32_at(stat, 0x3c)? == u32::MAX => 100,
+                        [24] => u32_at(stat, 0x40)?,
+                        [0x144] => category,
+                        [0x298] => flags,
+                        [0x29a] => hell,
+                        _ => return Err(layout("unknown direct weapon field")),
+                    };
+                    word(u64::from(value))?
+                }
+                ValueKind::Pointer { to } => {
+                    let mut dest = *to;
+                    if let Some(at) = address {
+                        let actual = reader.pointer(at)?;
+                        if actual == 0 {
+                            dest = 0;
+                        } else if bindings
+                            .insert(*to, actual)
+                            .is_some_and(|prev| prev != actual)
+                            || live_objects
+                                .insert(actual, *to)
+                                .is_some_and(|prev| prev != *to)
+                        {
+                            return Err(layout("virtual object has conflicting current bindings"));
+                        }
+                    }
+                    word(dest)?
+                }
+                ValueKind::ModulePointer { rva } => {
+                    if let Some(at) = address {
+                        if reader.pointer(at)? != add(s.module_base, *rva)? {
+                            return Err(layout(
+                                "encounter object has another PC202 type or function",
+                            ));
+                        }
+                    }
+                    word(add(module, *rva)?)?
+                }
+                ValueKind::VectorEnd {
                     begin_path,
-                )?
-                else {
-                    continue;
-                };
-                let begin = reader.pointer(at)?;
-                let end = reader.pointer(live_address()?)?;
-                if end.checked_sub(begin) != Some(*extent) {
-                    return Err(layout("shared parameter vector extent changed"));
+                    virtual_begin,
+                    extent,
+                } => {
+                    let Some(at) = reader.address(
+                        live.ok_or_else(|| layout("vector endpoint has no owner"))?,
+                        begin_path,
+                    )?
+                    else {
+                        return Ok(Vec::new());
+                    };
+                    let begin = reader.pointer(at)?;
+                    let end = reader.pointer(live_address()?)?;
+                    if end.checked_sub(begin) != Some(*extent) {
+                        return Err(layout("shared parameter vector extent changed"));
+                    }
+                    word(add(*virtual_begin, *extent)?)?
                 }
-                word(add(*virtual_begin, *extent)?)?
-            }
-        };
-        image.set(field.at, &bytes)?;
+            })
+        })();
+        match field_bytes {
+            Ok(bytes) => image.set(field.at, &bytes)?,
+            Err(RuntimeError::RegionNotReadable { .. }) if shared.is_some() => {}
+            Err(error) => return Err(error),
+        }
     }
     for t in &r.tables {
         t.install(&mut reader, s, &mut image)?;

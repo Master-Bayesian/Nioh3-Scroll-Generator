@@ -71,39 +71,53 @@ impl CandidateSourceMaps {
         })
     }
 
+    pub(super) fn preserves_inactive(&self, mode: usize, captured: &[u8]) -> bool {
+        if mode > 1 {
+            return false;
+        }
+        let inactive = 1 - mode;
+        let at = OFFSETS[inactive] as usize;
+        captured.get(at..at + SIZE) == Some(&self.initial[inactive][..])
+    }
+
     pub(super) fn append(
         &self,
+        mode: usize,
         maps: &[Vec<Entry>; 2],
         writes: &mut Vec<(u64, u32)>,
     ) -> Result<(), &'static str> {
-        for ((entries, initial), offset) in maps.iter().zip(&self.initial).zip(OFFSETS) {
-            if entries.len() > CAPACITY {
-                return Err("candidate SOURCE exceeds its native map capacity");
-            }
-            let start = self.address + offset;
-            let word = |at| {
-                u32::from_le_bytes([
-                    initial[at],
-                    initial[at + 1],
-                    initial[at + 2],
-                    initial[at + 3],
-                ])
-            };
-            let mut changed = |at, before, after| {
-                if before != after {
-                    writes.push((start + at as u64, after));
-                }
-            };
-            for (i, entry) in entries.iter().enumerate() {
-                let at = i * ROW_BYTES;
-                let key = word(at);
-                let dup = word(at + 8);
-                changed(at, key, key & 0xffff0000 | u32::from(entry.key));
-                changed(at + 4, word(at + 4), entry.base);
-                changed(at + 8, dup, dup & 0xffff0000 | u32::from(entry.dup));
-            }
-            changed(COUNT, word(COUNT), entries.len() as u32);
+        // Ordinary equipment refresh rebuilds the active form. The other
+        // form's observed map belongs to its previous refresh.
+        let entries = maps.get(mode).ok_or("invalid SOURCE bank")?;
+        let initial = &self.initial[mode];
+        let offset = OFFSETS[mode];
+        if entries.len() > CAPACITY {
+            return Err("candidate SOURCE exceeds its native map capacity");
         }
+        let start = self.address + offset;
+        let word = |at| {
+            u32::from_le_bytes([
+                initial[at],
+                initial[at + 1],
+                initial[at + 2],
+                initial[at + 3],
+            ])
+        };
+        let mut changed = |at, before, after| {
+            if before != after {
+                writes.push((start + at as u64, after));
+            }
+        };
+        for (i, entry) in entries.iter().enumerate() {
+            let at = i * ROW_BYTES;
+            let key = word(at);
+            let dup = word(at + 8);
+            changed(at, key, key & 0xffff0000 | u32::from(entry.key));
+            changed(at + 4, word(at + 4), entry.base);
+            changed(at + 8, dup, dup & 0xffff0000 | u32::from(entry.dup));
+        }
+        changed(COUNT, word(COUNT), entries.len() as u32);
+
         Ok(())
     }
 }

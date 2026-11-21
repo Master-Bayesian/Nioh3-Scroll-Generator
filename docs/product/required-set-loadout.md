@@ -25,14 +25,39 @@ the previous weapon to the slot that was used during scoring. The write
 action still follows the ordinary reviewed plan, confirmation and backup
 workflow.
 
-## Ownership and formal controls
+## Shared form and action inputs
+
+The ordinary reader binds a direct encounter by form and native packet ABI.
+All compatible direct records contribute known opponent and actor-field
+locations. Game observations supply the actor, and the resource identity
+supplies the action controller. PC202 has multiple virtual layouts for the
+same damage function. A retained missing byte stays unknown until an
+executed path needs it.
+
+The controller bank contains a validated parameter and the ordered local
+damage-row references for every catalog identity. Regenerate it with
+`tools/import_loadout_action_states.py`. The runtime checks it against the
+existing damage-row bank. The controller also covers actions with no direct
+rows. Those actions can refer to other event producers. A fixed-contact
+plan still requires the appropriate input route, contact order and event
+conditions. The number of rows alone does not determine the number of hits.
+
+Ordinary gear refresh rebuilds the active form's source entries and retains
+the observed other form's entries. The search can project the requested
+weapon class from the same form's progression. The owned slot record, its
+category-dependent skills, its numerical effects and the attack descriptor
+are separate inputs. A cross-type search cannot retain a weapon of the
+wrong type or publish an equipped damage baseline for it.
+`WeaponTypeProjection` checks these publication and ownership conditions.
+
+## PC202 encounter verification
 
 The PC202 Samurai reader obtains the stance from the player's style object at
 `+0x85c`. High, middle and low were observed as 0, 1 and 2. The stance in an
 ordinary character snapshot and the action selected for scoring are separate
 inputs. A replay can run a middle-stance action on a retained character.
 
-Each Samurai encounter carries its own fixed opponent's elemental STAT
+The native packet layout and opponent determine the fixed elemental STAT
 entries, owner modifiers and status records. Candidate equipment can reach
 reads that the currently worn weapon never executes. The player's
 materializer, category, source maps and ordinary membership list come from
@@ -56,6 +81,8 @@ with its physical and elemental result bits. Replaying these inputs in
 original MAIN tests the numerical calculation. A separate unchanged-source
 WebView2 run tests the first read, search, coverage and published gear slots.
 Measurements combined across weapon changes are labeled as controls.
+
+## Ownership and formal controls
 
 - `LoadoutDiscovery` maps request IDs to the page discovery reducer.
   A stale response cannot replace the current page state. A failed
@@ -86,8 +113,10 @@ Its action-only objective excludes the prerequisite quick attack and retains
 the direct contact, zero-motion occurrence and damaging owner projectile.
 The unimbued actor packet begins with elemental power 100, from original
 PC202 2B42C6 / 2B444C. Each projectile has its own source and damage row and
-links back to the role being scored. These first-use scenarios require the selected
-weapon type in slot one and no temporary status. Their public bundles contain
+links back to the role being scored. Ordinary direct-contact scenes can project owned weapons of the selected TYPE
+from a slot-one observation in the same form, with no temporary status. An
+incompatible held type produces no current-outfit damage comparison. Projectile
+and older fixed contexts retain their declared input requirements. Their public bundles contain
 the attack layout, benchmark opponent, tables and scorers. Both source maps,
 the held weapon, numerical buffers and progression are supplied by the role
 reader. Per-scene current-player acceptance is recorded separately from

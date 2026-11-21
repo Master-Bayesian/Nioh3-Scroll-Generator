@@ -10,7 +10,7 @@ from capstone import CS_ARCH_X86, CS_MODE_64, Cs
 from capstone.x86 import X86_OP_IMM
 
 
-def extend(listing, image, scene, text, record, output):
+def extend(listing, image, scene, text, record, output, include_listing=None):
     code = text.read_bytes()
     if (
         hashlib.sha256(code).hexdigest()
@@ -30,26 +30,54 @@ def extend(listing, image, scene, text, record, output):
     rows = {row["rva"]: row for row in doc["instructions"]}
     md = Cs(CS_ARCH_X86, CS_MODE_64)
     md.detail = True
+
+    def install_bytes(rva, body):
+        for i, value in enumerate(body):
+            address = doc["module"] + rva + i
+            page, offset = address & ~65535, address & 65535
+            if page not in slots:
+                slots[page] = len(slots)
+                raw.extend(struct.pack("<Q", page) + bytes(65536))
+                known.extend(struct.pack("<Q", page) + bytes(8192))
+            index = slots[page]
+            pos, mask = index * 65544 + 8 + offset, index * 8200 + 8 + offset // 8
+            if known[mask] & (1 << (offset % 8)) and raw[pos] != value:
+                raise ValueError(f"Original code mismatch at {rva + i:#x}")
+            raw[pos] = value
+            known[mask] |= 1 << (offset % 8)
+
+    if include_listing is not None:
+        other = json.loads(include_listing.read_bytes())
+        for entry in other["instructions"]:
+            rva = entry["rva"]
+            if rva in rows:
+                if rows[rva]["bytes"] == entry["bytes"]:
+                    rows[rva]["targets"] = sorted(
+                        set(rows[rva]["targets"]) | set(entry["targets"])
+                    )
+                continue
+            body = bytes.fromhex(entry["bytes"])
+            if code[rva - 4096 : rva - 4096 + len(body)] != body:
+                continue  # Caller-local adapters belong to the destination ABI.
+            install_bytes(rva, body)
+            rows[rva] = dict(entry, executed=0)
     # Full basic blocks and both returns of the item flag helper. The curve evaluator
     # and float accumulation callees are already in the canonical listing.
-    for lo, hi in [(0x552644, 0x552654), (0x2081C50, 0x2081C8A), (0x791A6D, 0x791AA0)]:
+    blocks = [(0x552644, 0x552654), (0x2081C50, 0x2081C8A), (0x791A6D, 0x791AA0)]
+    if include_listing is not None:
+        lo = 0x1FFE8B8
+        last = next(
+            ins
+            for ins in md.disasm(code[lo - 4096 : lo - 4096 + 32], lo)
+            if ins.mnemonic == "ret"
+        )
+        blocks.append((lo, last.address + last.size))
+    for lo, hi in blocks:
         end = lo
         for ins in md.disasm(code[lo - 4096 : hi - 4096], lo):
             rva = ins.address
             end = rva + ins.size
-            for i, value in enumerate(ins.bytes):
-                address = doc["module"] + rva + i
-                page, offset = address & ~65535, address & 65535
-                if page not in slots:
-                    slots[page] = len(slots)
-                    raw.extend(struct.pack("<Q", page) + bytes(65536))
-                    known.extend(struct.pack("<Q", page) + bytes(8192))
-                index = slots[page]
-                pos, mask = index * 65544 + 8 + offset, index * 8200 + 8 + offset // 8
-                if known[mask] & (1 << (offset % 8)) and raw[pos] != value:
-                    raise ValueError(f"Original code mismatch at {rva + i:#x}")
-                raw[pos] = value
-                known[mask] |= 1 << (offset % 8)
+            install_bytes(rva, ins.bytes)
             if rva not in rows:
                 rows[rva] = dict(
                     rva=rva,
@@ -72,7 +100,21 @@ def extend(listing, image, scene, text, record, output):
         if end != hi:
             raise ValueError("Incomplete decode")
     doc["instructions"] = [rows[k] for k in sorted(rows)]
-    doc["bails"] = sorted(set(doc["bails"]) - {0x791A70, 0x791A79})
+    bails = set(doc["bails"]) - {0x791A70, 0x791A79}
+    if include_listing is not None:
+        for rva, row in rows.items():
+            if row["mnemonic"] != "call":
+                continue
+            ins = next(md.disasm(bytes.fromhex(row["bytes"]), rva))
+            if ins.operands[0].type != X86_OP_IMM:
+                continue
+            dest = ins.operands[0].imm
+            if dest in rows:
+                bails.discard(rva)
+                row["targets"] = sorted(set(row["targets"]) | {dest})
+            else:
+                bails.add(rva)
+    doc["bails"] = sorted(bails)
     doc["knowledge_sha256"] = hashlib.sha256(known).hexdigest()
     (output / "image.bin").write_bytes(raw)
     (output / "image_known.bin").write_bytes(known)
@@ -97,4 +139,9 @@ if __name__ == "__main__":
     for name in ("listing", "image", "scene", "text", "output"):
         parser.add_argument(name, type=Path)
     parser.add_argument("record", type=lambda value: int(value, 0))
+    parser.add_argument(
+        "--include-listing",
+        type=Path,
+        help="Merge compatible PC202 instructions from another form by RVA",
+    )
     extend(**vars(parser.parse_args()))

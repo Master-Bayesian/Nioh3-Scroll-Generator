@@ -240,11 +240,12 @@ impl Contexts {
             let at = bank + snap.inputs.held_weapon_slot as usize * 0xe8;
             let item =
                 u16::from_le_bytes([snap.inputs.inventory[at], snap.inputs.inventory[at + 1]]);
-            if bundle
+            let dir = bundle.directory(data_root);
+            let type_differs = bundle
                 .selection_weapon_class
                 .or(bundle.weapon_class)
-                .is_some_and(|c| crate::item_kinds::type_class(data_root, item) != Some(c))
-            {
+                .is_some_and(|c| crate::item_kinds::type_class(data_root, item) != Some(c));
+            if type_differs && !crate::loadout_first_use::supports_direct_type_projection(&dir)? {
                 return Ok(
                     json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_WEAPON_MISMATCH"}),
                 );
@@ -254,7 +255,6 @@ impl Contexts {
                     json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_CHARACTER_MISMATCH"}),
                 );
             }
-            let dir = bundle.directory(data_root);
             let sources = crate::loadout_first_use::read(memory, snap, &dir)?;
             let source = if matches!(
                 origin,

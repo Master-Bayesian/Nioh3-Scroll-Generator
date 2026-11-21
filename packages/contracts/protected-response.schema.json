@@ -5314,7 +5314,8 @@
                   "enum": [
                     "answered",
                     "no_path",
-                    "refused"
+                    "refused",
+                    "different_weapon_type"
                   ]
                 },
                 "damage": {

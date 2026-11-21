@@ -3,6 +3,10 @@
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
+#[path = "action_controller.rs"]
+mod action_controller;
+pub use action_controller::ActionController;
+
 const BANK: &[u8] = include_bytes!("pc202_damage_rows.bin");
 const ROW_BYTES: usize = 192;
 
@@ -13,6 +17,18 @@ pub struct ActionRow {
     pub parameter_sha256: String,
     pub row: u32,
     pub row_sha256: String,
+}
+
+fn parameter_digest(hex: &str) -> Result<[u8; 32], &'static str> {
+    if hex.len() != 64 || !hex.bytes().all(|c| c.is_ascii_hexdigit()) {
+        return Err("invalid attack parameter digest");
+    }
+    let mut bytes = [0u8; 32];
+    for (i, byte) in bytes.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&hex[2 * i..2 * i + 2], 16)
+            .map_err(|_| "invalid attack parameter digest")?;
+    }
+    Ok(bytes)
 }
 
 impl ActionRow {
@@ -29,19 +45,7 @@ impl ActionRow {
         if &header[..8] != b"N3AAD001" || !tail.is_empty() || rows.len() != bodies {
             return Err(invalid());
         }
-        let mut parameter = [0u8; 32];
-        if self.parameter_sha256.len() != 64
-            || !self
-                .parameter_sha256
-                .bytes()
-                .all(|byte| byte.is_ascii_hexdigit())
-        {
-            return Err("invalid attack parameter digest");
-        }
-        for (i, byte) in parameter.iter_mut().enumerate() {
-            *byte = u8::from_str_radix(&self.parameter_sha256[2 * i..2 * i + 2], 16)
-                .map_err(|_| "invalid attack parameter digest")?;
-        }
+        let parameter = parameter_digest(&self.parameter_sha256)?;
         let mut hasher = Sha256::new();
         hasher.update(self.resource.as_bytes());
         hasher.update([0]);

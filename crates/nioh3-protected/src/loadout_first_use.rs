@@ -15,7 +15,7 @@ use nioh3_loadout::pipeline::{
     },
     Tables,
 };
-use nioh3_runtime::combat_context::encounter::direct_encounter;
+use nioh3_runtime::combat_context::encounter::{direct_encounter_with_controller, ControllerInput};
 use nioh3_runtime::combat_context::progression::{unarmed_levels, ActorBaseline};
 use nioh3_runtime::{
     combat_context::{progression::read_progression_for_categories, CombatSnapshot},
@@ -36,6 +36,52 @@ fn selected_row(scene: &Path) -> Result<ActionRow, HostError> {
     Ok(descriptor.resource_action)
 }
 
+struct SceneLayout {
+    packet: nioh3_runtime::combat_context::encounter::PacketLayout,
+    binds_candidate_sources: bool,
+}
+
+impl SceneLayout {
+    fn read(scene: &Path) -> Result<Self, HostError> {
+        #[derive(serde::Deserialize)]
+        struct Packet {
+            kind: String,
+        }
+        #[derive(serde::Deserialize)]
+        struct Template {
+            packet: Packet,
+        }
+        #[derive(serde::Deserialize)]
+        struct Plan {
+            main_address: u64,
+            templates: Vec<Template>,
+            candidate_category_field: Option<u64>,
+            candidate_source_address: Option<u64>,
+        }
+        let raw = fs::read(scene.join("event_plan.json"))
+            .map_err(|e| HostError::rejected(e.to_string()))?;
+        let plan: Plan =
+            serde_json::from_slice(&raw).map_err(|e| HostError::rejected(e.to_string()))?;
+        Ok(Self {
+            packet: nioh3_runtime::combat_context::encounter::PacketLayout {
+                address: plan.main_address,
+                direct_only: !plan.templates.is_empty()
+                    && plan
+                        .templates
+                        .iter()
+                        .all(|t| t.packet.kind == "prepared_actor"),
+            },
+            binds_candidate_sources: plan.candidate_category_field.is_some()
+                && plan.candidate_source_address.is_some(),
+        })
+    }
+}
+
+pub(crate) fn supports_direct_type_projection(scene: &Path) -> Result<bool, HostError> {
+    let layout = SceneLayout::read(scene)?;
+    Ok(layout.binds_candidate_sources && layout.packet.direct_only)
+}
+
 /// Preserve independently readable inputs when the source producer stops
 /// early. This diagnostic is never used to admit a ranking.
 #[cfg(feature = "first-use-acceptance")]
@@ -54,14 +100,24 @@ pub(crate) fn sample_encounter(
     let at =
         snap.inputs.active_bank as usize * 0xf70 + snap.inputs.held_weapon_slot as usize * 0xe8;
     let key = u16::from_le_bytes([snap.inputs.inventory[at], snap.inputs.inventory[at + 1]]);
-    let row = selected_row(scene)?.resolve().map_err(invalid)?;
-    direct_encounter(
+    let attack = selected_row(scene)?;
+    let row = attack.resolve().map_err(invalid)?;
+    let state = attack.controller().map_err(invalid)?;
+    let controller = ControllerInput {
+        layout: Some(SceneLayout::read(scene)?.packet),
+        parameter: state.parameter,
+        first_index: state.first_index,
+        packet_row: attack.row as usize,
+        rows: &state.rows,
+    };
+    direct_encounter_with_controller(
         memory,
         snap,
         &stat,
         tables.category(key).unwrap_or(0x3c2e),
         &row.key,
         row.bytes,
+        Some(&controller),
     )
     .map_err(HostError::from_runtime)?;
     unarmed.map(|_| ()).map_err(HostError::from_runtime)
@@ -69,6 +125,8 @@ pub(crate) fn sample_encounter(
 
 pub(crate) struct SourceRead {
     prefix: Vec<Submission>,
+    scene_layout: SceneLayout,
+    projected_weapon_class: Option<u32>,
     category_prefixes: std::collections::BTreeMap<u32, Vec<Submission>>,
     guardians: Vec<GuardianSubmission>,
     cores: Vec<CoreInput>,
@@ -105,15 +163,20 @@ pub(crate) fn read(
         .ok_or_else(|| invalid("held weapon outside the current inventory"))?;
     let key = u16::from_le_bytes([id[0], id[1]]);
     let category = tables.category(key).unwrap_or(0x3c2e);
-    let plan: Value =
-        serde_json::from_slice(&load("event_plan.json")?).map_err(|e| invalid(&e.to_string()))?;
-    let categories = if plan["candidate_category_field"].as_u64().is_some()
-        && plan["candidate_source_address"].as_u64().is_some()
-    {
-        tables.weapon_categories(key)
+    let scene_layout = SceneLayout::read(scene)?;
+    let projected_weapon_class = if scene_layout.binds_candidate_sources {
+        let descriptor: Value =
+            serde_json::from_slice(&load("bundle.json")?).map_err(|e| invalid(&e.to_string()))?;
+        descriptor["selection_weapon_class"]
+            .as_u64()
+            .or_else(|| descriptor["weapon_class"].as_u64())
+            .and_then(|c| u32::try_from(c).ok())
     } else {
-        Vec::new()
+        None
     };
+    let categories = projected_weapon_class
+        .map(|c| tables.categories_for_weapon_class(c))
+        .unwrap_or_default();
     let progress = read_progression_for_categories(memory, snapshot, category, &categories)
         .map_err(HostError::from_runtime)?;
     if progress.rule_table_digest != parameters.rule_table_digest() {
@@ -209,13 +272,16 @@ pub(crate) fn read(
         &late,
         progress.post_record_present,
         progress.digest(),
+        projected_weapon_class,
         &category_prefixes,
     ))
     .map_err(|e| invalid(&e.to_string()))?;
     identity.extend(sha256(&basis.stat).bytes());
     identity.extend(sha256(&basis.materialized).bytes());
     Ok(SourceRead {
+        scene_layout,
         prefix,
+        projected_weapon_class,
         category_prefixes,
         guardians,
         cores,
@@ -410,6 +476,7 @@ impl SourceRead {
                 }),
             },
             prefix: self.prefix.clone(),
+            projected_weapon_class: self.projected_weapon_class,
             category_prefixes: self.category_prefixes.clone(),
             active_guardian: self.active_guardian,
             guardian_requirement: self.guardian_requirement,
@@ -431,22 +498,32 @@ impl SourceRead {
         frame = Frame::with_source_rebuild(&frame, &program).map_err(invalid)?;
         let attack = selected_row(scene)?;
         let row = attack.resolve().map_err(invalid)?;
-        let encounter = direct_encounter(
+        let state = attack.controller().map_err(invalid)?;
+        let controller = ControllerInput {
+            layout: Some(self.scene_layout.packet),
+            parameter: state.parameter,
+            first_index: state.first_index,
+            packet_row: attack.row as usize,
+            rows: &state.rows,
+        };
+        let encounter = direct_encounter_with_controller(
             memory,
             snap,
             &self.basis.stat,
             self.category,
             &row.key,
             row.bytes,
+            Some(&controller),
         )
         .map_err(HostError::from_runtime)?;
-        let confirmed = direct_encounter(
+        let confirmed = direct_encounter_with_controller(
             memory,
             snap,
             &self.basis.stat,
             self.category,
             &row.key,
             row.bytes,
+            Some(&controller),
         )
         .map_err(HostError::from_runtime)?;
         if encounter != confirmed
@@ -567,18 +644,12 @@ pub(crate) fn verify_equipped(
             .map(|v| (v.key, v.base, v.dup))
             .eq(b.iter().map(|v| (v.key, v.base, v.dup)))
     };
-    for bank in 0..2 {
-        if bank != snap.inputs.mode as usize && !engine.writes_candidate_source_maps() {
-            // Older programs leave the observed inactive bank intact in MAIN.
-            continue;
-        }
-        if !agrees(&trace.completed_core[bank], &snap.inputs.core_groups[bank])
-            || !agrees(&scratch.source.maps[bank], &snap.inputs.groups[bank])
-        {
-            return Err(invalid(&format!(
-                "engine source maps differ in bank {bank}"
-            )));
-        }
+    let bank = snap.inputs.mode as usize;
+    if !agrees(&trace.completed_core[bank], &snap.inputs.core_groups[bank])
+        || !agrees(&scratch.source.maps[bank], &snap.inputs.groups[bank])
+        || !engine.preserves_inactive_source(bank, &snap.source_raw)
+    {
+        return Err(invalid("engine SOURCE banks differ from the current role"));
     }
     if (
         actual.primary_attack,
@@ -596,6 +667,11 @@ pub(crate) fn verify_equipped(
             actual.primary_attack, expected.primary_attack, actual.secondary_attack, expected.secondary_attack,
             actual.defense, expected.defense, actual.health, expected.health
         )));
+    }
+    if !engine.current_weapon_matches_scene() {
+        // The observed role has been verified above. The selected move only
+        // has a meaningful damage after fitting a candidate of the requested TYPE.
+        return Ok(());
     }
     let details = engine.damage_details(&c, &pack, &mut engine.work());
     let outcome = engine.evaluate(&c, &pack, &Limits::NONE, &mut engine.work());
@@ -622,3 +698,7 @@ pub(crate) fn verify_equipped(
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "loadout_cross_weapon_e2e.rs"]
+mod cross_weapon_e2e;

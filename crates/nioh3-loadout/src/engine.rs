@@ -602,8 +602,10 @@ impl Engine {
     }
 
     /// Inspectable exact context buffers used by both CPU parsing and nk_open.
-    pub fn writes_candidate_source_maps(&self) -> bool {
-        self.candidate_source_maps.is_some()
+    pub fn preserves_inactive_source(&self, mode: usize, observed: &[u8]) -> bool {
+        self.candidate_source_maps
+            .as_ref()
+            .is_none_or(|maps| maps.preserves_inactive(mode, observed))
     }
 
     pub fn encoded_context(&self) -> Option<&EncodedContext> {
@@ -866,6 +868,21 @@ impl Engine {
 
     pub fn tables(&self) -> &Tables {
         &self.tables
+    }
+
+    pub fn current_weapon_matches_scene(&self) -> bool {
+        let Some(class) = self
+            .frame
+            .source_rebuild
+            .as_ref()
+            .and_then(|p| p.projected_weapon_class)
+        else {
+            return true;
+        };
+        let bank = self.character.active * BANK;
+        let offset = bank + usize::from(self.character.inv[bank + 0xf68] == 0) * ITEM;
+        let key = u16::from_le_bytes([self.character.inv[offset], self.character.inv[offset + 1]]);
+        self.tables.item_type_class(key) == Some(class)
     }
 
     /// Exact worn record for an optimizer position in the bound character.
@@ -1445,7 +1462,11 @@ impl Engine {
             &mut w.scratch,
         )?;
         if let Some(maps) = &self.candidate_source_maps {
-            maps.append(&w.scratch.source.maps, &mut w.scratch.writes)?;
+            maps.append(
+                w.character.mode as usize,
+                &w.scratch.source.maps,
+                &mut w.scratch.writes,
+            )?;
             let bank = w.character.active * BANK;
             let slot = usize::from(w.character.inv[bank + 0xf68] == 0);
             let at = bank + slot * ITEM;

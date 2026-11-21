@@ -3,7 +3,7 @@
 //! observed bytes. Both tables describe only the constant stores.
 use super::{layout, RuntimeError};
 
-const STAT: &[(usize, usize, u8)] = &[
+pub(super) const STAT: &[(usize, usize, u8)] = &[
     (0x018, 0x019, 0x64),
     (0x019, 0x01c, 0x00),
     (0x01c, 0x01d, 0x64),
@@ -71,7 +71,7 @@ const STAT: &[(usize, usize, u8)] = &[
     (0x7a7, 0x7a8, 0x3f),
     (0x7ac, 0x7bc, 0x00),
 ];
-const DAMAGE: &[(usize, usize, u8)] = &[
+pub(super) const DAMAGE: &[(usize, usize, u8)] = &[
     (0x000, 0x01f, 0x00),
     (0x020, 0x028, 0x00),
     (0x028, 0x044, 0xff),

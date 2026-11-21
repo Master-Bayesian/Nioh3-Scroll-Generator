@@ -1454,7 +1454,7 @@ export interface LoadoutSearch {
         slots: number[];
       }
     | {
-        status: "answered" | "no_path" | "refused";
+        status: "answered" | "no_path" | "refused" | "different_weapon_type";
         damage: null | number;
         items: {
           slot: 0 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;

@@ -1660,6 +1660,10 @@ impl Tables {
         let Some(class) = self.item_type_class(equipped) else {
             return Vec::new();
         };
+        self.categories_for_weapon_class(class)
+    }
+
+    pub fn categories_for_weapon_class(&self, class: u32) -> Vec<u32> {
         let mut categories = self.items.rows[8..]
             .chunks_exact(self.items.stride)
             .filter(|row| u32_at(row, 0x15c) == class)

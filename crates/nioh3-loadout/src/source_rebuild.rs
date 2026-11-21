@@ -113,6 +113,8 @@ pub struct Program {
     pub prefix: Vec<Submission>,
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub category_prefixes: std::collections::BTreeMap<u32, Vec<Submission>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub projected_weapon_class: Option<u32>,
     pub active_guardian: u8,
     pub guardian_requirement: u16,
     pub guardians: Vec<GuardianSubmission>,
@@ -293,7 +295,10 @@ impl Program {
             return Ok(&self.prefix);
         }
         let reference_key = u16_at(&self.reference_inventory, bank * BANK + slot * ITEM);
-        if tables.item_type_class(reference_key) != tables.item_type_class(key) {
+        let class = tables.item_type_class(key);
+        if tables.item_type_class(reference_key) != class
+            && (class.is_none() || class != self.projected_weapon_class)
+        {
             return Err("candidate weapon belongs to another TYPE");
         }
         self.category_prefixes
