@@ -6412,9 +6412,13 @@
       "Matching seeds",
       "一致したシード数"
     ],
-    "目标存档的生成条件下没有匹配结果。可减少所选词条，或到神社保存当前进度后重新查找。": [
-      "No matches under the target save's generation conditions. Select fewer effects, or save your progress at a shrine and search again.",
-      "対象セーブの生成条件では一致する結果がありません。選択する特殊効果を減らすか、社で現在の進行状況を保存してから再検索してください。"
+    "目标存档已变化。请在上方点“重新读取”，再查找。": [
+      "The target save has changed. Click Reload above, then search again.",
+      "対象セーブが更新されました。上の「再読み込み」を押してから再検索してください。"
+    ],
+    "目标存档的生成条件下没有匹配结果。可减少所选词条，或到神社保存当前进度后点“重新读取”，再查找。": [
+      "No matches under the target save's generation conditions. Select fewer effects, or save at a shrine, click Reload above, and search again.",
+      "対象セーブの生成条件では一致する結果がありません。特殊効果を減らすか、社で進行状況を保存してから上の「再読み込み」を押し、再検索してください。"
     ],
     "本次要求的词条": [
       "Required effects for this addition",

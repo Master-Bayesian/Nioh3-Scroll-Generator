@@ -68,7 +68,7 @@ export function LiveEquipmentSeedSearch({context, selectedSeed, locked, onWanted
     }
   }
   async function find() {
-    if (locked || running.current || !saveId || item === null || level === null || plus === null || rarity === null || !rules?.known) return;
+    if (locked || running.current || !saveId || !source || item === null || level === null || plus === null || rarity === null || !rules?.known) return;
     const requested = context;
     const epoch = ++requestEpoch.current;
     const isCurrent = () => mounted.current && current.current === requested && requestEpoch.current === epoch;
@@ -80,9 +80,11 @@ export function LiveEquipmentSeedSearch({context, selectedSeed, locked, onWanted
       const saved = saveObserver ? await saveObserver.run(read) : await read();
       if (!isCurrent()) return;
       if (!saved || !("save_id" in saved) || saved.save_id !== saveId || !("generation" in saved) ||
-          typeof saved.source_sha256 !== "string" || !/^[0-9a-f]{64}$/i.test(saved.source_sha256) ||
-          (source !== null && saved.source_sha256 !== source)) {
+          typeof saved.source_sha256 !== "string" || !/^[0-9a-f]{64}$/i.test(saved.source_sha256)) {
         throw Error("无法读取目标存档的难度和进度，请重新读取后再查找。");
+      }
+      if (saved.source_sha256 !== source) {
+        throw Error("目标存档已变化。请在上方点“重新读取”，再查找。");
       }
       const state = saved.generation?.difficulties.find(entry => entry.difficulty === saved.generation?.difficulty);
       if (!state) throw Error("无法读取目标存档的难度和进度，请重新读取后再查找。");
@@ -119,11 +121,11 @@ export function LiveEquipmentSeedSearch({context, selectedSeed, locked, onWanted
         {rules?.known && wanted.length < 7 && <EffectPicker value="" candidates={candidates} label={label} onPick={pick} accessibleName="点这里添加想要的词条" placeholder="点这里添加想要的词条"/>}
       </div>
     </div>
-    <button type="button" data-action="find-equipment-seeds" onClick={() => void find()} disabled={locked || !saveId || !rules?.known || plus === null}>{searching ? "查找中…" : "查找"}</button>
+    <button type="button" data-action="find-equipment-seeds" onClick={() => void find()} disabled={locked || !saveId || !source || !rules?.known || plus === null}>{searching ? "查找中…" : "查找"}</button>
     <Notice text={message}/>
     {result && <>
       <p className="seed-summary"><span>目标存档难度</span> {result.difficulty} · <span>匹配种子数</span> {result.matches} / {result.seeds}</p>
-      {result.matches === 0 && <p className="equipment-notes">目标存档的生成条件下没有匹配结果。可减少所选词条，或到神社保存当前进度后重新查找。</p>}
+      {result.matches === 0 && <p className="equipment-notes">目标存档的生成条件下没有匹配结果。可减少所选词条，或到神社保存当前进度后点“重新读取”，再查找。</p>}
       {result.outcomes.length > 0 && <ul className="seed-outcomes" role="listbox" aria-label="生成结果">
         {result.outcomes.map(outcome => <li key={outcome.seed}>
           <button type="button" role="option" aria-selected={selectedSeed === String(outcome.seed)} className={selectedSeed === String(outcome.seed) ? "chosen" : ""} onClick={() => onSelect(String(outcome.seed))}>

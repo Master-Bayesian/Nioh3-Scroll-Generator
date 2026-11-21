@@ -161,7 +161,7 @@ export function LiveEquipmentAdd({onBusy,onAdded}:{onBusy?:(busy:boolean)=>void;
         <h3>{item===null?"请选择装备":itemName(item)}</h3>
         <div className="live-equipment-fields">{([["level","等级",level,setLevel],["plus","+值",plus,setPlus],["rarity","稀有度",rarity,setRarity],["seed","生成种子",seed,changeSeed]] as const).map(([key,label,value,setter])=><label key={key}><span>{label}</span><input data-field={key} inputMode="numeric" value={value} disabled={locked} onChange={event=>setter(event.target.value)}/></label>)}</div>
         <div className="live-equipment-backup">
-          {saveSession&&<fieldset className="live-equipment-save" disabled={locked}><SavePicker compact refresh={false}/></fieldset>}
+          {saveSession&&<fieldset className="live-equipment-save" disabled={locked}><SavePicker compact/></fieldset>}
           <p className="equipment-notes">添加前会备份上面选中的存档。</p>
         </div>
         <LiveEquipmentSeedSearch context={context} selectedSeed={selectedSeed} locked={locked||!!save?.busy}
