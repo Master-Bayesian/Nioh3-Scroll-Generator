@@ -1,0 +1,220 @@
+name: Browser dependency reuse benchmark
+on:
+  push:
+    branches: [codex/ci-browser-dependencies-benchmark-20261120]
+permissions:
+  contents: read
+  actions: read
+env:
+  PYTHONUTF8: '1'
+jobs:
+  plan:
+    runs-on: windows-latest
+    outputs:
+      frontend: ${{ steps.plan.outputs.frontend }}
+      static: ${{ steps.plan.outputs.static }}
+      build: ${{ steps.plan.outputs.build }}
+      rust_tests: ${{ steps.plan.outputs.rust_tests }}
+      rust_static: ${{ steps.plan.outputs.rust_static }}
+      models: ${{ steps.plan.outputs.models }}
+      comparison: ${{ steps.plan.outputs.comparison }}
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'false'
+        browser: 'false'
+    - name: Discover complete cases and balance historical durations
+      shell: pwsh
+      run: node tools/ci/plan.mjs --event workflow_dispatch --base 2c46602851457acb9d866978301cbd4a4db6ead3 --out "$env:NIOH3_CI_OUT/plan"
+      id: plan
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+        if-no-files-found: error
+  frontend-build:
+    needs: plan
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'true'
+        browser: 'false'
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - name: Check generated inputs and build immutable frontend bundles
+      shell: pwsh
+      run: node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group build-1 --out "$env:NIOH3_CI_OUT/results/build-1"
+    - name: Locate the verified bundle
+      shell: pwsh
+      run: |-
+        $manifest=@(Get-ChildItem -LiteralPath "$env:NIOH3_CI_OUT/results/build-1" -Recurse -Filter workshop.json)
+        if($manifest.Count -ne 1){throw "Expected one workshop bundle"}
+        "path=$($manifest[0].DirectoryName)" >> $env:GITHUB_OUTPUT
+      id: bundle
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: ci-workshop-bundle-a${{ github.run_attempt }}
+        path: ${{ steps.bundle.outputs.path }}
+        if-no-files-found: error
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-result-a${{ github.run_attempt }}-build-1
+        path: ${{ env.NIOH3_CI_OUT }}/results/build-1
+        if-no-files-found: error
+    - name: Pack and identify installed dependencies
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $PSNativeCommandUseErrorActionPreference = $true
+        $dir = Join-Path $env:NIOH3_CI_OUT 'dependencies'
+        New-Item -ItemType Directory -Path $dir | Out-Null
+        $archive = Join-Path $dir 'node_modules.tar'
+        tar.exe -cf $archive -C $env:GITHUB_WORKSPACE node_modules
+        [ordered]@{
+          source = (git rev-parse HEAD)
+          invocation = "$($env:GITHUB_RUN_ID):$($env:GITHUB_RUN_ATTEMPT)"
+          lockHash = (Get-FileHash -LiteralPath package-lock.json).Hash
+          manifestHash = (Get-FileHash -LiteralPath package.json).Hash
+          runtime = (node -p 'JSON.stringify([process.platform,process.arch,process.version,process.versions.modules])')
+          npm = (npm --version)
+          install = 'npm ci --no-fund'
+          archiveHash = (Get-FileHash -LiteralPath $archive).Hash
+          archiveBytes = (Get-Item -LiteralPath $archive).Length
+        } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $dir 'manifest.json') -Encoding utf8
+    - name: Upload dependency archive
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: dependency-bundle-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/dependencies/
+        compression-level: 1
+        if-no-files-found: error
+        retention-days: 7
+  shadow-plan:
+    needs: plan
+    runs-on: windows-latest
+    outputs:
+      shadow: ${{ steps.shadow.outputs.shadow }}
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - uses: ./.github/actions/ci-node
+      with:
+        dependencies: 'true'
+        browser: 'false'
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - name: Exercise actual planner runner and aggregate fault controls
+      shell: pwsh
+      run: node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --group ci-1 --out "$env:NIOH3_CI_OUT/results/ci-1"
+    - name: Record independent selection without pruning
+      shell: pwsh
+      run: node tools/ci/shadow.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --out "$env:NIOH3_CI_OUT/shadow"
+      id: shadow
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-shadow-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/shadow
+        if-no-files-found: error
+    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      if: always()
+      with:
+        name: ci-result-a${{ github.run_attempt }}-ci-1
+        path: ${{ env.NIOH3_CI_OUT }}/results/ci-1
+        if-no-files-found: error
+  shadow-benchmark:
+    name: Shadow-3 (${{ matrix.mode }}, ${{ matrix.sample }})
+    needs: [plan, frontend-build, shadow-plan]
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [install, reuse]
+        sample: [1, 2]
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        fetch-depth: 1
+        persist-credentials: false
+    - name: Set up Node and install dependencies when using npm
+      uses: ./.github/actions/ci-node
+      with:
+        dependencies: ${{ matrix.mode == 'install' && 'true' || 'false' }}
+        browser: 'false'
+    - name: Download dependency archive
+      if: matrix.mode == 'reuse'
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: dependency-bundle-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/dependencies
+    - name: Verify and extract dependency archive
+      if: matrix.mode == 'reuse'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $PSNativeCommandUseErrorActionPreference = $true
+        $dir = Join-Path $env:NIOH3_CI_OUT 'dependencies'
+        $manifest = Get-Content -Raw -LiteralPath (Join-Path $dir 'manifest.json') | ConvertFrom-Json
+        $archive = Join-Path $dir 'node_modules.tar'
+        if ((Test-Path -LiteralPath node_modules) -or $manifest.source -cne (git rev-parse HEAD) -or
+            $manifest.invocation -cne "$($env:GITHUB_RUN_ID):$($env:GITHUB_RUN_ATTEMPT)" -or
+            $manifest.lockHash -cne (Get-FileHash -LiteralPath package-lock.json).Hash -or
+            $manifest.manifestHash -cne (Get-FileHash -LiteralPath package.json).Hash -or
+            $manifest.runtime -cne (node -p 'JSON.stringify([process.platform,process.arch,process.version,process.versions.modules])') -or
+            $manifest.npm -cne (npm --version) -or $manifest.install -cne 'npm ci --no-fund' -or
+            $manifest.archiveBytes -ne (Get-Item -LiteralPath $archive).Length -or
+            $manifest.archiveHash -cne (Get-FileHash -LiteralPath $archive).Hash) {
+          throw 'Dependency archive cannot satisfy this exact checkout and runner'
+        }
+        tar.exe -xf $archive -C $env:GITHUB_WORKSPACE
+        if (!(Test-Path -LiteralPath 'node_modules/.bin/playwright.cmd')) { throw 'Expected npm-installed Windows shims' }
+        Write-Output 'Verified dependency artifact identity and extracted it successfully.'
+    - name: Restore pinned browser cache
+      uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+      with:
+        path: ~/AppData/Local/ms-playwright
+        key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json') }}
+    - name: Verify the pinned browser installation
+      shell: pwsh
+      run: npx --no-install playwright install chromium
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/plan
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-shadow-plan-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/shadow
+    - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      with:
+        name: ci-workshop-bundle-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/bundle
+    - name: Execute the same shadow-3 cases
+      shell: pwsh
+      run: |
+        $env:NIOH3_CI_WORKSHOP_BUNDLE = "$env:NIOH3_CI_OUT/bundle/workshop.json"
+        node tools/ci/run.mjs --plan "$env:NIOH3_CI_OUT/plan/plan.json" --shadow "$env:NIOH3_CI_OUT/shadow/shadow.json" --group shadow-3 --out "$env:NIOH3_CI_OUT/results/shadow-3"
+    - name: Retain browser case evidence
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: dependency-trial-${{ matrix.mode }}-${{ matrix.sample }}-a${{ github.run_attempt }}
+        path: ${{ env.NIOH3_CI_OUT }}/results/shadow-3
+        if-no-files-found: error
