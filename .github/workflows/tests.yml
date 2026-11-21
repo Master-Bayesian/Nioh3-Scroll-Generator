@@ -4,6 +4,7 @@ name: Tests
   push:
     branches:
     - main
+    - codex/ci-browser-dependencies-fallback-20261120
   pull_request: null
   merge_group:
     types:
@@ -40,7 +41,7 @@ jobs:
         browser: 'false'
     - name: Discover complete cases and balance historical durations
       shell: pwsh
-      run: node tools/ci/plan.mjs --out "$env:NIOH3_CI_OUT/plan"
+      run: node tools/ci/plan.mjs --event workflow_dispatch --base 2c46602851457acb9d866978301cbd4a4db6ead3 --out "$env:NIOH3_CI_OUT/plan"
       id: plan
     - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
       if: always()
@@ -341,7 +342,7 @@ jobs:
       with:
         dependencies: 'true'
         browser: 'true'
-        dependency-artifact: ci-frontend-dependencies-a${{ github.run_attempt }}
+        dependency-artifact: ${{ matrix.id == 'shadow-3' && format('ci-absent-frontend-dependencies-a{0}', github.run_attempt) || format('ci-frontend-dependencies-a{0}', github.run_attempt) }}
     - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
       with:
         name: ci-plan-a${{ github.run_attempt }}
