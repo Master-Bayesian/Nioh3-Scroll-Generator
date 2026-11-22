@@ -1,0 +1,107 @@
+[
+  {
+    "name": "foreign-outfit-gates",
+    "overrides": {
+      "Fault": "KeepOldGates"
+    },
+    "expected": "Invariant CandidateGates is violated"
+  },
+  {
+    "name": "ineligible-affix",
+    "overrides": {
+      "Fault": "IgnoreRequirements"
+    },
+    "expected": "Invariant CandidateGates is violated"
+  },
+  {
+    "name": "foreign-outfit-result",
+    "overrides": {
+      "Fault": "KeepOldResult"
+    },
+    "expected": "Invariant ResultOwner is violated"
+  },
+  {
+    "name": "unsuccessful-command",
+    "overrides": {
+      "Fault": "AttemptIsSuccess"
+    },
+    "expected": "Invariant TriggerRequired is violated"
+  },
+  {
+    "name": "old-weak-member",
+    "overrides": {
+      "Fault": "AdmitOldWeak"
+    },
+    "expected": "Invariant CleanStartOnly is violated"
+  },
+  {
+    "name": "removed-not-rebuilt",
+    "overrides": {
+      "Fault": "TrustEmptyMembers"
+    },
+    "expected": "Invariant CleanStartOnly is violated"
+  },
+  {
+    "name": "neutral-not-rebuilt",
+    "overrides": {
+      "Fault": "TrustNeutralValue"
+    },
+    "expected": "Invariant CleanStartOnly is violated"
+  },
+  {
+    "name": "reverse-creation-order",
+    "overrides": {
+      "Fault": "WeakOfferedFirst"
+    },
+    "expected": "Invariant NativeOfferOrder is violated"
+  },
+  {
+    "name": "add-same-key-sources",
+    "overrides": {
+      "Fault": "SumSameKey"
+    },
+    "expected": "Invariant CleanStartGain is violated"
+  },
+  {
+    "name": "delete-other-sources",
+    "overrides": {
+      "Fault": "RemoveAllPeers"
+    },
+    "expected": "Invariant Membership is violated"
+  },
+  {
+    "name": "reduce-on-removal",
+    "overrides": {
+      "Fault": "EarlyRebuild"
+    },
+    "expected": "Invariant PendingAggregate is violated"
+  },
+  {
+    "name": "keep-expired-winner",
+    "overrides": {
+      "Fault": "SkipRebuild"
+    },
+    "expected": "Invariant RebuiltAggregate is violated"
+  },
+  {
+    "name": "second-contact",
+    "overrides": {
+      "Fault": "ScoreAgain"
+    },
+    "expected": "Invariant FirstContactOnly is violated"
+  },
+  {
+    "name": "publish-after-removal",
+    "overrides": {
+      "Fault": "ScorePending"
+    },
+    "expected": "Invariant ImmediateOnly is violated"
+  },
+  {
+    "name": "drop-first-result",
+    "overrides": {
+      "Fault": "SkipScore"
+    },
+    "expected": "Invariant FirstContactAnswered is violated"
+  }
+]

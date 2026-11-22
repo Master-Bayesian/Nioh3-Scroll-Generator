@@ -10,6 +10,42 @@ pub struct ActionController {
     pub rows: Vec<&'static [u8; ROW_BYTES]>,
 }
 
+/// The collision participant's +E8 component, as seen by PC202 117AB09.
+#[derive(Clone, Copy)]
+pub enum CollisionComponent {
+    Unobserved,
+    Absent,
+    ValueAt80(i32),
+}
+
+/// Passing this predicate continues native collision processing. Later history,
+/// geometry and target predicates still decide whether a damage event occurs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CollisionRoute {
+    Continue,
+    Rejected,
+    NeedsComponent,
+}
+
+impl ActionController {
+    pub fn collision_routes(
+        &self,
+        component: CollisionComponent,
+    ) -> impl Iterator<Item = CollisionRoute> + '_ {
+        self.rows.iter().map(move |row| {
+            let flags = u16::from_le_bytes([row[0x48], row[0x49]]);
+            match component {
+                CollisionComponent::ValueAt80(0) if flags & 0x80 != 0 => CollisionRoute::Rejected,
+                CollisionComponent::ValueAt80(1) if flags & 0x100 != 0 => CollisionRoute::Rejected,
+                CollisionComponent::Unobserved if flags & 0x180 != 0 => {
+                    CollisionRoute::NeedsComponent
+                }
+                _ => CollisionRoute::Continue,
+            }
+        })
+    }
+}
+
 impl ActionRow {
     pub fn controller(&self) -> Result<ActionController, &'static str> {
         ActionController::resolve(&self.resource, self.action, &self.parameter_sha256)

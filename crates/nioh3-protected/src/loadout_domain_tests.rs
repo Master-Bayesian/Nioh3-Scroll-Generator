@@ -40,6 +40,7 @@ fn put_owned(plain: &mut [u8], index: usize, key: u16) -> Result<(), Box<dyn Err
 
 fn kusarigama_fixture() -> Bundle {
     Bundle {
+        current_action_read: false,
         id: "kusarigama-strong".to_owned(),
         name: "Kusarigama strong attack".to_owned(),
         weapon: "Kusarigama".to_owned(),

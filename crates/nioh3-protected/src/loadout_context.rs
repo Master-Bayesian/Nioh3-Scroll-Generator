@@ -272,23 +272,83 @@ impl Contexts {
             if !sources.matched() {
                 return partial("source_maps_differ");
             }
+            let fresh_arts = sources.starts_new_arts()
+                && matches!(bundle.buff_scene(), crate::loadout::BuffScene::Arts
+                    | crate::loadout::BuffScene::DeflectArtsOpening);
             if !snap.inputs.status_keys.is_empty()
-                || !matches!(
+                || !(fresh_arts || bundle.buff_scene().projected_damage() || matches!(
                     bundle.buff_scene(),
-                    crate::loadout::BuffScene::Current | crate::loadout::BuffScene::Untriggered
-                )
+                    crate::loadout::BuffScene::Current
+                        | crate::loadout::BuffScene::Untriggered
+                ))
             {
                 return partial("reference_encounter_unsupported");
             }
-            let context = match sources.context(memory, snap, data_root, &dir) {
+            let (context, held_role) = match sources.context(memory, snap, data_root, &dir, plain) {
                 Ok(context) => context,
                 Err(error) => return partial(&error.to_string()),
             };
             let catalog: Value = serde_json::from_str(include_str!("pc202_skill_names.json"))
                 .map_err(|e| HostError::rejected(e.to_string()))?;
             let skills = crate::loadout_live::displayed_skills(&snap.inputs, &catalog);
-            let profile = json!({"captured_at":crate::loadout_live::snapshot_time(),"skills":skills,"buffs":[],
-              "notes":[format!("普通技能分支，按训练武士正面承受「{}」计算。",bundle.name)]});
+            let mut notes = vec![format!("按训练武士正面承受「{}」计算。", bundle.name)];
+            let mut buffs = Vec::new();
+            let peak = bundle.buff_scene().theoretical_peak();
+            if let Some(role) = held_role {
+                notes.push("从满血、满精力起手，假设每击都命中训练武士正面。".into());
+                notes.push(
+                    if let Some(arts) = role.effect {
+                        if peak {
+                            "按已学琢技的满层收费阶段计算。".into()
+                        } else if fresh_arts {
+                            "假设琢技槽已满，用本招发动琢技，从零层起算。".into()
+                        } else {
+                            buffs.push(json!({"key":0x36D8,"name":"琢技"}));
+                            format!("假设读取时的琢技保持生效，按已登记的 {} 种武技计算增伤，最多计 5 种。", arts.distinct_keys)
+                        }
+                    } else if matches!(bundle.buff_scene(), crate::loadout::BuffScene::Current) {
+                        "读取时未触发琢技，按该状态计算。".into()
+                    } else {
+                        "假设琢技未触发。".into()
+                    },
+                );
+            }
+            if peak {
+                let supplies = sources.peak_supplies(plain)?;
+                if supplies.is_some_and(|stock| stock.prepared_carnage) {
+                    notes.push("角色备有可施放的修罗符。按每套装备的术力算增伤，并与刚力丹、精防、识破及吸收精华的同组增伤取最高。".into());
+                } else if supplies.is_some_and(|stock| stock.held_power_pill) {
+                    notes.push("计入存档随身携带的刚力丹，与精防、识破或吸收精华触发的同组增伤取最高值。".into());
+                }
+                notes.push("持续增益按全程有效，转攻之法只加成首次有效结算。".into());
+                use nioh3_runtime::combat_context::encounter::TargetCondition;
+                match sources.peak_target_condition() {
+                    TargetCondition::Saturated => notes.push("训练武士按水异常生效计算，计入对水异常敌人的装备与技能加成。".into()),
+                    TargetCondition::TheoreticalPeak => notes.push("所有候选按同一对手计算。训练武士已有水异常、普通混沌和克金符易伤。".into()),
+                    TargetCondition::Benchmark | TargetCondition::Peak { .. } => {}
+                }
+                if sources.peak_coating().is_some() {
+                    notes.push("整招使用选定的临时附魔。同一时间按一个临时附魔结算，武技自带的属性伤害按各段规则保留。".into());
+                    if sources.peak_coating() == Some(nioh3_loadout::peak_coating::HeldCoating::Water)
+                        && supplies.is_some_and(|stock| stock.prepared_water_scale.is_some())
+                    {
+                        notes.push("按每套装备的术力计算召水符，并与随身水附魔道具比较，取较强的一个。".into());
+                    }
+                }
+                if snap.inputs.mode == 0 {
+                    notes.push("武士按已学琢技的满层效果计算，额外层数增伤适用于武技。".into());
+                }
+            } else if matches!(bundle.buff_scene(), crate::loadout::BuffScene::StyleShiftAbsorptionDamage) {
+                notes.push("转心切到所选流派，吸收精华后直接命中。转心的下一击增伤与装备触发的吸收精华增伤分别结算。".into());
+            } else if matches!(bundle.buff_scene(), crate::loadout::BuffScene::AbsorptionThenDefenseDamage) {
+                notes.push("吸收精华后成功精防或识破，中途不出手。按增益均已结算且仍有效时的首击计算，同组增伤取较高值。".into());
+            } else if matches!(bundle.buff_scene(), crate::loadout::BuffScene::DeflectArtsOpening) {
+                notes.push("从无临时增益、琢技满槽起手。精防后立即发动水形剑，按正常速度连续命中前三个动作，精防增伤按候选装备和技能计算。".into());
+            } else if bundle.buff_scene().projected_damage() {
+                notes.push("假设原先没有同组增伤，触发后立即命中。按每套装备的有效词条与技能，依游戏顺序计算本次「造成伤害增加」。".to_string());
+            }
+            let profile = json!({"captured_at":crate::loadout_live::snapshot_time(),"skills":skills,"buffs":buffs,
+              "notes":notes});
             contexts.publish(
                 BindingOwner {
                     save_id,
@@ -309,6 +369,13 @@ impl Contexts {
                 |engine| crate::loadout_first_use::verify_equipped(engine, snap),
             )
         };
+        // These inputs include the held cost controls and the effect object's
+        // counter. The ordinary status-key snapshot does not identify them.
+        if bundle.current_action_read {
+            if let (Some(reader), Some(current)) = (memory, snapshot.as_deref()) {
+                return first_use(self, reader, current);
+            }
+        }
         if let Some(current) = &snapshot {
             if matches!(
                 origin,
@@ -356,6 +423,12 @@ impl Contexts {
                     }
                 }
             }
+        }
+        if bundle.buff_scene().projected_damage() {
+            return match (memory, snapshot.as_deref()) {
+                (Some(memory), Some(snap)) => first_use(self, memory, snap),
+                _ => Ok(json!({"state":"unavailable","reason":"LOADOUT_CONTEXT_MISSING"})),
+            };
         }
         let Some(template_directory) = template_directory(state_root, data_root, bundle_id) else {
             if let (Some(memory), Some(snap)) = (memory, snapshot.as_deref()) {

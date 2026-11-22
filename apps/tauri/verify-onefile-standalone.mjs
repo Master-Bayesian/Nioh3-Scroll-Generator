@@ -15,12 +15,14 @@ for (let index = 2; index < process.argv.length; index += 2) {
   options.set(process.argv[index], process.argv[index + 1]);
 }
 const scenario = options.get('--scenario') || 'all';
-assert(['all', 'clean', 'poisoned'].includes(scenario));
+assert(['all', 'clean', 'poisoned', 'held-catalog'].includes(scenario));
 assert.equal(process.platform, 'win32', 'This acceptance observes actual Windows process and DLL paths');
 const ps = script => execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
   {windowsHide: true, encoding: 'utf8', timeout: 15000}).trim();
-assert.equal(ps("@(Get-Process -Name Nioh3 -ErrorAction SilentlyContinue).Count"), '0',
-  'Close the game yourself before running this offline acceptance; the harness never stops it');
+if (scenario!=='held-catalog') {
+  assert.equal(ps("@(Get-Process -Name Nioh3 -ErrorAction SilentlyContinue).Count"), '0',
+    'Offline runtime-status acceptance requires the game to be closed');
+}
 const source = executable(), original = await inspectOnefile(source);
 const root = await mkdtemp(join(tmpdir(), 'nioh3-standalone-'));
 const output = resolve(options.get('--out') || 'deliverables/frontend-v2/tauri-acceptance/onefile-standalone.json');
@@ -160,6 +162,32 @@ async function launch(f, label) {
       ['directcompute_effect_filter','nioh3_effect_preimage_accelerator.dll']]) {
       if (capabilities[capability]) assert(search.modules.some(path => basename(path).toLowerCase() === file), `${file} advertised without observed loaded module`);
     }
+    if (scenario==='held-catalog') {
+      // No save in this isolated user directory. Exercise the statically bound
+      // catalog and picker without making a runtime.status or character-read request.
+      const data=await page.evaluate(async()=>{
+        let job=await window.operations.execute({method:'save.loadout_bundles',params:{catalog_query:'水形剑'}});
+        for(let attempt=0; job.state==='running' && attempt<100; attempt++) {
+          await new Promise(resolve=>setTimeout(resolve,100));
+          job=await window.operations.snapshot('save',job.job_id);
+        }
+        if(job.job_id && job.state!=='completed') throw Error(JSON.stringify(job.error??job.state));
+        return job.result??job;
+      });
+      const row=data.catalog.selections.find(x=>x.resource==='0x60000019f' && x.action===25329);
+      assert(row?.plan_ready && row.stance==='high');
+      const variants=data.bundles.filter(x=>row.scene_ids.includes(x.id));
+      assert.deepEqual(variants.map(x=>x.scene.buff).sort(),['current','untriggered']);
+      await page.getByRole('button',{name:'配装优化',exact:true}).click();
+      for(const variant of variants) {
+        await selectLoadoutScene(page,variant);
+        assert.equal(await page.getByRole('combobox',{name:'增益条件',exact:true}).inputValue(),variant.id);
+      }
+      record.heldPicker={entry:row.action,sceneIds:row.scene_ids,conditions:variants.map(x=>x.scene.buff)};
+      await page.screenshot({path:join(dirname(output),'packaged-water-picker.png')});
+      record.ok=true;
+      return;
+    }
     record.requests = await page.evaluate(async () => {
       const invoke = async (method, params) => {
         let value = await window.operations.execute({method, params});
@@ -200,6 +228,16 @@ async function launch(f, label) {
       const row = panel.locator('article').filter({hasText:'25047'});
       await row.getByRole('button').click();
       assert.equal(await page.getByRole('combobox', {name:'攻击', exact:true}).inputValue(), 'kusarigama-strong');
+      const effects = page.getByRole('combobox', {name:'增益条件', exact:true});
+      const evade = catalog.choices.find(b => b.scene?.attack_id === 'kusarigama-strong' &&
+        b.scene.buff === 'ninja_evade_damage');
+      if (evade) {
+        await effects.selectOption(evade.id);
+        assert.match(await effects.locator('option:checked').innerText(), /识破/);
+        assert.equal(await page.getByRole('combobox', {name:'攻击', exact:true}).inputValue(), 'kusarigama-strong');
+        await effects.selectOption('kusarigama-strong');
+        record.evadePicker = {scene:evade.id, restored:await effects.inputValue()};
+      }
       await query.fill('燕返·水');
       await panel.getByRole('button', {name:'查找', exact:true}).click();
       const variant = panel.locator('article').filter({hasText:'25358'});
@@ -234,7 +272,7 @@ try {
     await assert.rejects(stat(clean.runtime));
     await launch(clean, 'cold-clean');
   }
-  if (scenario !== 'clean') {
+  if (scenario !== 'clean' && scenario !== 'held-catalog') {
     const poisoned = await fixture('poisoned', true);
     await assert.rejects(stat(poisoned.runtime));
     await launch(poisoned, 'cold-poisoned');

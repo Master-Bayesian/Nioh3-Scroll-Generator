@@ -39,6 +39,26 @@ def fixture_root() -> Path:
 
 
 class PackagingOptInTests(unittest.TestCase):
+    def test_charge_variants_bind_only_to_their_installed_owner_action(self) -> None:
+        path = self.temp / "catalog.json"
+        identity = {"resource": "shield-spear", "action": 4, "parameter_sha256": "b" * 64}
+        row = {**identity, "scene_ids": [], "attack_id": None, "weapon_class": None,
+               "school": "ninja", "plan_ready": False, "stance": None}
+        other = {**row, "resource": "other-weapon"}
+        path.write_text(json.dumps({"selections": [row, other]}), encoding="utf-8")
+        scenes = [{"id": name, "resource_action": {**identity, "projectile_slot": 0},
+                   "selection_weapon_class": 17, "school": "ninja",
+                   "scene": {"stance": "none", "attack_id": name}}
+                  for name in ("early", "full")]
+        packager = load_tool("package_tauri")
+        packager.bind_installed_actions(path, scenes)
+        packager.bind_installed_actions(path, scenes)
+        selected, untouched = json.loads(path.read_bytes())["selections"]
+        self.assertEqual(selected["scene_ids"], ["early", "full"])
+        self.assertEqual(selected["weapon_class"], 17)
+        self.assertTrue(selected["plan_ready"])
+        self.assertEqual(untouched, other)
+
     def setUp(self) -> None:
         self.temp = fixture_root()
         self.addCleanup(lambda: None)

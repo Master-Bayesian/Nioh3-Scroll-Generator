@@ -21,6 +21,7 @@ MAGIC = b"NIOH3_ONEFILE_V1"
 FOOTER = struct.Struct("<16sQ32s")
 LAUNCHER_PATH = "launcher/Nioh3Launcher.exe"
 MAX_DOWNLOAD_BYTES = 60 * 1024 * 1024
+INTERNAL_TEST_MAX_DOWNLOAD_BYTES = 512 * 1024 * 1024
 MAX_EXPANDED_BYTES = 2 * 1024 * 1024 * 1024
 REQUIRED_PATHS = {
     "Nioh3Studio.exe", LAUNCHER_PATH,
@@ -56,9 +57,9 @@ def require_x64_pe(raw: bytes) -> None:
         raise ValueError("Launcher must be a valid x64 PE executable")
 
 
-def verify_archive(path: Path) -> tuple[dict, bytes]:
-    if path.stat().st_size > MAX_DOWNLOAD_BYTES:
-        raise ValueError("Portable ZIP exceeds the 60 MiB download budget")
+def verify_archive(path: Path, max_bytes: int = MAX_DOWNLOAD_BYTES) -> tuple[dict, bytes]:
+    if path.stat().st_size > max_bytes:
+        raise ValueError(f"Portable ZIP exceeds the {max_bytes // (1024 * 1024)} MiB download budget")
     with zipfile.ZipFile(path) as archive:
         infos = archive.infolist()
         if not infos or len(infos) > 10001:
@@ -106,19 +107,20 @@ def verify_archive(path: Path) -> tuple[dict, bytes]:
         return manifest, launcher
 
 
-def build_onefile(archive_path: Path, output: Path) -> dict:
+def build_onefile(archive_path: Path, output: Path, *, internal_test: bool = False) -> dict:
+    max_bytes = INTERNAL_TEST_MAX_DOWNLOAD_BYTES if internal_test else MAX_DOWNLOAD_BYTES
     archive_path = archive_path.resolve(strict=True)
     output = output.resolve()
     if output.exists():
         raise FileExistsError("Choose a new one-file output path")
     archive_hash = bytes.fromhex(sha256(archive_path))
-    manifest, launcher = verify_archive(archive_path)
+    manifest, launcher = verify_archive(archive_path, max_bytes)
     if bytes.fromhex(sha256(archive_path)) != archive_hash:
         raise ValueError("Archive changed while validating")
     archive_size = archive_path.stat().st_size
     expected_size = len(launcher) + archive_size + FOOTER.size
-    if expected_size > MAX_DOWNLOAD_BYTES:
-        raise ValueError("One-file executable exceeds the 60 MiB download budget")
+    if expected_size > max_bytes:
+        raise ValueError(f"One-file executable exceeds the {max_bytes // (1024 * 1024)} MiB download budget")
     output.parent.mkdir(parents=True, exist_ok=True)
     created = False
     try:
@@ -147,7 +149,8 @@ def build_onefile(archive_path: Path, output: Path) -> dict:
         report = {"loadout": loadout, "path": str(output), "version": manifest["version"], "sourceCommit": manifest["git"]["commit"],
                   "bytes": output.stat().st_size, "sha256": sha256(output), "payloadBytes": archive_size,
                   "payloadSha256": archive_hash.hex(), "launcherSha256": hashlib.sha256(launcher).hexdigest(),
-                  "format": "nioh3-onefile/v1", "footerBytes": FOOTER.size}
+                  "format": "nioh3-onefile/v1", "footerBytes": FOOTER.size,
+                  "distribution": "internal-test" if internal_test else "release"}
         output.with_suffix(output.suffix + ".sha256").write_text(f'{report["sha256"]}  {output.name}\n', encoding="ascii")
         return report
     except Exception:
@@ -160,8 +163,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("archive", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--internal-test", action="store_true",
+                        help="Use the launcher size bound for an internal test artifact")
     args = parser.parse_args()
-    print(json.dumps(build_onefile(args.archive, args.output)))
+    print(json.dumps(build_onefile(args.archive, args.output, internal_test=args.internal_test)))
 
 
 if __name__ == "__main__":

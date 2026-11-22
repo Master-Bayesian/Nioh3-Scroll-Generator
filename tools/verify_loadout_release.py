@@ -9,6 +9,7 @@ All checks use explicit exceptions and still run under `python -O`.
 from __future__ import annotations
 
 import argparse
+import shutil
 import hashlib
 import io
 import json
@@ -19,6 +20,9 @@ from pathlib import Path, PurePosixPath
 
 CONTRACT = "runtime-contract.json"
 SCENE_ROOT = "worker/runtime/data/loadout/"
+POOL_ROOT = "loadout-kernels"
+POOLED_FILES = ("main_cpu.dll", "main_device.dll", "tables.bin", "source_numeric.bin",
+                "live_groups.txt", "survival_groups.txt")
 SCHEMA = "nioh3-loadout-runtime-contract/v1"
 HOST_SCHEMA = "nioh3-packaged-loadout-e2e/v1"
 FOOTER = struct.Struct("<16sQ32s")
@@ -62,10 +66,11 @@ def public_frame(raw: bytes, plan: dict) -> bytes:
     layout = {name: bytes(len(frame[name])) for name in ("stat", "d0", "s_base", "d_base")}
     need(len(frame["addresses"]) == 72, "unexpected frame address layout")
     layout["addresses"] = frame["addresses"][:56] + bytes(16)
-    for name, width in (("packet_kind", 2), ("aad_packet_kind", 1)):
-        if name in frame:
-            need(len(frame[name]) == width, "invalid packet selector")
-            layout[name] = frame[name]
+    if not plan.get("actor_damage_kind_from_row"):
+        for name, width in (("packet_kind", 2), ("aad_packet_kind", 1)):
+            if name in frame:
+                need(len(frame[name]) == width, "invalid packet selector")
+                layout[name] = frame[name]
     need(not {"packet_kind", "aad_packet_kind"} <= layout.keys(), "conflicting packet selectors")
     for name in ("held_reaper", "weapon_element_packet"):
         if name in frame:
@@ -79,7 +84,7 @@ def public_frame(raw: bytes, plan: dict) -> bytes:
         # owner, or incarnation fields from an actor's historical event plan.
         records = []
         for packet in packets:
-            if packet["kind"] == "prepared_actor":
+            if packet["kind"] in ("prepared_actor", "owner_weapon_projectile"):
                 records.append(bytes(12))
             elif packet["kind"] == "unimbued_owner_projectile":
                 records.append(struct.pack("<III", 1, packet["power"], packet["main_flags"]))
@@ -183,15 +188,93 @@ def check_scene_layout(files: dict[str, bytes], layout: dict) -> dict:
     need(len(frame.get("stat", b"")) == 0x900 and len(frame.get("d0", b"")) == 0xb00, "frame source buffers have wrong sizes")
     need(main + 0x218 == layout.get("MAIN_SCORE"), "scene frame MAIN address differs from compiled MAIN_SCORE")
     domain = layout.get("domain", [])
-    for address, size, label in ((stat, 0x900, "stat"), (damage, 0xb00, "damage"), (main, 0x300, "main")):
+    plan = json.loads(files["event_plan.json"])
+    packet_ranges = [(main, 0x300, "main")]
+    if plan.get("mode", {}).get("kind") == "held_water_sword":
+        # PC202 writes u16 at +136. The four-byte adapter clips exactly the
+        # other two bytes, whose values and knownness stay in the role image.
+        packet_ranges = [(main, 0x138, "packet prefix"), (main+0x13a, 0x1c6, "packet suffix")]
+        need(not any(lo < main+0x13a and hi > main+0x138 for lo, hi in domain),
+             "held skill input would overwrite adjacent unknown bytes")
+        for at, size in ((0x1c5fdb8c858, 8), (0x1c628b477fc, 4), (0x1c628b4a544, 4)):
+            need(any(lo <= at and at+size <= hi for lo, hi in domain), "missing held action input")
+    for address, size, label in ((stat, 0x900, "stat"), (damage, 0xb00, "damage"), *packet_ranges):
         need(any(lo <= address and address + size <= hi for lo, hi in domain), "compiled MAIN domain does not cover frame " + label)
     lines = files["hits.txt"].decode("ascii").splitlines()
     need(len(lines) >= 3 and int(lines[0]) > 0, "invalid hit input header")
     addresses_hit = [int(value, 16) for value in lines[1].split()]
     need(bool(addresses_hit), "hit write domain empty")
     need(all(any(lo <= address and address + 4 <= hi for lo, hi in domain) for address in addresses_hit), "hit address outside compiled MAIN domain")
-    plan = json.loads(files["event_plan.json"])
     need(plan.get("main_address") == main, "event plan MAIN differs from frame")
+    descriptor = json.loads(files["bundle.json"])
+    condition = (descriptor.get("scene") or {}).get("buff")
+    deflect_opening = condition == "deflect_arts_opening"
+    coating_by_condition = {"theoretical_peak_" + color: color for color in ("fire", "water", "lightning", "wind")}
+    peak = condition == "theoretical_peak" or condition in coating_by_condition
+    need(not plan.get("peak_held_supplies") or peak, "held supplies require the theoretical peak condition")
+    water = plan.get("peak_saturated_target", False)
+    ailments = plan.get("peak_target_ailments", False)
+    need(not (water and ailments) and (not (water or ailments) or plan.get("peak_held_supplies")),
+         "Opponent projection requires one bound peak supply policy")
+    coating = coating_by_condition.get(condition)
+    need(coating == plan.get("peak_coating"), "weapon coating differs from the displayed condition")
+    if coating is not None:
+        need(plan.get("peak_held_supplies") is True
+             and all(type(row.get("peak_allows_coating")) is bool for row in plan["templates"])
+             and any(row["peak_allows_coating"] for row in plan["templates"]),
+             "weapon coating requires supply proof and compatible packet routes")
+    need(bool(descriptor.get("current_action_read")) == (plan.get("mode", {}).get("kind") == "held_water_sword"),
+         "held action role inputs and refresh policy differ")
+    if plan.get("mode", {}).get("kind") == "held_water_sword":
+        mode = plan["mode"]
+        if "arts" in mode:
+            need("current_effect" not in mode, "duplicate Arts starting condition")
+            buff = {"full_gauge_activation": "arts", "current": "current", "untriggered": "untriggered",
+                    "theoretical_peak": "theoretical_peak"}.get(mode["arts"])
+        else:
+            need(type(mode.get("current_effect")) is bool, "missing Arts starting condition")
+            buff = "current" if mode["current_effect"] else "untriggered"
+        displayed = "arts" if deflect_opening else "theoretical_peak" if peak else condition
+        need(buff is not None and buff == displayed, "Arts starting condition differs from the player selection")
+        objective = mode.get("objective", "until_depleted")
+        need(objective in ("until_depleted", "opening_three_actions"), "unknown held scoring endpoint")
+        attack_id = "samurai-dual-swords-water-sword"
+        if objective == "opening_three_actions":
+            attack_id += "-opening"
+        need(descriptor["scene"].get("attack_id") == attack_id, "held endpoint differs from the displayed attack")
+        need(buff != "arts" or objective == "opening_three_actions", "fresh Arts activation requires a finite endpoint")
+    trigger = {"ninja_evade_damage": ("ninja_evade", {"ninja"}),
+               "samurai_deflect_damage": ("samurai_deflect", {"samurai"}),
+               "amrita_absorption_damage": ("amrita_absorption", {"samurai", "ninja"}),
+               "style_shift_absorption_damage": ("style_shift_then_absorption", {"samurai", "ninja"}),
+               "absorption_then_defense_damage": ("absorption_then_defense", {"samurai", "ninja"}),
+               "theoretical_peak": ("theoretical_peak", {"samurai", "ninja"}),
+               "deflect_arts_opening": ("samurai_deflect", {"samurai"})}.get("theoretical_peak" if peak else condition)
+    need((trigger[0] if trigger else None) == plan.get("triggered_damage"),
+         "damage trigger and displayed buff condition differ")
+    if trigger:
+        field = plan.get("triggered_damage_owner", plan["source"]["owner"]) + 0x2e3c
+        need(descriptor.get("school") in trigger[1] and any(lo <= field and field + 4 <= hi for lo, hi in domain),
+             "compiled MAIN cannot apply the selected outfit's damage-dealt group")
+        fixed = plan.get("mode") == {"kind": "fixed_contacts"} and (
+            len(plan["templates"]) == 1
+            or peak and all(type(row.get("peak_consumes_follow_up")) is bool for row in plan["templates"])
+        )
+        if deflect_opening:
+            need(plan.get("mode") == {"kind": "held_water_sword", "arts": "full_gauge_activation",
+                                      "objective": "opening_three_actions"}, "deflect requires the finite fresh Arts opening")
+        if condition == "style_shift_absorption_damage" or peak:
+            need(all(any(lo <= word and word + 4 <= hi for lo, hi in domain)
+                     for word in (field - 8, field - 4)), "both follow-up damage channels must be mutable")
+        if peak and descriptor.get("school") == "samurai":
+            arts_field = field - 0x2e3c + 0x2df4
+            need(any(lo <= arts_field and arts_field + 4 <= hi for lo, hi in domain),
+                 "theoretical Samurai peak requires the owner Arts input")
+        held_peak = peak and plan.get("mode", {}).get("kind") == "held_water_sword"
+        need((fixed or deflect_opening or held_peak)
+             and plan.get("initial_phase") == "inactive" and plan.get("single_use") is None
+             and plan.get("candidate_source_address") is not None,
+             "projected damage requires settled contacts and the candidate's rebuilt sources")
     if (source := plan.get("candidate_source_address")) is not None:
         need(type(source) is int and source > 0 and all(
             any(lo <= source + offset and source + offset + 0xc04 <= hi for lo, hi in domain)
@@ -214,6 +297,7 @@ def check_scene_layout(files: dict[str, bytes], layout: dict) -> dict:
             t.get("scored", True) is True and type(t.get("landed")) is bool and type(t.get("guard")) is bool for t in templates):
         fixed_contacts = sum(t["guard"] and t["landed"] for t in templates)
     return {"stat_address": stat, "damage_address": damage, "main_address": main, "hit_write_addresses": len(addresses_hit), "frame_sections": sorted(frame), "fixed_scored_contacts": fixed_contacts,
+            "held_water_sword": plan.get("mode", {}).get("kind") == "held_water_sword",
             "empty_actor_buffers_and_seeds": empty_actor_buffers}
 
 
@@ -254,10 +338,40 @@ def verify_scene(files: dict[str, bytes], scene_id: str, app_commit: str | None 
     return {"scene_id": scene_id, "descriptor": descriptor, "files": inventory(files), "contract_sha256": digest(files[CONTRACT]), "layout": layout, "exports": exports, "abi_expected": ABIS, "host_e2e_required": True}
 
 
+def shared_asset_paths(files: dict[str, bytes]) -> dict[str, str]:
+    """Map missing kernel assets to the package-owned paths sealed by this scene."""
+    if CONTRACT not in files:
+        return {}
+    hashes = json.loads(files[CONTRACT]).get("files", {})
+    shared = {}
+    for name in POOLED_FILES:
+        if name not in files and name in hashes:
+            digest_hex = hashes[name].get("sha256")
+            need(isinstance(digest_hex, str) and re.fullmatch(r"[0-9a-f]{64}", digest_hex),
+                 "invalid shared asset digest")
+            shared[name] = f"{POOL_ROOT}/{digest_hex}/{name}"
+    return shared
+
+
 def verify_scene_directory(path: Path, app_commit: str | None = None, scene_id: str | None = None) -> dict:
     need(not any(file.is_symlink() for file in path.rglob("*")), "scene directory contains a symbolic link")
     files = {file.relative_to(path).as_posix(): file.read_bytes() for file in path.rglob("*") if file.is_file()}
+    if path.parent.name == "loadout":
+        for name, key in shared_asset_paths(files).items():
+            asset = path.parent.parent / key
+            if asset.is_file():
+                files[name] = asset.read_bytes()
     return verify_scene(files, scene_id or path.name, app_commit)
+
+
+def copy_verified_scene(source: Path, destination: Path, verified: dict) -> None:
+    """Copy a verified scene with its full assets, including any pooled files."""
+    shutil.copytree(source, destination)
+    for name, asset in verified["files"].items():
+        target = destination / name
+        if not target.is_file():
+            shared = source.parent.parent / "loadout-kernels" / asset["sha256"] / name
+            shutil.copyfile(shared, target)
 
 
 def verify_archive_scenes(archive: zipfile.ZipFile, app_commit: str | None = None) -> list[dict]:
@@ -268,7 +382,13 @@ def verify_archive_scenes(archive: zipfile.ZipFile, app_commit: str | None = Non
         prefix = SCENE_ROOT + scene_id + "/"
         entries = [name for name in names if name.startswith(prefix) and not name.endswith("/")]
         need(len({name.casefold() for name in entries}) == len(entries), "duplicate scene ZIP entry")
-        reports.append(verify_scene({name[len(prefix):]: archive.read(name) for name in entries}, scene_id, app_commit))
+        files = {name[len(prefix):]: archive.read(name) for name in entries}
+        shared = shared_asset_paths(files)
+        for name, key in shared.items():
+            asset = "worker/runtime/data/" + key
+            if asset in names:
+                files[name] = archive.read(asset)
+        reports.append({**verify_scene(files, scene_id, app_commit), "shared_files": shared})
     return reports
 
 
@@ -295,7 +415,7 @@ def artifact_report(path: Path) -> dict:
         # both DLL and its contract must still agree with the final manifest.
         declared = {row["path"]: row for row in manifest["files"]}
         for name in archive.namelist():
-            if name.startswith(SCENE_ROOT) and not name.endswith("/"):
+            if name.startswith((SCENE_ROOT, f"worker/runtime/data/{POOL_ROOT}/")) and not name.endswith("/"):
                 body = archive.read(name)
                 need(name in declared and declared[name]["sha256"] == digest(body) and declared[name]["size"] == len(body), "scene differs from final build manifest: " + name)
     return {"artifact_kind": kind, "artifact_sha256": digest(raw), "payload_sha256": digest(payload), "source_commit": manifest["git"]["commit"], "scenes": scenes, "passed": True}
@@ -338,8 +458,14 @@ def verify_host_receipt(artifact: dict, receipt: dict, scene_id: str | None = No
             need(executed.get("backend") == backend and executed.get("planned") == run["answered"] and executed.get("completed") == run["answered"], "execution receipt counters differ from search")
             if backend == "card":
                 contacts = expected["layout"].get("fixed_scored_contacts")
-                need(type(contacts) is int and contacts > 0, "CUDA acceptance needs a fixed scored contact count")
-                count = contacts * run["answered"]
+                if expected["layout"].get("held_water_sword"):
+                    count = run.get("expected_contacts")
+                    need(type(count) is int and count >= run["answered"]
+                         and re.fullmatch(r"[0-9a-f]{64}", str(run.get("contact_schedule_sha256", ""))),
+                         "held CUDA acceptance needs the independently bound occurrence schedule")
+                else:
+                    need(type(contacts) is int and contacts > 0, "CUDA acceptance needs a fixed scored contact count")
+                    count = contacts * run["answered"]
                 need(executed.get("native_calls", 0) > 0 and executed.get("submitted_contacts") == count and executed.get("completed_contacts") == count and executed.get("failed_batches") == 0 and executed.get("reuse_enabled") is False, "CUDA module did not execute every expected contact")
             else:
                 need(executed.get("cpu_executed_candidates", 0) > 0 and executed.get("cpu_executed_candidates", 0) + executed.get("cpu_certified_candidates", 0) == run["answered"], "CPU execution/certificate counts differ from search")
@@ -353,6 +479,44 @@ def verify_host_receipt(artifact: dict, receipt: dict, scene_id: str | None = No
         need(runs[0].get("rank_sha256") == runs[1].get("rank_sha256") and re.fullmatch(r"[0-9a-f]{64}", str(runs[0].get("rank_sha256", ""))) is not None, "packaged CPU/CUDA rankings differ")
     negative = receipt.get("no_private_profile", {})
     need(negative.get("ran") is True and negative.get("false_complete") is False, "first-install missing-profile control absent")
+
+
+def merge_host_receipts(artifact: dict, inputs: list[bytes]) -> dict:
+    """Combine independently verified player runs for every scene of one EXE."""
+    scenes = {}
+    evidence = {}
+    for raw in inputs:
+        receipt = json.loads(raw)
+        covered = receipt.get("scenes", [])
+        need(len(covered) == 1, "each input must be a single-scene player receipt")
+        entry = covered[0]
+        scene_id = entry["scene_id"]
+        verify_host_receipt(artifact, receipt, scene_id)
+        need(scene_id not in scenes, "duplicate player receipt for scene: " + scene_id)
+        scenes[scene_id] = entry
+        evidence[scene_id] = {
+            "receipt_sha256": digest(raw),
+            "source_save_sha256": receipt.get("source_save_sha256"),
+            "environment": receipt["environment"],
+        }
+    receipt = {
+        "schema": HOST_SCHEMA,
+        "mode": "player",
+        "passed": True,
+        "release_ready": True,
+        "outer_sha256": artifact["artifact_sha256"],
+        "source_commit": artifact["source_commit"],
+        "private_resources_copied": False,
+        "environment": {"platform": "win32"},
+        "runtime_overrides": [],
+        "scenes": [scenes[key] for key in sorted(scenes)],
+        "scene_receipts": evidence,
+        "fresh_install": {"passed": True, "source": "live", "searches_complete": True,
+                          "private_resources_copied": False, "provisioned_by": "product"},
+        "no_private_profile": {"ran": True, "false_complete": False},
+    }
+    verify_host_receipt(artifact, receipt)
+    return receipt
 
 
 def seal(scene: Path, generated: Path, app_commit: str, native_commit: str) -> dict:
@@ -387,6 +551,10 @@ def main() -> int:
     check.add_argument("--require-host-e2e", action="store_true")
     check.add_argument("--verify-player-scene", help="verify one scene receipt without granting full release acceptance")
     check.add_argument("--output", type=Path)
+    merge = sub.add_parser("merge-host-receipts", help="verify and combine all player scenes for one final EXE")
+    merge.add_argument("artifact", type=Path)
+    merge.add_argument("--host-receipt", action="append", type=Path, required=True)
+    merge.add_argument("--output", type=Path)
     args = parser.parse_args()
     try:
         if args.command == "export-layout":
@@ -399,6 +567,8 @@ def main() -> int:
             report = {"passed": True, "frame": str(args.target), "sha256": digest(public)}
         elif args.command == "seal":
             report = seal(args.scene, args.generated_main, args.app_commit, args.native_commit)
+        elif args.command == "merge-host-receipts":
+            report = merge_host_receipts(artifact_report(args.artifact), [path.read_bytes() for path in args.host_receipt])
         else:
             report = artifact_report(args.artifact)
             need(bool(report["scenes"]), "optimizer acceptance requires at least one shipped scene")

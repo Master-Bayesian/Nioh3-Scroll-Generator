@@ -98,21 +98,38 @@ struct OwnedProjectile {
 
 impl OwnedProjectile {
     fn install(&self, image: &mut Image, actor: u64) -> R<()> {
-        let object = self.object;
-        let tag = self.descriptor_head[0].wrapping_shl(4) | 4;
-        image.set(object, &tag.to_le_bytes())?;
-        image.pointer(object + 0x260, actor)?;
-        image.set(object + 0x590, &1.0f32.to_le_bytes())?;
-        image.set(object + 0x594, &u64::from(1.0f32.to_bits()).to_le_bytes())?;
-        image.set(object + 0x59c, &u32::MAX.to_le_bytes())?;
-        image.set(object + 0x5a0, &1u32.to_le_bytes())?;
-        for (i, word) in self.descriptor_head.iter().enumerate() {
-            image.set(object + 0x5d0 + i as u64 * 4, &word.to_le_bytes())?;
-        }
-        image.set(object + 0x758, &u32::from(self.action).to_le_bytes())?;
-        image.set(object + 0x75c, &[self.selector])?;
+        install_projectile(
+            image,
+            self.object,
+            actor,
+            self.descriptor_head,
+            self.action,
+            self.selector,
+        )?;
         image.set(self.row_address, &static_bytes(&self.damage_row, 192)?)
     }
+}
+
+fn install_projectile(
+    image: &mut Image,
+    object: u64,
+    actor: u64,
+    descriptor_head: [u32; 4],
+    action: u16,
+    selector: u8,
+) -> R<()> {
+    let tag = descriptor_head[0].wrapping_shl(4) | 4;
+    image.set(object, &tag.to_le_bytes())?;
+    image.pointer(object + 0x260, actor)?;
+    image.set(object + 0x590, &1.0f32.to_le_bytes())?;
+    image.set(object + 0x594, &u64::from(1.0f32.to_bits()).to_le_bytes())?;
+    image.set(object + 0x59c, &u32::MAX.to_le_bytes())?;
+    image.set(object + 0x5a0, &1u32.to_le_bytes())?;
+    for (i, word) in descriptor_head.iter().enumerate() {
+        image.set(object + 0x5d0 + i as u64 * 4, &word.to_le_bytes())?;
+    }
+    image.set(object + 0x758, &u32::from(action).to_le_bytes())?;
+    image.set(object + 0x75c, &[selector])
 }
 
 fn static_bytes(hex: &str, size: usize) -> R<Vec<u8>> {
@@ -128,19 +145,83 @@ fn static_bytes(hex: &str, size: usize) -> R<Vec<u8>> {
         .collect()
 }
 
+/// Original FC12DC / 556F7B resolve the selected skill through table 00294.
+/// Only immutable rows and hash slots are retained. Pointers belong to this image.
+fn install_skill_table(image: &mut Image, module: u64) -> R<()> {
+    let (rows, rest) = include_bytes!("pc202_skill_lookup.bin").split_at(211400);
+    let (slots, rest) = rest.split_at(17624);
+    let (variants, variant_slots) = rest.split_at(3068);
+    for (global, context, rows, slots) in [
+        (0x4ba3e20, 0x6000_0300_0000, rows, slots),
+        (0x4ba45b8, 0x6000_0310_0000, variants, variant_slots),
+    ] {
+        let index = context + 0x40;
+        let hash = context + 0x100;
+        let table = context + 0x10000;
+        image.pointer(add(module, global)?, context)?;
+        image.pointer(context, table)?;
+        image.pointer(context + 0x20, index)?;
+        image.set(index, &rows[4..8])?;
+        image.set(index + 4, &0xffff_u32.to_le_bytes())?;
+        image.pointer(index + 8, hash)?;
+        image.pointer(index + 16, hash + slots.len() as u64)?;
+        image.set(hash, slots)?;
+        image.set(table, rows)?;
+    }
+    Ok(())
+}
+
+#[path = "encounter_peak_target.rs"]
+mod encounter_peak_target;
+pub use encounter_peak_target::OpponentAilments;
+
+#[derive(Clone, Copy)]
+pub enum TargetCondition {
+    Benchmark,
+    Saturated,
+    TheoreticalPeak,
+    Peak { ailments: OpponentAilments, weakness: bool },
+}
+
+#[derive(Clone, Copy)]
+pub enum ActorElementCondition {
+    Current,
+    ProjectedUncoated,
+}
+
 #[derive(Clone, Copy)]
 pub struct PacketLayout {
     pub address: u64,
     pub direct_only: bool,
+    pub direct_owner_element: bool,
+    pub actor_damage_kind_from_row: bool,
 }
 
 pub struct ControllerInput<'a> {
     pub layout: Option<PacketLayout>,
+    pub actor_skill_key: Option<u16>,
     pub reference_target: Option<&'a [u8]>,
+    pub target_condition: TargetCondition,
+    pub actor_element_condition: ActorElementCondition,
     pub parameter: &'a [u8; 336],
     pub first_index: u16,
-    pub packet_row: usize,
+    pub packet_row: PacketRow,
     pub rows: &'a [&'a [u8; 192]],
+}
+
+#[derive(Clone, Copy)]
+pub enum PacketRow {
+    Actor(usize),
+    OwnedProjectile {
+        object: u64,
+        descriptor_head: [u32; 4],
+        action: u16,
+        selector: u8,
+        global_key: i32,
+        descriptor_5f8: i32,
+        descriptor_5fc: u32,
+        packet_flags: u32,
+    },
 }
 
 impl ControllerInput<'_> {
@@ -159,11 +240,20 @@ impl ControllerInput<'_> {
         let count = u16::try_from(self.rows.len())
             .map_err(|_| layout("invalid static action row count"))?;
         image.set(ACTION_STATE + 0x4a, &count.to_le_bytes())?;
-        if self.rows.get(self.packet_row).copied() != Some(packet_row) {
-            return Err(layout("attack parameter and packet use different rows"));
-        }
+        let direct_index = match self.packet_row {
+            PacketRow::Actor(index) => {
+                if self.rows.get(index).copied() != Some(packet_row) {
+                    return Err(layout("attack parameter and packet use different rows"));
+                }
+                Some(index)
+            }
+            PacketRow::OwnedProjectile { .. } => {
+                image.set(packet_row_address, packet_row)?;
+                None
+            }
+        };
         for (i, &bytes) in self.rows.iter().enumerate() {
-            let address = if i == self.packet_row {
+            let address = if Some(i) == direct_index {
                 packet_row_address
             } else {
                 ACTION_ROWS + 192 * i as u64
@@ -192,10 +282,13 @@ impl SelectedAction {
         let refs = rows.iter().collect::<Vec<_>>();
         ControllerInput {
             layout: None,
+            actor_skill_key: None,
             reference_target: None,
+            target_condition: TargetCondition::Benchmark,
+            actor_element_condition: ActorElementCondition::Current,
             parameter: &parameter,
             first_index: self.first_index,
-            packet_row: self.packet_row,
+            packet_row: PacketRow::Actor(self.packet_row),
             rows: &refs,
         }
         .install(image, self.controller_link, packet_row_address, packet_row)
@@ -345,7 +438,7 @@ struct Reader<'a> {
 
 /// Address-independent captured opponent data is relocated to a private,
 /// disjoint heap before packing. Only the MAIN target pointer is redirected.
-fn install_reference_target(image: &mut Image, raw: &[u8], packet: u64, module: u64) -> R<()> {
+fn install_reference_target(image: &mut Image, raw: &[u8], packet: u64, module: u64) -> R<u64> {
     let invalid = || layout("invalid fixed opponent image");
     let (head, mut rest) = raw.split_first_chunk::<36>().ok_or_else(invalid)?;
     let actor = u64_at(head, 24)?;
@@ -377,7 +470,8 @@ fn install_reference_target(image: &mut Image, raw: &[u8], packet: u64, module: 
     if !rest.is_empty() || !has_actor {
         return Err(invalid());
     }
-    image.pointer(add(packet, 0x1c8)?, actor)
+    image.pointer(add(packet, 0x1c8)?, actor)?;
+    Ok(actor)
 }
 impl Reader<'_> {
     fn pointer(&mut self, address: u64) -> R<u64> {
@@ -686,7 +780,11 @@ fn project_encounter(
 ) -> R<Encounter> {
     let (row_key, row) = selected_row;
     let requested = controller.and_then(|state| state.layout);
-    let shared = requested.filter(|v| v.direct_only);
+    let projectile = controller.and_then(|c| match c.packet_row {
+        p @ PacketRow::OwnedProjectile { .. } => Some(p),
+        PacketRow::Actor(_) => None,
+    });
+    let shared = requested.filter(|v| v.direct_only || projectile.is_some());
     let mut fields = BTreeMap::new();
     let r = if let Some(layout_id) = shared {
         // A layout identifies the native ABI and fixed opponent. The selected
@@ -745,6 +843,38 @@ fn project_encounter(
         pointers: BTreeMap::new(),
     };
     let mut image = Image::default();
+    if let Some((input, packet)) = controller.and_then(|input| {
+        input
+            .layout
+            .filter(|packet| packet.direct_owner_element)
+            .map(|packet| (input, packet))
+    }) {
+        // 2B5631..2B569C. With these direct rows the previous element
+        // object's test cannot change selection: row+20 is unsigned 255.
+        if !matches!(input.packet_row, PacketRow::Actor(_))
+            || !packet.direct_only
+            || !input.rows.iter().all(|r| {
+                r[0x20] == 0xff && (packet.actor_damage_kind_from_row || r[4] & 0xc0 == 0)
+            })
+        {
+            return Err(layout("direct owner element requires ordinary actor rows"));
+        }
+        let owner_flags = u(memory, add(s.owner, 0x188)?)?;
+        if owner_flags & 2 != 0 {
+            return Err(layout("the actor uses the alternate owner element branch"));
+        }
+        let private_owner = root("source_owner")?;
+        image.set(add(private_owner, 0x188)?, &owner_flags.to_le_bytes())?;
+        let selected = match input.actor_element_condition {
+            ActorElementCondition::Current => u(memory, add(s.owner, 0x2e9c)?)?,
+            ActorElementCondition::ProjectedUncoated => u32::MAX,
+        };
+        image.set(add(private_owner, 0x2e9c)?, &selected.to_le_bytes())?;
+        if selected != u32::MAX {
+            let power = u(memory, add(s.owner, 0x2ea4)?)?;
+            image.set(add(private_owner, 0x2ea4)?, &power.to_le_bytes())?;
+        }
+    }
     if let Some(source) = source {
         // 2EB61B bounds the 74-way dispatch; the table entries are PC202 RVAs.
         image.set(
@@ -811,7 +941,7 @@ fn project_encounter(
                 &read(memory, add(inventory, offset)?, 4)?,
             )?;
         }
-        for offset in [0x2e68, 0x2e6c, 0x3668] {
+        for offset in [0x2e48, 0x2e4c, 0x2e68, 0x2e6c, 0x3668] {
             if let Ok(value) = read(memory, add(s.owner, offset)?, 4) {
                 image.set(add(root("source_owner")?, offset)?, &value)?;
             }
@@ -832,6 +962,71 @@ fn project_encounter(
     }
     for projectile in &r.projectiles {
         projectile.install(&mut image, root("source_actor")?)?;
+    }
+    let skill_key = controller.and_then(|c| c.actor_skill_key);
+    if projectile.is_some() || skill_key.is_some_and(|key| key != 0) {
+        install_skill_table(&mut image, root("module")?)?;
+    }
+    if let Some(PacketRow::OwnedProjectile {
+        object,
+        descriptor_head,
+        action,
+        selector,
+        global_key,
+        descriptor_5f8,
+        descriptor_5fc,
+        packet_flags,
+    }) = projectile
+    {
+        // 624518 returns this module-owned fallback when the entity has no D.
+        // MAIN reads a different scalar for each reached damage-row branch.
+        const DEFAULT_DAMAGE: u64 = 0x4ba66b0;
+        let fallback = add(root("module")?, DEFAULT_DAMAGE)?;
+        let observed = reader.bytes(add(s.module_base, DEFAULT_DAMAGE)?, 0xb00);
+        match observed {
+            Ok(data) => image.set(fallback, &data)?,
+            Err(RuntimeError::RegionNotReadable { .. }) => {
+                let guard = u(memory, add(s.module_base, 0x4ba66a0)?)? as i32;
+                if guard < -1 {
+                    // 872770 calls 8731E4. The complete 2,672-byte native
+                    // constructor write mask equals these runs. Gaps stay unknown.
+                    let mut defaults = [0; 0xb00];
+                    for &(start, end, byte) in super::reset::DAMAGE {
+                        defaults[start..end].fill(byte);
+                        image.set(fallback + start as u64, &defaults[start..end])?;
+                    }
+                }
+            }
+            Err(error) => return Err(error),
+        }
+        install_projectile(
+            &mut image,
+            object,
+            root("source_actor")?,
+            descriptor_head,
+            action,
+            selector,
+        )?;
+        image.set(object + 0x5f8, &descriptor_5f8.to_le_bytes())?;
+        image.set(object + 0x600, &global_key.to_le_bytes())?;
+        image.set(object + 0x5fc, &descriptor_5fc.to_le_bytes())?;
+        image.set(object + 0x864, &category.to_le_bytes())?;
+        // PC202 326C94 distinguishes the spawned object from its owner, and
+        // reads bit 9 of the constructed packet for non-type-2 descriptors.
+        image.set(
+            add(root("packet")?, 0x288)?,
+            &[
+                0,
+                u8::from(packet_flags & 0x200 != 0 && descriptor_head[3] != 2),
+            ],
+        )?;
+        image.set(add(root("packet")?, 0x13c)?, &packet_flags.to_le_bytes())?;
+        // The scene enters MAIN at 3277E6 (return 3277EB). Its caller writes
+        // zero at 3277DF. The alternative call site uses a different value.
+        image.set(add(root("packet")?, 0x1e4)?, &0u32.to_le_bytes())?;
+        for offset in [0x28, 0x198] {
+            image.pointer(add(root("packet")?, offset)?, object)?;
+        }
     }
     let mut bindings = BTreeMap::new();
     let mut live_objects = BTreeMap::new();
@@ -882,10 +1077,33 @@ fn project_encounter(
         image.page(root(key)?);
     }
     let replacement = controller.and_then(|c| c.reference_target);
-    if let Some(data) = replacement {
-        install_reference_target(&mut image, data, root("packet")?, module)?;
+    // PC202 2B4E74 writes a u16. Bytes 134..135 have different owners.
+    if let (Some(c), Some(key)) = (controller, skill_key) {
+        let link = u32_at(c.parameter, 0xdc)?;
+        if link & 0x8000_0000 != 0 || link as u16 != key {
+            return Err(layout("witnessed skill key differs from selected action"));
+        }
+        image.set(add(root("packet")?, 0x136)?, &key.to_le_bytes())?;
     }
+    let replacement_actor = replacement
+        .map(|data| install_reference_target(&mut image, data, root("packet")?, module))
+        .transpose()?;
     for field in fields.values() {
+        if projectile.is_some()
+            && field.root == Root::Packet
+            && (((field.path == [0x28] || field.path == [0x198]) && field.n == 8)
+                || (matches!(field.path.as_slice(), [0x288] | [0x289]) && field.n == 1)
+                || (field.path == [0x13c] && field.n == 4))
+        {
+            continue;
+        }
+        if skill_key.is_some()
+            && field.root == Root::Packet
+            && field.path == [0x136]
+            && field.n == 2
+        {
+            continue;
+        }
         if replacement.is_some() && field.root == Root::Packet && field.path == [0x1c8] {
             continue;
         }
@@ -1012,6 +1230,23 @@ fn project_encounter(
     }
     for t in &r.tables {
         t.install(&mut reader, s, &mut image)?;
+    }
+    let condition = controller.map_or(TargetCondition::Benchmark, |c| c.target_condition);
+    if !matches!(condition, TargetCondition::Benchmark) {
+        let owner = match replacement_actor {
+            Some(actor) => encounter_peak_target::saturated_opponent_owner(&image, actor)?,
+            None => root("target_owner")?,
+        };
+        match condition {
+            TargetCondition::Saturated => encounter_peak_target::install_saturated_opponent(&mut image, owner)?,
+            TargetCondition::TheoreticalPeak => {
+                encounter_peak_target::install_theoretical_peak_opponent(&mut image, owner, module)?;
+            }
+            TargetCondition::Peak { ailments, weakness } => {
+                encounter_peak_target::install_peak_opponent(&mut image, owner, module, ailments, weakness)?;
+            }
+            TargetCondition::Benchmark => {}
+        }
     }
     let mut entry = vec![0; 416];
     entry[..8].copy_from_slice(b"NKENTRY1");

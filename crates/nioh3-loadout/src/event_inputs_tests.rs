@@ -194,6 +194,25 @@ fn each_contact_uses_fresh_candidate_and_its_own_source_packet() {
     )
     .unwrap()
     .unwrap();
+    let inherited = assemble_event_inputs(
+        &actor,
+        event(
+            &actor,
+            &[],
+            PacketPolicy::OwnerWeaponProjectile {
+                projectile: 0x90000,
+                projectile_incarnation: 19,
+                source_tag: (783025 << 4) | 4,
+            },
+        ),
+        NextHitPhase::Inactive,
+        no_read,
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(inherited.projectile, Some(0x90000));
+    assert_eq!(last(&inherited.words, main + 0x14), 2);
+    assert_eq!(last(&inherited.words, main + 0x18), 456);
     let b = assemble_event_inputs(
         &actor,
         event(&actor, &[], PacketPolicy::PreparedActor),

@@ -1,0 +1,6 @@
+[
+  {"name":"publish-pending-absorption","overrides":{"Fault":"CountQueued"},"expected":"Invariant QueuedNotEffective is violated"},
+  {"name":"sum-same-key","overrides":{"Fault":"AddSameKey"},"expected":"Invariant SingleDamageGroup is violated"},
+  {"name":"erase-other-group","overrides":{"Fault":"DropIndependent"},"expected":"Invariant IndependentFollowUp is violated"},
+  {"name":"spend-ki-on-fresh-arts","overrides":{"Fault":"ChargeFreshArts"},"expected":"Invariant FreshArtsDebit is violated"}
+]

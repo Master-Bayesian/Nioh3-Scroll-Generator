@@ -6,23 +6,29 @@
 //! environment. Uncovered paths and unresolved contracts are reported explicitly.
 
 pub mod agility;
+pub mod arts_proficiency;
 mod bundle_inputs;
 pub mod context;
 pub mod damage;
+mod damage_dealt;
 pub mod engine;
 pub mod formula;
 pub mod gpu;
 pub mod action_rows;
 pub mod hit_buffer;
 pub mod native;
+pub mod peak_coating;
+pub mod peak_prepared;
 pub mod pipeline;
 pub mod search;
 
 pub mod sequence;
 pub mod sustained;
+pub mod water_sword;
 
 mod stat_words;
 
 pub mod oracle_contract;
 
 pub mod search_control;
+pub mod kernel_asset;

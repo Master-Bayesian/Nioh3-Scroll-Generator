@@ -56,6 +56,17 @@ const BUFF_LABEL: Record<AttackScene["buff"], string> = {
   deflect: "精防增伤已触发",
   arts: "琢技已触发",
   deflect_arts: "精防＋琢技",
+  ninja_evade_damage: "成功识破后立即命中（仅计造成伤害增加）",
+  samurai_deflect_damage: "精防后立即命中（仅计造成伤害增加）",
+  amrita_absorption_damage: "吸收精华后立即命中（仅计造成伤害增加）",
+  style_shift_absorption_damage: "转心 → 吸收精华 → 首次命中",
+  deflect_arts_opening: "精防 → 满槽琢技（水形剑开场）",
+  absorption_then_defense_damage: "吸收精华 → 精防或识破 → 首次命中",
+  theoretical_peak: "理论全开（已建模增益）",
+  theoretical_peak_fire: "理论全开 · 火附魔",
+  theoretical_peak_water: "理论全开 · 水附魔",
+  theoretical_peak_lightning: "理论全开 · 雷附魔",
+  theoretical_peak_wind: "理论全开 · 风附魔",
 };
 
 function attackLabel(bundle: VerifiedBundle): string {
@@ -119,6 +130,7 @@ function loadoutError(error: unknown): string {
   if (/LOADOUT_SOURCE_ATTRIBUTES_UNPROVEN/.test(text)) return "当前来源重建尚不支持属性点重分配。请关闭“允许重新分配属性点”后搜索。";
   if (/LOADOUT_BUFF_SOURCE_NOT_ENABLED/.test(text)) return "所选增益需要对应技能已解锁并启用，请检查角色技能后重新读取。";
   if (/LOADOUT_BUFF_REQUIRES_SAMURAI/.test(text)) return "所选增益条件需要武士流派，请切换流派后重新读取。";
+  if (/LOADOUT_CONTEXT_PEAK_COATING_UNAVAILABLE/.test(text)) return "所选存档的随身物品没有这种附魔道具。";
   if (/LOADOUT_CONTEXT_WEAPON_MISMATCH/.test(text)) return "当前手持武器与所选攻击的武器类型不符，请切换武器后重新读取。";
   if (/LOADOUT_CONTEXT_CHARACTER_NOT_LOADED/.test(text)) return "请在游戏中载入角色，再刷新角色状态。";
   if (/LOADOUT_CONTEXT_CHANGED/.test(text)) return "读取过程中角色状态发生变化，请保持角色空闲后重试。";
@@ -758,7 +770,11 @@ export function LoadoutOptimizer({ bundles, catalog }: { bundles: VerifiedBundle
         </> : readSources ? <>
           <p>{readSources.source === "live" ? "来源：当前游戏" : "来源：已验证的角色快照"} · <span>等级 {readSources.level}</span> · <span>{readSources.school === "ninja" ? "忍者" : "武士"}</span></p>
           <p>{ATTRIBUTE_NAMES.map((name, i) => <span className="loadout-count" key={name}>{name} {readSources.attrs[i]}</span>)}</p>
-          <p>{readSources.source_state === "current_maps_matched" ? "当前装备的加成已与游戏核对。此攻击仍缺少计算伤害所需的数据。" : "重算的装备加成与游戏读数有差异，目前无法给出可靠排名。"}</p>
+          <p>{readSources.detail?.includes("ARTS_KI_DOES_NOT_DEPLETE")
+            ? (stanceScenes.some(b => b.scene.attack_id === "samurai-dual-swords-water-sword-opening")
+              ? "按读取时的琢技状态持续连斩，精力不会耗尽。可在「攻击」里选择水形剑的起手三段来比较配装。"
+              : "按读取时的琢技状态持续连斩，精力不会耗尽。")
+            : readSources.source_state === "current_maps_matched" ? "当前装备的加成已与游戏核对。此攻击仍缺少计算伤害所需的数据。" : "重算的装备加成与游戏读数有差异，目前无法给出可靠排名。"}</p>
         </> : <p>读取成功后才能使用当前角色搜索。</p>}
         <button className="link-button" onClick={read} disabled={!!busy || !save.selected}>刷新角色状态</button>
       </section>

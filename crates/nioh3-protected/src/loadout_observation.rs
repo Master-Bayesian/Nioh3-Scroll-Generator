@@ -162,11 +162,14 @@ fn file_hash(path: &Path) -> Result<String, HostError> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 fn bundle_hashes(bundle: &Path) -> Result<BTreeMap<String, String>, HostError> {
-    BUNDLE_FILES
-        .into_iter()
-        .filter(|name| bundle.join(name).is_file())
-        .map(|name| Ok((name.to_owned(), file_hash(&bundle.join(name))?)))
-        .collect()
+    let mut hashes = BTreeMap::new();
+    for name in BUNDLE_FILES {
+        let path = nioh3_loadout::kernel_asset::resolve(bundle, name).map_err(failed)?;
+        if path.is_file() {
+            hashes.insert(name.to_owned(), file_hash(&path)?);
+        }
+    }
+    Ok(hashes)
 }
 fn bundle_id(hashes: &BTreeMap<String, String>) -> Result<String, HostError> {
     Ok(sha256(&serde_json::to_vec(hashes).map_err(failed)?))
@@ -223,7 +226,8 @@ fn ensure_bundle(
     }
     let pending = PendingDirectory::new(&directory.join("bundles"))?;
     for name in hashes.keys() {
-        fs::copy(source.join(name), pending.path.join(name)).map_err(failed)?;
+        let path = nioh3_loadout::kernel_asset::resolve(source, name).map_err(failed)?;
+        fs::copy(path, pending.path.join(name)).map_err(failed)?;
     }
     if bundle_hashes(&pending.path)? != *hashes {
         return Err(failed("bundle changed while recording"));

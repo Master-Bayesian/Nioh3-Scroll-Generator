@@ -22,6 +22,7 @@ impl CandidateSourceMaps {
         address: u64,
         actor_category: u64,
         inventory_record: Option<u64>,
+        plan: Option<&super::EventProgram>,
     ) -> Result<Self, String> {
         let link = stat.checked_add(0x7d8).ok_or("STAT link overflow")?;
         if u64::from_le_bytes(context.read_known(link).map_err(|e| e.to_string())?) != address {
@@ -40,7 +41,20 @@ impl CandidateSourceMaps {
                 context.read_known(field).map_err(|e| e.to_string())?,
             ))
         };
-        let actor = pointer(main, 0x198)?;
+        let source = pointer(main, 0x198)?;
+        let actor = if let Some(p) = plan.and_then(super::EventProgram::initial_projectile) {
+            if source != p.object {
+                return Err("candidate source and initial projectile differ".into());
+            }
+            pointer(source, 0x260)?
+        } else {
+            source
+        };
+        if let Some(expected) = plan.and_then(super::EventProgram::damage_owner) {
+            if pointer(actor, 0x3a0)? != expected {
+                return Err("damage group belongs to a different actor".into());
+            }
+        }
         let controller = pointer(pointer(actor, 0x3b0)?, 8)?;
         if controller.checked_add(0xa68) != Some(actor_category) {
             return Err("candidate category field differs from the actor controller".into());

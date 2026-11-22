@@ -30,13 +30,35 @@ fn first_use_sources_from_ordinary_memory() {
     let projected =
         crate::loadout_first_use::read(&memory, &snapshot, &data.join("loadout/kusarigama-strong"))
             .unwrap();
+    let mut plain = vec![
+        0;
+        EQUIPMENT_REGION_END.max(
+            nioh3_save::layout::slot_offset(nioh3_save::layout::SCROLL_SLOT_COUNT - 1).unwrap()
+                + 0xe8
+        )
+    ];
+    let bank = snapshot.inputs.active_bank as usize * 0xf70;
+    for slot in [0usize, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15] {
+        let at = if slot == 15 {
+            nioh3_save::layout::slot_offset(0).unwrap()
+        } else {
+            equipment_offset(slot).unwrap()
+        };
+        plain[at..at + 0xe8].copy_from_slice(
+            &snapshot.inputs.inventory[bank + slot * 0xe8..bank + (slot + 1) * 0xe8],
+        );
+    }
+    if let Some(save) = case["owned_save"].as_str() {
+        plain = nioh3_save::decrypt_container(&fs::read(save).unwrap()).unwrap();
+    }
     if case["expected_status"] == "ready" {
-        let current = projected
+        let (current, _) = projected
             .context(
                 &memory,
                 &snapshot,
                 &data,
                 &data.join("loadout/kusarigama-strong"),
+                &plain,
             )
             .unwrap();
         let dest = dir.join("reconstructed-context");
@@ -103,27 +125,6 @@ fn first_use_sources_from_ordinary_memory() {
     }
     assert_eq!(projected["state"], "current_maps_matched");
     assert_eq!(projected["numeric_basis"], case["expected_numeric"]);
-    let mut plain = vec![
-        0;
-        EQUIPMENT_REGION_END.max(
-            nioh3_save::layout::slot_offset(nioh3_save::layout::SCROLL_SLOT_COUNT - 1).unwrap()
-                + 0xe8
-        )
-    ];
-    let bank = snapshot.inputs.active_bank as usize * 0xf70;
-    for slot in [0usize, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15] {
-        let at = if slot == 15 {
-            nioh3_save::layout::slot_offset(0).unwrap()
-        } else {
-            equipment_offset(slot).unwrap()
-        };
-        plain[at..at + 0xe8].copy_from_slice(
-            &snapshot.inputs.inventory[bank + slot * 0xe8..bank + (slot + 1) * 0xe8],
-        );
-    }
-    if let Some(save) = case["owned_save"].as_str() {
-        plain = nioh3_save::decrypt_container(&fs::read(save).unwrap()).unwrap();
-    }
     let state = dir.join(format!("empty-{}", std::process::id()));
     fs::create_dir(&state).unwrap();
     let mut contexts = Contexts::default();

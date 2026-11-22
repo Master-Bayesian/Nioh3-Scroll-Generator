@@ -424,15 +424,27 @@ pub struct Character {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum PacketKind {
+pub(crate) enum PacketKind {
     Weapon,
     Fixed(u16),
     DamageRow(i8),
 }
 
+impl PacketKind {
+    pub(crate) fn resolve(self, weapon_kind: u32) -> u32 {
+        match self {
+            Self::Weapon => weapon_kind,
+            Self::Fixed(kind) => u32::from(kind),
+            Self::DamageRow(1) if weapon_kind == 2 => 2,
+            Self::DamageRow(kind) => kind as i32 as u32,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum HitPacket {
     Prepared,
+    /// The projectile restores its own imbue fields and retains candidate attack.
     UnimbuedOwnerProjectile { power: u32, main_flags: u32 },
 }
 
@@ -444,7 +456,7 @@ pub struct Frame {
     d_base: Vec<u8>,
     d_base_offset: usize,
     main8: u32,
-    packet_kind: PacketKind,
+    pub(crate) packet_kind: PacketKind,
     pub(crate) hit_packets: Vec<HitPacket>,
     /// Context-owned values over the exact declared attack row/address layout.
     pub(crate) runtime_hit_inputs: Option<Vec<u8>>,
@@ -2346,13 +2358,7 @@ impl Tables {
             .wrapping_add(u32_at(pred, 0x24).wrapping_add(u32_at(pred, 0x2C)))
             .wrapping_sub(u32_at(&f.stat, 0x24).wrapping_add(u32_at(&f.stat, 0x2C)));
         writes.push((f.main_addr + 8, packet));
-        let weapon_kind = u32_at(pred, 0x30);
-        let packet_kind = match f.packet_kind {
-            PacketKind::Weapon => weapon_kind,
-            PacketKind::Fixed(kind) => u32::from(kind),
-            PacketKind::DamageRow(1) if weapon_kind == 2 => 2,
-            PacketKind::DamageRow(kind) => kind as i32 as u32,
-        };
+        let packet_kind = f.packet_kind.resolve(u32_at(pred, 0x30));
         writes.push((f.main_addr + 0xC, packet_kind));
         writes.push((f.main_addr + 0x10, u32_at(pred, 0x34)));
         let element = u32_at(pred, 0x3C);
@@ -2987,6 +2993,69 @@ impl Character {
 #[cfg(test)]
 pub(crate) fn audit_fixture() -> (Tables, Frame, Character) {
     audit_tests::fixture()
+}
+
+/// The independent PC202 replay supplies only (group, raw value, previous word)
+/// and a digest of its full output banks. Run the actual production materializer.
+#[cfg(test)]
+#[test]
+#[ignore = "Requires the PC202 set/skill dispatcher corpus and its bound tables.bin"]
+fn set_and_skill_materializers_match_original_dispatch() {
+    use sha2::{Digest, Sha256};
+    use std::{fs, path::PathBuf};
+
+    let dir = PathBuf::from(std::env::var_os("NIOH3_ADDITIVE_REFERENCE").unwrap());
+    let table_path = std::env::var_os("NIOH3_MATERIALIZER_TABLES").unwrap();
+    let table_bytes = fs::read(table_path).unwrap();
+    let tables = Tables::load(&table_bytes).unwrap();
+    let (_, _, character) = audit_fixture();
+    let hash = format!("{:x}", Sha256::digest(&table_bytes));
+    for family in ["D_ADD", "D_LITERAL"] {
+        let cases = fs::read(dir.join(format!("{family}_INPUTS.bin"))).unwrap();
+        let report_bytes = fs::read(dir.join(format!("{family}_ORIGINAL.json"))).unwrap();
+        let report: serde_json::Value = serde_json::from_slice(&report_bytes).unwrap();
+        assert!(report["native_inputs"]
+            .as_object()
+            .unwrap()
+            .values()
+            .any(|v| v.as_str() == Some(&hash)));
+        let mut stat = [0u8; 0x900];
+        let mut bank = [0u8; 0xb00];
+        let mut result = Sha256::new();
+        let (vectors, trailing) = cases.as_chunks::<10>();
+        assert!(trailing.is_empty());
+        let count: u64 = report["original_calls"]
+            .as_object()
+            .unwrap()
+            .values()
+            .map(|v| v.as_u64().unwrap())
+            .sum();
+        assert_eq!(vectors.len() as u64, count);
+        for input in vectors {
+            let group = u16_at(input, 0);
+            for word in bank.as_chunks_mut::<4>().0 {
+                word.copy_from_slice(&input[6..10]);
+            }
+            tables
+                .materialize_one(
+                    &character,
+                    &[0; 7],
+                    group,
+                    u32_at(input, 2),
+                    &mut stat,
+                    &mut bank,
+                )
+                .unwrap();
+            result.update(input);
+            result.update(bank);
+        }
+        assert_eq!(
+            format!("{:x}", result.finalize()),
+            report["comparison_sha256"].as_str().unwrap(),
+            "Native bank comparison for {family}"
+        );
+        assert_eq!(stat, [0; 0x900]);
+    }
 }
 
 #[cfg(test)]

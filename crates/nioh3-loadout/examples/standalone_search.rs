@@ -90,7 +90,7 @@ fn program_hash(bundle: &Path, kind: ScorerKind) -> Result<String, Box<dyn Error
     } else {
         "main_cpu.so"
     };
-    let host = bundle.join(main);
+    let host = nioh3_loadout::kernel_asset::resolve(bundle, main)?;
     if host.is_file() {
         hash.update(fs::read(host)?);
     } else if cfg!(windows) && bundle.join("kernel.dll").is_file() {
@@ -102,7 +102,8 @@ fn program_hash(bundle: &Path, kind: ScorerKind) -> Result<String, Box<dyn Error
         } else {
             "main_device.so"
         };
-        hash.update(fs::read(bundle.join(name))?);
+        let device = nioh3_loadout::kernel_asset::resolve(bundle, name)?;
+        hash.update(fs::read(device)?);
     }
     Ok(format!("{:x}", hash.finalize()))
 }
@@ -112,7 +113,7 @@ const USAGE: &str = concat!(
     "[outfits-this-run] [linear|spread] --set <id> <minimum-tier> ",
     "[--set <id> <minimum-tier> ...] [--verify-unpruned] ",
     "[--profile] [--no-reuse] [--cuda-reuse] [--batch <1..4096>] [--audit] [--cancel-file <path>] ",
-    "[--cancel-after-checks <n>] [--audit-native-inputs]"
+    "[--cancel-after-checks <n>] [--audit-native-inputs] [--context <directory>]"
 );
 
 struct Diagnostics {
@@ -122,6 +123,7 @@ struct Diagnostics {
     batch: usize,
     audit: bool,
     native_inputs: bool,
+    context: Option<PathBuf>,
     cancel_file: Option<PathBuf>,
     cancel_after_checks: Option<u64>,
 }
@@ -138,11 +140,16 @@ fn parse_sets(
         batch: 2048,
         audit: false,
         native_inputs: false,
+        context: None,
         cancel_file: None,
         cancel_after_checks: None,
     };
     while !flags.is_empty() {
         match flags {
+            [flag, path, rest @ ..] if flag == "--context" && diagnostics.context.is_none() => {
+                diagnostics.context = Some(PathBuf::from(path));
+                flags = rest;
+            }
             [flag, key, tier, rest @ ..] if flag == "--set" => {
                 let key = key.to_str().ok_or(USAGE)?;
                 let key = match key.strip_prefix("0x").or_else(|| key.strip_prefix("0X")) {
@@ -250,7 +257,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     {
         return Err("expected a saved inventory export".into());
     }
-    let capture = LoadoutContext::load(&bundle.join("context"))?;
+    let context_dir = diagnostics
+        .context
+        .clone()
+        .unwrap_or_else(|| bundle.join("context"));
+    let capture = LoadoutContext::load(&context_dir)?;
     let engine = Engine::open_with_context(bundle, &capture)?;
     let mut rows = Vec::with_capacity(input.records.len());
     let mut seen = HashSet::new();
@@ -487,13 +498,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 attrs: row.attrs,
                                 items: row.items,
                             };
+                            let details = engine.damage_details(&candidate, &pack, &mut work);
                             let (outfit, contacts) =
                                 engine.native_words(&candidate, &pack, &mut work)?;
                             serde_json::to_writer(
                                 &mut *file,
                                 &json!({
                                     "ordinal": row.ordinal, "outfit": outfit, "contacts": contacts,
-                                    "expected": expected,
+                                    "expected": expected, "details": details,
                                 }),
                             )?;
                             file.write_all(b"\n")?;
@@ -528,6 +540,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                     "cpu_certificate_vs_direct","strict_native_component_bits"],
                 "original_game_MAIN":"requires separate retained-host witness replay",
             });
+        }
+        if state.progress.no_path != 0 {
+            eprintln!("CPU scoring diagnostics: {:?}", engine.cpu_diagnostics());
         }
         write_atomic(&output.join("SEARCH_RESULT.json"), &report)?;
         println!(

@@ -44,8 +44,24 @@ assert(Number.isInteger(config.set_key) && Number.isInteger(config.set_pieces));
 assert.deepEqual(reference.required_sets, [{key: config.set_key, minimum_tier: config.set_pieces}], 'Reference has different set constraints');
 assert.equal(reference.top_case?.components?.state, 'available', 'Reference must include independently checked winner components');
 const contactsPerCandidate = scene.layout.fixed_scored_contacts;
-assert(Number.isInteger(contactsPerCandidate) && contactsPerCandidate > 0);
-assert.equal(reference.top_case.components.contacts.length, contactsPerCandidate);
+let expectedContacts,contactScheduleSha;
+if (contactsPerCandidate===null && scene.layout.held_water_sword) {
+  const bytes=await readFile(config.contact_schedule);
+  const schedule=JSON.parse(bytes);
+  assert.equal(schedule.scene_id,scene.scene_id);
+  assert.equal(schedule.save_source_sha256,sourceSha);
+  assert.equal(schedule.domain_sha256,reference.progress.domain_sha256);
+  assert.equal(schedule.counts.length,reference.progress.planned);
+  assert(schedule.counts.every(n=>Number.isSafeInteger(n) && n>0));
+  assert.equal(reference.top_case.components.contacts.length,schedule.counts[reference.progress.rank[0].ordinal]);
+  expectedContacts=schedule.counts.reduce((a,n)=>a+n,0);
+  assert(Number.isSafeInteger(expectedContacts));
+  contactScheduleSha=digest(bytes);
+} else {
+  assert(Number.isInteger(contactsPerCandidate) && contactsPerCandidate > 0);
+  assert.equal(reference.top_case.components.contacts.length, contactsPerCandidate);
+  expectedContacts=reference.progress.planned*contactsPerCandidate;
+}
 const artifact = await inspectOnefile(outer);
 const report = {mode, release_ready: false, private_resources_copied: mode === 'engineering-fixture', schema: 'nioh3-packaged-loadout-e2e/v1', passed: false, outer_sha256: artifact.sha256,
   source_commit: inspection.source_commit, environment: {platform: process.platform, arch: arch(), os: release()},
@@ -65,9 +81,16 @@ async function checkLoadedScene(sceneDir) {
   const actual = await readdir(sceneDir, {withFileTypes: true});
   const runtimeFiles = actual;
   assert(runtimeFiles.every(entry => entry.isFile()), 'Unexpected scene directory or symbolic link');
-  assert.deepEqual(runtimeFiles.map(entry => entry.name).sort(), [...Object.keys(scene.files), 'runtime-contract.json'].sort(), 'Loaded scene file set differs from final payload');
+  const names = new Set(runtimeFiles.map(entry => entry.name));
+  assert(runtimeFiles.every(entry => entry.name === 'runtime-contract.json' || Object.hasOwn(scene.files, entry.name)), 'Unexpected installed scene file');
   assert.equal(await hashFile(join(sceneDir, 'runtime-contract.json')), scene.contract_sha256);
-  for (const [name, expectedFile] of Object.entries(scene.files)) assert.equal(await hashFile(join(sceneDir, name)), expectedFile.sha256, 'Loaded scene differs from embedded file ' + name);
+  const paths = {};
+  for (const [name, expectedFile] of Object.entries(scene.files)) {
+    const shared = !names.has(name) && scene.shared_files?.[name];
+    paths[name] = shared ? join(dirname(dirname(sceneDir)), shared) : join(sceneDir, name);
+    assert.equal(await hashFile(paths[name]), expectedFile.sha256, 'Loaded scene differs from embedded file ' + name);
+  }
+  return paths;
 }
 const normalized = rows => rows.map(row => ({damage: row.damage,
   items: (row.items ?? row.assignments).map(item => [item.slot, item.slot_index ?? item.save_slot]),
@@ -244,8 +267,8 @@ async function run(backend, withProfile) {
     assert.equal(executed.completed, result.answered);
     if (backend === 'card') {
       assert(executed.native_calls > 0, 'Loaded CUDA module executed no native call');
-      assert.equal(executed.submitted_contacts, result.answered * contactsPerCandidate);
-      assert.equal(executed.completed_contacts, result.answered * contactsPerCandidate);
+      assert.equal(executed.submitted_contacts, expectedContacts);
+      assert.equal(executed.completed_contacts, expectedContacts);
       assert.equal(executed.failed_batches, 0);
       assert.equal(executed.reuse_enabled, false, 'Default-policy acceptance must execute every submitted contact');
     } else {
@@ -264,14 +287,14 @@ async function run(backend, withProfile) {
     const libraryName = backend === 'cpu' ? 'main_cpu.dll' : 'main_device.dll';
     const matching = lines.filter(line => line.module === libraryName);
     assert(matching.length > 0, 'No actual loaded scorer module observed; do not substitute a filename guess');
-    const loaded = matching.at(-1), sceneDir = dirname(loaded.library);
+    const loaded = matching.at(-1);
     assert(pathInside(loaded.worker, env.LOCALAPPDATA));
     const packagedScene = join(dirname(loaded.worker), 'runtime', 'data', 'loadout', scene.scene_id);
-    assert.equal(resolve(sceneDir).toLowerCase(), resolve(packagedScene).toLowerCase(),
-      'Loaded scorer must come from the installed scene next to the packaged worker');
+    const verifiedPaths = await checkLoadedScene(packagedScene);
+    assert.equal(resolve(loaded.library).toLowerCase(), resolve(verifiedPaths[libraryName]).toLowerCase(),
+      'Loaded scorer must come from the package and match the installed scene');
     assert(loaded.worker.toLowerCase().includes(artifact.payloadSha256));
     assert.equal(await hashFile(loaded.library), scene.files[libraryName].sha256);
-    await checkLoadedScene(sceneDir);
     const abi = JSON.parse(execFileSync(python, [resolve('tools/probe_loadout_abi.py'), loaded.library, backend], {encoding: 'utf8'}));
     assert.equal(abi.passed, true);
     const runReceipt = {private_context_file_hashes: privateContextHashes, execution_receipt: executed, requested_backend: backend, actual_backend: result.backend, complete: result.complete,
@@ -282,6 +305,7 @@ async function run(backend, withProfile) {
       observed_abis: abi.observed_abis, loaded_library: {path: loaded.library, worker: loaded.worker,
         sha256: abi.sha256, scene_files_match_payload: true, worker_from_payload_cache: true},
       first_read_job: first.job_id, refresh_job: refresh.job_id, search_job: job.job_id};
+    if (contactScheduleSha) Object.assign(runReceipt,{contact_schedule_sha256:contactScheduleSha,expected_contacts:expectedContacts});
     report.scenes[0].runs.push(runReceipt);
     evidence.search = job;
     evidence.loaded_modules = lines;

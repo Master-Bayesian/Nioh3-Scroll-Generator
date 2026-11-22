@@ -1,0 +1,5 @@
+[
+  {"name":"score-free-loop-as-depletion","overrides":{"Fault":"FalseDepletion"},"expected":"Invariant Endpoint is violated by the initial state:"},
+  {"name":"charge-without-notification","overrides":{"Fault":"ChargeOnNextContact"},"expected":"Invariant Phase is violated"},
+  {"name":"forget-arts-reduction","overrides":{"Fault":"LoseDiscount"},"expected":"Invariant Debit is violated"}
+]

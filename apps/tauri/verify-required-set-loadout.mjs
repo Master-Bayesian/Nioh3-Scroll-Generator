@@ -9,14 +9,15 @@ import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 
-const [rootPath, targetPath, backend = 'card', sourceMode = 'epoch'] = process.argv.slice(2);
+const [rootPath, targetPath, backend = 'card', sourceMode = 'epoch', fixtureName = 'FIXTURE.json'] = process.argv.slice(2);
 assert(['epoch','first-use'].includes(sourceMode));
 assert(rootPath && targetPath && ['card', 'cpu'].includes(backend),
-  'Usage: node verify-required-set-loadout.mjs FIXTURE BUILD_TARGET [card|cpu]');
+  'Usage: node verify-required-set-loadout.mjs FIXTURE BUILD_TARGET [card|cpu] [epoch|first-use] [fixture.json]');
 const root = resolve(rootPath), target = resolve(targetPath);
 const output = await mkdtemp(join(root, 'native-' + backend + '-'));
 console.log('Evidence directory ' + output);
-const fixture = JSON.parse(await readFile(join(root, 'FIXTURE.json'), 'utf8'));
+const fixture = JSON.parse(await readFile(join(root, fixtureName), 'utf8'));
+const appData = join(root, fixture.data_root ?? 'host-data');
 const baseline = JSON.parse(await readFile(fixture.standalone_reference, 'utf8'));
 const fixturePath = join(root, fixture.fixture);
 const host = join(target, 'debug/nioh3-studio.exe');
@@ -40,17 +41,17 @@ const child = spawn(host, ['--user-data-dir', profile], {
     NIOH3_TAURI_TEST_DEBUG_PORT: String(port),
     NIOH3_STATE_ROOT: join(output, 'state'),
     NIOH3_RUST_PROTECTED_WORKER: worker,
-    NIOH3_RUST_PROTECTED_DATA_ROOT: join(root, 'host-data'),
+    NIOH3_RUST_PROTECTED_DATA_ROOT: appData,
     NIOH3_RUST_PROTECTED_CONTRACT_DIR: resolve('packages/contracts'),
     NIOH3_RUST_PROTECTED_GAME_FILE_VERSION: '2.0.2.0',
     NIOH3_RUST_SEARCH_WORKER: search,
-    NIOH3_RUST_SEARCH_DATA_ROOT: join(root, 'host-data'),
+    NIOH3_RUST_SEARCH_DATA_ROOT: appData,
     NIOH3_RUST_SEARCH_GAME_FILE_VERSION: '2.0.2.0',
     NIOH3_LOADOUT_GPU: backend === 'card' ? '1' : '0',
     NIOH3_E2E_NO_GAME: '1',
     NIOH3_E2E_CAPTURE_ROOT: root,
     ...(sourceMode === 'first-use'
-      ? {NIOH3_E2E_FIRST_USE_MEMORY: join(root, 'memory.json')}
+      ? {NIOH3_E2E_FIRST_USE_MEMORY: join(root, fixture.memory_file ?? 'memory.json')}
       : {NIOH3_E2E_SOURCE_EPOCH: join(root, 'EPOCH_INPUT.json')}),
   },
 });
@@ -71,7 +72,7 @@ try {
   await page.waitForFunction(() => !!window.operations, { timeout: 15000 });
   // Observe accepted IPC. Each call still executes in the original Tauri broker.
   await page.evaluate(() => {
-    const log = { calls: [], jobs: {}, cancelled: [] };
+    const log = { calls: [], jobs: {}, cancelled: [], snapshotErrors: {} };
     window.__loadoutE2e = log;
     const ops = window.operations;
     const execute = ops.execute.bind(ops);
@@ -93,9 +94,14 @@ try {
       }
     };
     ops.snapshot = async (role, id) => {
-      const job = await snapshot(role, id);
-      log.jobs[id] = job;
-      return job;
+      try {
+        const job = await snapshot(role, id);
+        log.jobs[id] = job;
+        return job;
+      } catch (error) {
+        log.snapshotErrors[id] = String(error);
+        throw error;
+      }
     };
     ops.cancel = async (role, id) => {
       const job = await cancel(role, id);
@@ -105,7 +111,43 @@ try {
     };
   });
   await page.getByRole('button', { name: '配装优化', exact: true }).click();
-  await selectLoadoutScene(page, JSON.parse(await readFile(join(root, 'host-data', 'loadout', fixture.scene_id ?? 'kusarigama-strong', 'bundle.json'), 'utf8')));
+  const choose = async id => selectLoadoutScene(page, JSON.parse(await readFile(join(appData, 'loadout', id, 'bundle.json'), 'utf8')));
+  const waitForContextJob = async id => {
+    await page.waitForFunction(bundle => {
+      const log = window.__loadoutE2e;
+      const call = log.calls.findLast(row => row.method === 'save.loadout_context' && row.params.bundle === bundle);
+      if (!call?.jobId) return false;
+      if (log.snapshotErrors[call.jobId]) throw Error(log.snapshotErrors[call.jobId]);
+      const job = log.jobs[call.jobId];
+      if (job && ['failed','cancelled'].includes(job.state)) throw Error(JSON.stringify(job.error ?? job.state));
+      return job?.state === 'completed';
+    }, id, {timeout:60000});
+  };
+  if (fixture.non_depleting_scene) {
+    await choose(fixture.non_depleting_scene);
+    await waitForContextJob(fixture.non_depleting_scene);
+    const hint = page.getByTestId('loadout-context').getByText(/精力不会耗尽.*起手三段/);
+    await hint.waitFor({timeout:15000});
+    const rejected = await page.evaluate(bundle => {
+      const log = window.__loadoutE2e;
+      const call = log.calls.findLast(row => row.method === 'save.loadout_context' && row.params.bundle === bundle);
+      return log.jobs[call.jobId].result;
+    }, fixture.non_depleting_scene);
+    assert.equal(rejected.state, 'sources_read');
+    assert.equal(rejected.source_sha256.toLowerCase(), fixture.source_sha256);
+    assert.match(rejected.detail, /ARTS_KI_DOES_NOT_DEPLETE/);
+    assert(!rejected.context_id);
+    const searchButton = page.getByTestId('loadout-search-start');
+    const searchControl = await searchButton.count() ? 'disabled' : 'absent';
+    if (searchControl === 'disabled') assert(await searchButton.isDisabled());
+    assert.equal(await page.getByTestId('loadout-result-coverage').count(), 0);
+    evidence.nonDepleting = {scene:fixture.non_depleting_scene, hint:await hint.innerText(), state:rejected.state,
+      detail:rejected.detail, searchControl};
+    await page.screenshot({path:join(output,'no-finite-total.png')});
+  }
+  const selectedScene = fixture.scene_id ?? 'kusarigama-strong';
+  await choose(selectedScene);
+  await waitForContextJob(selectedScene);
   const context = page.getByTestId('loadout-context');
   await page.waitForFunction(() => {
     const state = document.querySelector('[data-testid="loadout-discovery-panel"]')?.dataset.state;
@@ -128,6 +170,28 @@ try {
     sourceSha: contextJob.result.source_sha256, attrs: contextJob.result.attrs };
   assert.equal(evidence.contextReceipt.source, 'captured');
   assert.equal(evidence.contextReceipt.sourceSha.toLowerCase(), fixture.source_sha256);
+  if (fixture.required_context_notes) {
+    const notes = contextJob.result.notes;
+    for (const snippet of fixture.required_context_notes) {
+      assert(notes.some(note => note.includes(snippet)), 'Missing context note: ' + snippet);
+      await context.getByText(snippet, { exact: false }).waitFor();
+    }
+    evidence.contextReceipt.notes = notes;
+  }
+  if (fixture.manual_refresh) {
+    const before = (await logs()).calls.findLast(c => c.method === 'save.loadout_context').jobId;
+    await page.getByRole('button', {name:'刷新角色状态',exact:true}).click();
+    await page.waitForFunction(previous => {
+      const log=window.__loadoutE2e;
+      const call=log.calls.findLast(c=>c.method==='save.loadout_context' && c.jobId);
+      return call && call.jobId!==previous && log.jobs[call.jobId]?.state==='completed';
+    }, before, {timeout:60000});
+    const latest=(await logs()).calls.findLast(c=>c.method==='save.loadout_context' && c.jobId);
+    const refreshed=await jobFor('save.loadout_context');
+    assert.equal(refreshed.result.source_sha256.toLowerCase(),fixture.source_sha256);
+    assert.equal(refreshed.result.state,'ready');
+    evidence.refresh={first:before,second:latest.jobId,source:refreshed.result.source};
+  }
 
   await page.getByRole('combobox', { name: '添加套装条件', exact: true }).selectOption(String(0xB2C1));
   const tier = page.getByRole('combobox', { name: '生效件数', exact: true });
@@ -165,7 +229,7 @@ try {
   }
   evidence.search = { total: score.full_size, excluded: score.excluded_by_set_bound,
     answered: score.answered, rankRowsMatched: score.best.length, seconds: score.seconds,
-    current: score.current.damage_details, winner: score.best[0] };
+    current: score.current.damage_details, currentStatus: score.current.status, winner: score.best[0] };
   console.log('Verified ' + score.answered + ' scored outfits and ' + score.best.length + ' published ranks on ' + backend);
   await page.screenshot({ path: join(output, 'result.png') });
   if (!fixture.ranking_only) {
@@ -190,7 +254,9 @@ try {
         }
       }
     }
+  }
 
+  if (!fixture.ranking_only || fixture.verify_preview) {
     await page.locator('.loadout-list > li.open').first()
       .getByRole('button', { name: '穿上这套（写入存档）', exact: true }).click();
     const plan = page.locator('.loadout-page .character-save-plan');
@@ -204,7 +270,9 @@ try {
     await page.screenshot({ path: join(output, 'wear-preview.png') });
     await plan.getByRole('button', { name: '放弃', exact: true }).click();
     await plan.waitFor({ state: 'hidden' });
+  }
 
+  if (!fixture.ranking_only) {
     await tier.selectOption('2');
     await start.click();
     await page.waitForFunction(() => {
@@ -261,11 +329,12 @@ try {
   const log = await logs();
   evidence.ipcMethods = log.calls.map(row => row.method);
   assert(!evidence.ipcMethods.includes('save.commit'));
-  if (!fixture.ranking_only) assert(evidence.ipcMethods.includes('save.discard'));
+  if (!fixture.ranking_only || fixture.verify_preview) assert(evidence.ipcMethods.includes('save.discard'));
   assert.equal(await hash(fixturePath), fixture.source_sha256, 'Acceptance changed the source file');
   assert.deepEqual(evidence.pageErrors, []);
   evidence.geometry = await page.evaluate(() => ({ width: innerWidth, height: innerHeight, dpr: devicePixelRatio }));
-  evidence.hashes = { host: await hash(host), worker: await hash(worker), fixture: await hash(fixturePath) };
+  evidence.hashes = { host: await hash(host), worker: await hash(worker), readonlyWorker: await hash(search), fixture: await hash(fixturePath),
+    ...(sourceMode === 'first-use' ? {retainedMemory: await hash(join(root, fixture.memory_file ?? 'memory.json'))} : {}) };
   evidence.passed = true;
   console.log(JSON.stringify({ passed: true, backend, answered: score.answered, winner: score.best[0].damage,
     rankRowsMatched: score.best.length, current: score.current.damage, seconds: score.seconds }));

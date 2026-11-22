@@ -14,17 +14,79 @@ The primary score is the selected attack's final damage against the
 stated reference opponent. Keep target and hit assumptions consistent
 across outfits. Rebuild the character's attack, learned skill effects,
 set bonuses and eligible buffs for each outfit. For theoretical peak
-damage, apply the maximum jointly attainable state under the stated
-conditions, respecting prerequisites, stacking, caps and consumption.
+damage, assume its compatible eligible buffs are active together. Apply the
+game's own strength selection, stack caps and per-contact consumption.
 Show which buff assumptions the evaluator supports. A raw motion value
 is a property of a damage row; an effective multiplier used to compare
 outfits needs an explicit common reference and equipment-dependent effects.
+
+The player chooses the objective before comparing outfits. A steady baseline
+uses no temporary effects. A conditional benchmark names the events, their order
+and the contact or time interval being scored. For **Theoretical peak (modeled buffs)**,
+the player supplies the ideal-uptime assumption. An outfit must grant its own
+effects and the character must have the required skills. Trigger scheduling and
+timed expiry are outside this objective. A one-hit bonus contributes to the
+first eligible landed hit. A continuing attack uses the costs of the selected
+active phase and the candidate's own Ki and reductions. The finite opening
+and the full cast to exhaustion are separate choices. The desktop describes
+the modeled equipment, learned skills, held consumables, prepared jutsu and
+target conditions alongside the selection. Bind caster-side sources to the
+selected save and actor. A prepared caster supply must be configured on that
+actor and have a remaining use in the bound save. Carnage uses the outfit's rebuilt jutsu power.
+It competes with Power Pill and other ordinary damage-dealt grants using the
+original comparison magnitude. Its incoming penalty belongs to the caster.
+Choose one temporary element for a cast. For Water compare the held amulet
+with a charged Summon Water at the candidate's jutsu power. Apply the override
+to the native contact routes that accept it. Keep native intrinsic and spawned
+damage components on their own routes.
+Use the same opponent state for every outfit in the theoretical peak
+comparison. The reference training Samurai starts with Saturation,
+standard Confusion and ordinary Weakness. Saturation multiplies physical
+damage by 1.20. Standard Confusion and Weakness multiply both damage lanes
+by 1.40 and 1.20, respectively. The comparison selects these existing
+statuses regardless of how the player applies them or which supporting
+items are in the save. The projected status keys still enable each
+outfit's own qualifying bonuses. Other elemental ailments require an
+explicit comparison condition.
+
+| Shared benchmark | Recomputed for each outfit |
+| --- | --- |
+| Opponent, hit direction, and declared target statuses | Weapon attack, intrinsic element, damage split, and weapon and set effects |
+| One selected temporary coating | Eligible gear and skill effects, including bonuses against the declared enemy states, and caster contributions whose strength uses the outfit's stats |
+| The character's invested attributes for exact gear search | Derived stats and resource costs that change when gear changes |
+
+When attribute redistribution participates in a comparison, apply any
+established cast prerequisite using that candidate's invested attributes.
+The shared target assumes access to its external effects. The ordinary
+prepared Weakness cast path checks item and action eligibility without a
+minimum for any invested attribute.
+
+The shared rules and [original replay and rankings](../../deliverables/peak-spells-20261122/README.md)
+cover basic contacts and authored projectile contacts. Live buildup timing and
+status expiry belong to a different scoring objective.
+For a future playstyle-weighted objective, weight the relevant joint buff states
+at landed attacks (and across the selected combo). Separate per-buff uptime
+percentages do not determine how often the buffs overlap on an actual hit.
 
 Resolve a selection to the native actions and damage events that belong
 to it. Count its physical and elemental damage in native order. Use a
 specific charge level, hit count or resource-stop condition where it
 changes the score. For a skill triggered after another attack, score the
 selected skill alone unless the selection explicitly includes the lead-in.
+
+For a full-hit comparison, assume the target stays in reach across the move's
+eligible contacts. Use the same reference opponent for every outfit and compute
+each contact's damage with that outfit. Wild Wolves II has a player-confirmed
+four-hit execution on a yokai. Use all four contacts for its full-hit ranking.
+The full-hit objective requires no prediction of target displacement.
+
+For held attacks the chosen endpoint is part of the attack selection. A
+resource can remain constant during a legitimate uninterrupted attack.
+In that case compare a declared finite prefix when available. For Samurai
+high-stance Water Sword, the opening comprises up to three actions and six
+hits. Holding from a fresh Arts Proficiency activation sustains the waiver
+and has no Ki-exhaustion endpoint. An active-at-read selection must state
+which parts of the starting effect are held fixed.
 
 A player-facing selection is verified when its label resolves to the
 intended move and the ordinary App search returns the native-checked damage
@@ -50,6 +112,23 @@ candidate can receive it under the selected assumptions, how native code
 combines competing effects, and when MAIN observes the result. Several
 triggers may produce the same status key. A table of definitions establishes
 identities and parameters; simultaneous eligibility needs separate evidence.
+
+The condition **immediately after absorbing Amrita** starts with the ordinary
+damage status absent and scores the first landed contact after a successful
+pickup and status rebuild. For both forms the engine checks the effective
+sources of each outfit, including equipment passives and qualified set tiers.
+The pickup offers several independent effects. Only its damage grant supplies
+the 10% status factor here. Competing sources for that status use the native
+winning contribution. The label scopes the calculation to this damage channel.
+See the [native ranking and desktop acceptance](../../deliverables/shared-source-family-20261121/README.md).
+
+The [stacking and peak ranking evidence](../../deliverables/peak-providers-20261121/README.md)
+also covers two grants of the ordinary damage status, a compatible first-hit
+modifier and the Samurai Arts phase. The same first-hit and ordinary-status
+rules serve Samurai and Ninja according to the selected form and candidate
+sources. The scene publisher uses the same rules for all covered basic,
+fixed-contact and held objectives. The scene manifest records each verified
+projectile or direct packet binding and optional element choice.
 
 The local 0.8.13 integration candidate adds **Loadout Optimizer** to the
 desktop navigation. The player chooses a weapon type, an installed attack
@@ -190,7 +269,21 @@ Its action-only objective excludes the prerequisite quick attack and retains
 the direct contact, zero-motion occurrence and damaging owner projectile.
 The unimbued actor packet begins with elemental power 100, from original
 PC202 2B42C6 / 2B444C. Each projectile has its own source and damage row and
-links back to the role being scored. Ordinary direct-contact scenes can project owned weapons of the selected TYPE
+links back to the role being scored.
+
+**Water Tsubame Gaeshi.** The thrown wave's damage row supplies water. Its
+packet retains the candidate weapon's attack input at MAIN+8. Its constructor
+sets the imbue selector/power at +14/+18 to -1/100 and writes its own flags at
++298. Recompute the wave for every outfit. At attack input 2589 the wave dealt
+847 water with either a neutral or wind-imbued weapon. At 2789 it dealt 1126
+water in both cases. At 2589 the direct blade contact's elemental damage changed
+from 425 to 54 in the same imbue comparison. On a second retained role, changing
+only the owned katana changed the wave from 1057 to 898. These controls establish
+attack scaling and the scope of the imbue override for this move and benchmark.
+Other projectiles select their own packet constructor. See the
+[original MAIN comparison](../../tools/acceptance/check_water_weapon_scaling.py).
+
+Ordinary direct-contact scenes can project owned weapons of the selected TYPE
 from a slot-one observation in the same form, with no temporary status. An
 incompatible held type produces no current-outfit damage comparison. Projectile
 and older fixed contexts retain their declared input requirements. Their public bundles contain

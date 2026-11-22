@@ -39,6 +39,7 @@ def build(resource_root, native_reader, catalog, damage_bank, output, receipt):
         resource = ActionResource.load(key, raw)
         rows = resource.records(2, 192)
         with_rows = 0
+        first_index = 0  # PC202 49BD28 indexes the resource's concatenated row-reference lists.
         for parameter, action in zip(
             resource.records(1, 336), action_file_records(resource), strict=True
         ):
@@ -65,8 +66,9 @@ def build(resource_root, native_reader, catalog, damage_bank, output, receipt):
                 params.setdefault(parameter, len(params)),
                 start,
                 len(indices),
-                indices[0] if indices else 0xFFFF,
+                first_index,
             )
+            first_index += len(indices)
         by_resource[key] = {
             "parameters": len(resource.records(1, 336)),
             "with_direct_rows": with_rows,

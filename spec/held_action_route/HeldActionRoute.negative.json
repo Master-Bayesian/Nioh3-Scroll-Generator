@@ -1,0 +1,5 @@
+[
+  {"name":"upgrade-before-first-repeat","overrides":{"Fault":"AlwaysUpgrade"},"expected":"Invariant SustainRoute is violated"},
+  {"name":"drop-repeat-counter-update","overrides":{"Fault":"LoseIncrement"},"expected":"Invariant SustainRoute is violated"},
+  {"name":"discard-finisher-on-depletion","overrides":{"Fault":"DropFinish"},"expected":"Invariant TerminalCharge is violated"}
+]

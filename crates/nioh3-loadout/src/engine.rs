@@ -675,7 +675,7 @@ impl Engine {
                 "hit packet policies do not match the hit rows",
             ));
         }
-        let event_program = inputs
+        let mut event_program = inputs
             .file("event_plan.json")
             .map(|bytes| {
                 EventProgram::compile(
@@ -684,10 +684,17 @@ impl Engine {
                     &addresses,
                     &rows,
                     inputs.required("hits.txt"),
+                    context.as_ref(),
                 )
                 .map_err(|reason| bad(dir, "event_plan.json", &reason))
             })
             .transpose()?;
+        if let Some(plan) = &mut event_program {
+            plan.bind_held_action(context.as_ref())
+                .map_err(|e| bad(dir, "event_plan.json", &e))?;
+            plan.bind_direct_owner_element(context.as_ref())
+                .map_err(|e| bad(dir, "event_plan.json", &e))?;
+        }
         let candidate_source_maps = if frame.has_source_rebuild() {
             event_program
                 .as_ref()
@@ -703,6 +710,7 @@ impl Engine {
                         address,
                         category,
                         inventory_record,
+                        event_program.as_ref(),
                     )
                     .map(Box::new)
                     .map_err(|e| bad(dir, "context", &e))
@@ -1048,10 +1056,11 @@ impl Engine {
         self.prepare(c, pack, w)?;
         let events = self.execution_events(w)?;
         let mut hits = Vec::new();
+        let candidate = &w.scratch.writes;
+        let mut words = Vec::new();
         for event in events {
-            let mut words = Vec::new();
-            if self.assemble_execution(event, &[], &mut words)? && event.scored {
-                hits.push(words);
+            if self.assemble_execution(event, candidate, &mut words)? && event.scored {
+                hits.push(words[candidate.len()..].to_vec());
             }
         }
         if self.reuses_held_templates() {
@@ -1096,6 +1105,8 @@ impl Engine {
                 scored: true,
                 ki: None,
                 debit: None,
+                peak_arts_words: None,
+                coating_power: None,
             })
             .collect())
     }
@@ -1294,7 +1305,9 @@ impl Engine {
     }
 
     pub fn supports_prepared_device(&self) -> bool {
-        (self.has_dynamic_sources() || self.dir.join("main_device.dll").is_file())
+        (self.has_dynamic_sources()
+            || crate::kernel_asset::resolve(&self.dir, "main_device.dll")
+                .is_ok_and(|p| p.is_file()))
             && matches!(&self.cpu_evaluation, CpuEvaluation::CapturedScene(_))
             && !self.frame.held_reaper
             && self
@@ -1462,6 +1475,13 @@ impl Engine {
             &mut w.scratch,
         )?;
         if let Some(maps) = &self.candidate_source_maps {
+            if let Some(plan) = &self.event_program {
+                plan.append_held_effect(&w.scratch.pred, &w.scratch.d, &mut w.scratch.writes)?;
+                plan.append_triggered_damage(
+                    w.character.mode as usize, &w.scratch.pred, &w.scratch.d,
+                    &self.frame, &mut w.scratch.writes,
+                )?;
+            }
             maps.append(
                 w.character.mode as usize,
                 &w.scratch.source.maps,
@@ -1486,6 +1506,28 @@ impl Engine {
             w.scratch
                 .writes
                 .push((self.frame.main_address() + 0x144, category));
+            if let Some(projectile) = self
+                .event_program
+                .as_ref()
+                .and_then(EventProgram::initial_projectile)
+            {
+                w.scratch.writes.push((projectile.object + 0x864, category));
+                // PC202 2B4A3C: when the materialized source supplies a power,
+                // the damage row selects the primary or secondary element.
+                let power = crate::pipeline::u32_at(&w.scratch.d, 0x73c);
+                if power != 0 {
+                    let at = if projectile.secondary_element_selector {
+                        0x744
+                    } else {
+                        0x740
+                    };
+                    let element = crate::pipeline::u32_at(&w.scratch.d, at);
+                    let main = self.frame.main_address();
+                    w.scratch
+                        .writes
+                        .extend([(main + 0x14, element), (main + 0x18, power)]);
+                }
+            }
             if !self.frame.uses_weapon_element() {
                 let element = crate::pipeline::u32_at(&w.scratch.pred, 0x3c);
                 let power = if element == u32::MAX {

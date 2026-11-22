@@ -1709,11 +1709,23 @@ CPU 计算	CPU	CPU計算
 无段位	No stance	構えなし
 攻击	Attack	攻撃
 增益条件	Buff condition	強化条件
+吸收精华后立即命中（仅计造成伤害增加）	Hit immediately after Amrita absorption (Increased Damage Dealt)	アムリタ吸収直後の命中（与ダメージ増加のみ）
 读取角色时的增益	Buffs at character read	キャラクター読込時の強化
 无临时增益	No temporary buffs	一時強化なし
 精防增伤已触发	Perfect-guard damage buff active	直前ガードの攻撃強化が発動中
-琢技已触发	Arts Proficiency active	技練発動中
-精防＋琢技	Perfect guard + Arts Proficiency	ジャストガード＋技練
+琢技已触发	Arts Proficiency active	技研ぎ発動中
+精防＋琢技	Perfect guard + Arts Proficiency	ジャストガード＋技研ぎ
+琢技	Arts Proficiency	技研ぎ
+水形剑（起手三段，最多六次命中）	Water Sword (first three actions, up to six hits)	水形剣（出始めの3動作、最大6ヒット）
+水形剑（满精力持续至耗尽，正面全中）	Water Sword (full Ki to exhaustion, all frontal hits)	水形剣（気力満タンから尽きるまで、正面で全段命中）
+按读取时的琢技状态持续连斩，精力不会耗尽。	With Arts Proficiency held at the state read from this character, the continuous attack cannot exhaust Ki.	読み取り時の技研ぎの状態を維持すると、連撃で気力は尽きません。
+可在「攻击」里选择水形剑的起手三段来比较配装。	 Select the first three actions of Water Sword under Attack to compare outfits.	「攻撃」で水形剣の出始めの3動作を選ぶと装備を比較できます。
+从满血、满精力起手，假设每击都命中训练武士正面。	Start at full Life and Ki. Each hit lands on the front of the training warrior.	体力と気力が満タンの状態から、訓練相手の武士に正面から全段命中した場合の値です。
+假设琢技槽已满，用本招发动琢技，从零层起算。	Assume a full Arts Gauge. This attack activates Arts Proficiency with zero stacks.	技研ぎゲージが最大の状態から、この技で技研ぎを発動します。開始時の累積数は0です。
+假设读取时的琢技保持生效，按已登记的 	Hold Arts Proficiency at the state read from the character. Distinct Martial Arts recorded: 	読み取り時の技研ぎが持続する想定です。登録された武技は
+ 种武技计算增伤，最多计 5 种。	 (up to 5 count toward damage).	種類で、ダメージに反映される上限は5種類です。
+读取时未触发琢技，按该状态计算。	Arts Proficiency was inactive at character read. The search uses that state.	読み取り時は技研ぎが未発動のため、その状態で計算します。
+假设琢技未触发。	Assume Arts Proficiency is inactive.	技研ぎは未発動として計算します。
 已计算搭配中的最高伤害	Highest damage among calculated loadouts	計算済みの組み合わせで最大のダメージ
 准备搜索	Preparing search	検索を準備中
 核对计算结果	Verifying calculations	計算結果を検証中
@@ -1817,3 +1829,41 @@ CPU 计算	CPU	CPU計算
 重算的装备加成与游戏读数有差异，目前无法给出可靠排名。	The recalculated equipment bonuses differ from the game. A reliable ranking is unavailable.	装備補正の再計算結果がゲーム内の値と一致しないため、順位を表示できません。
 普通技能分支，按训练武士正面承受锁镰力攻击首击计算。	Normal skill configuration, first kusarigama strong hit against the reference training warrior.	通常のスキル構成で、訓練武士に対する鎖鎌の強攻撃初段を計算します。
 当前手持的武器类型无法使用所选招式。排名按背包中所选类型的武器计算。	Your current weapon cannot use this attack. The ranking uses owned weapons of the selected type.	現在の武器種では選んだ技を使えません。選択した武器種の所持品で順位を計算しています。
+转心 → 吸收精华 → 首次命中	Style Shift → absorb Amrita → first hit	転心 → アムリタ吸収 → 初撃
+精防 → 满槽琢技（水形剑开场）	Deflect → full-gauge Arts (Water Sword opening)	捌き → ゲージ最大の研技（水形剣の出始め）
+转心切到所选流派，吸收精华后直接命中。转心的下一击增伤与装备触发的吸收精华增伤分别结算。	Switch into the selected style, absorb Amrita, then land the first hit. The follow-up damage from Style Shift and the equipment bonus from Amrita absorption use separate damage channels.	選択したスタイルへ転心し、アムリタ吸収直後に初撃を当てます。転心による次撃の強化と装備によるアムリタ吸収時の強化を個別に計算します。
+从无临时增益、琢技满槽起手。精防后立即发动水形剑，按正常速度连续命中前三个动作，精防增伤按候选装备和技能计算。	Start with a full Arts gauge and no temporary buffs. Deflect, then immediately use Water Sword and land the first three actions at normal speed. Each outfit supplies its own Deflect bonus.	一時効果なし・研技ゲージ最大で開始し、捌き直後に水形剣の最初の3動作を通常速度で連続命中させます。捌き時の強化は各候補の装備とスキルから計算します。
+吸收精华 → 精防或识破 → 首次命中	Absorb Amrita → Deflect or Evade → first hit	アムリタ吸収 → 捌き・見切り → 初撃
+吸收精华后成功精防或识破，中途不出手。按增益均已结算且仍有效时的首击计算，同组增伤取较高值。	Absorb Amrita, then Deflect or Evade without attacking in between. The first hit uses the higher active Damage Dealt bonus once both events have settled.	攻撃を挟まず、アムリタ吸収後に捌き・見切りを成功させます。両効果の反映後、同系統の与ダメージ増加は初撃に高い方だけを適用します。
+理论全开（已建模增益）	Theoretical peak (modeled buffs)	理論最大（計算対応の強化効果）
+尚未报告武器来源的搜索覆盖范围。	Weapon-source coverage was not reported.	武器の効果ソースの検索範囲が報告されていません。
+部分同类型武器的来源尚未完成重建。	Some weapons of this type still lack rebuilt effect sources.	この武器種の一部で効果ソースの再構築が完了していません。
+搜索结果尚不完整。	The search results are incomplete.	検索結果は未完了です。
+成功识破后立即命中（仅计造成伤害增加）	Hit immediately after a successful Evade (Damage Dealt only)	見切り成功直後に命中（与ダメージ増加のみ）
+精防后立即命中（仅计造成伤害增加）	Hit immediately after a Deflect (Damage Dealt only)	捌き直後に命中（与ダメージ増加のみ）
+当前场景的来源数据尚未与这次角色读取绑定，暂不能搜索。请使用已支持的场景。	This scenario has no effect sources bound to the latest character read. Choose a supported scenario to search.	この条件の効果ソースは今回のキャラクター読込と紐付いていません。対応済みの条件を選んで検索してください。
+搭配数量超出可精确统计的范围，无法完成这次搜索。请减少参与搜索的装备后重试。	The number of combinations exceeds the exact counting limit. Reduce the equipment in this search and retry.	組み合わせ数が正確に数えられる範囲を超えています。対象装備を減らして再試行してください。
+当前来源重建尚不支持属性点重分配。请关闭“允许重新分配属性点”后搜索。	Effect source rebuilding does not support stat reallocation in this scenario. Turn off Allow stat reallocation and search again.	この条件の効果ソース再構築は能力値の再配分に未対応です。再配分をオフにして検索してください。
+正在撤销换装计划…	Discarding the equipment plan…	装備変更プランを破棄しています…
+换装计划尚未撤销，请重试。	The equipment plan could not be discarded. Retry.	装備変更プランを破棄できませんでした。再試行してください。
+条件已改变，旧换装计划已撤销。请重新搜索。	The settings changed and the old equipment plan was discarded. Search again.	条件が変わったため、以前の装備変更プランを破棄しました。もう一度検索してください。
+按读取时的琢技状态持续连斩，精力不会耗尽。可在「攻击」里选择水形剑的起手三段来比较配装。	Ki will not deplete during a continuous attack with the current Arts Proficiency state. Choose the Water Sword opening in Attack to compare outfits.	現在の研技状態では連続攻撃中に気力が尽きません。「攻撃」で水形剣の最初の三段を選ぶと装備を比較できます。
+重试撤销换装计划	Retry discarding the equipment plan	装備変更プランの破棄を再試行
+来源覆盖范围未报告	Source coverage unavailable	効果ソースの対応範囲が未報告
+来源未计算的搭配	Outfits with unresolved effect sources	効果ソースが未計算の組み合わせ
+（套装筛选前）	 (before set filtering)	（揃え効果の絞り込み前）
+理论全开 · 火附魔	Theoretical peak · Fire coating	理論最大・火属性付与
+理论全开 · 水附魔	Theoretical peak · Water coating	理論最大・水属性付与
+理论全开 · 雷附魔	Theoretical peak · Lightning coating	理論最大・雷属性付与
+理论全开 · 风附魔	Theoretical peak · Wind coating	理論最大・風属性付与
+所选存档的随身物品没有这种附魔道具。	The selected save has no amulet of this element in its held items.	選択したセーブの所持品にこの属性のお札がありません。
+计入存档随身携带的刚力丹，与精防、识破或吸收精华触发的同组增伤取最高值。	A held Power Pill competes with the same Damage Dealt bonus from Deflect, Evade, or Amrita absorption. The highest value applies.	所持している剛力丹を計算に含め、捌き・見切り・アムリタ吸収と同系統の与ダメージ増加のうち最大値を適用します。
+角色备有可施放的修罗符。按每套装备的术力算增伤，并与刚力丹、精防、识破及吸收精华的同组增伤取最高。	Carnage Talisman uses each outfit's jutsu power and competes with the same Damage Dealt bonuses from Power Pill, Deflect, Evade, and Amrita absorption.	修羅符の与ダメージ増加は装備ごとの術力で決まり、剛力丹・捌き・見切り・アムリタ吸収と同じ系統で最も強い効果が適用されます。
+持续增益按全程有效，转攻之法只加成首次有效结算。	Sustained buffs remain active. Flexibility affects the first eligible damage settlement.	継続効果は全時間有効とし、転攻の法は最初の有効なダメージ決済に適用します。
+训练武士按水异常生效计算，计入对水异常敌人的装备与技能加成。	The training samurai starts Saturated. The score includes applicable gear and skill bonuses against Saturated enemies.	修行場の侍は水やられ状態です。水やられの敵に対する装備・スキル効果を含めて計算します。
+所有候选按同一对手计算。训练武士已有水异常、普通混沌和克金符易伤。	All outfits are compared against the same training samurai with Saturation, standard Confusion, and Weakness Talisman already active.	すべての装備候補を、水やられ・通常段階の混沌やられ・克金符が有効な同じ修行場の侍で比較します。
+整招使用选定的临时附魔。同一时间按一个临时附魔结算，武技自带的属性伤害按各段规则保留。	The action uses the selected temporary coating. Only one coating is active at a time. A martial art's inherent element follows each contact's rule.	選択した一時属性を技全体に適用します。一時属性は一度に一つで、武技固有の属性は各段のルールに従います。
+按每套装备的术力计算召水符，并与随身水附魔道具比较，取较强的一个。	Summon Water is recalculated for each outfit's jutsu power. The stronger available source provides the water coating.	各装備の術力で水まとい符を計算し、所持している水属性アイテムと比較して、強い方を適用します。
+按已学琢技的满层收费阶段计算。	Uses learned Arts Proficiency at maximum stacks in its Ki-consuming phase.	習得済みの研技は最大累積・気力消費段階として計算します。
+按装备和已学技能计算：吸收精华与精防或识破的同组增伤取高，转攻之法只加成首击。持续增益按全程有效，目标采用训练基准；道具、术和敌方减益未计入。	Equipment and learned skills: use the higher Damage Dealt bonus from Amrita absorption and Deflect or Evade. Flexibility applies to the first hit. Sustained effects stay active against the training reference. Excludes consumables, jutsu, and enemy debuffs.	装備と習得スキルが対象です。アムリタ吸収と捌き・見切りの同系統の強化は高い方を適用し、転攻の法は初撃のみ強化します。継続効果は全時間有効とし、修行場の基準で計算します。使用アイテム・術・敵への弱体は対象外です。
+武士按已学琢技的满层效果计算，额外层数增伤适用于武技。	Samurai use the maximum stacks of learned Arts Proficiency. The stack-dependent damage bonus applies to martial arts.	武士は習得済みの研技を最大累積で計算します。累積分のダメージ増加は武技に適用されます。

@@ -45,6 +45,131 @@ fn hex(bytes: &[u8]) -> String {
     s
 }
 
+fn fixed_bytes<const N: usize>(memory: &dyn InventoryMemory, address: u64) -> Option<[u8; N]> {
+    memory.read(address, N).ok()?.try_into().ok()
+}
+
+/// PC202 1359FC. Retain both ordered lists for offline object-type and validity
+/// evaluation. This evidence is optional on older snapshots and never scores an outfit.
+fn effect_query_inputs(memory: &dyn InventoryMemory, owner: u64) -> Value {
+    let ptr = |at| fixed_bytes(memory, at).map(u64::from_le_bytes);
+    let Some(gate) = owner
+        .checked_add(0x3368)
+        .and_then(|at| fixed_bytes::<1>(memory, at))
+    else {
+        return json!({"state":"unobserved"});
+    };
+    if gate != [0] {
+        return json!({"state":"closed","gate":gate[0]});
+    }
+    let mut lists = Vec::new();
+    let mut occupied = false;
+    for offset in [0x3328, 0x3308] {
+        let sentinel = owner.checked_add(offset).and_then(ptr).filter(|a| *a != 0);
+        let mut next = sentinel.and_then(ptr);
+        let mut seen = std::collections::BTreeSet::new();
+        let mut nodes = Vec::new();
+        while let Some(node) = next.filter(|p| *p != 0 && Some(*p) != sentinel) {
+            if !seen.insert(node) || seen.len() > 1024 {
+                break;
+            }
+            let object = node.checked_add(0x10).and_then(ptr);
+            occupied |= object.is_some_and(|p| p != 0);
+            let fields = object.filter(|p| *p != 0).map(|p| {
+                let vtable = ptr(p);
+                let getter = vtable.and_then(|v| v.checked_add(0x10)).and_then(ptr);
+                json!({
+                    "vtable":vtable,"type_getter":getter,
+                    "object_08_to_3b":p.checked_add(8).and_then(|a| fixed_bytes::<52>(memory,a)).map(|v|hex(&v)),
+                    "counter_a0":p.checked_add(0xa0).and_then(|a| fixed_bytes::<8>(memory,a)).map(u64::from_le_bytes),
+                    "ki_phase_b0":p.checked_add(0xb0).and_then(|a| fixed_bytes::<4>(memory,a)).map(u32::from_le_bytes)
+                })
+            });
+            nodes.push(json!({"node":node,"object":object,"inputs":fields}));
+            if object.is_none() {
+                break;
+            }
+            next = ptr(node);
+        }
+        let complete = sentinel.is_some() && next == sentinel;
+        lists.push(
+            json!({"offset":offset,"sentinel":sentinel,"nodes":nodes,"closed_loop":complete}),
+        );
+        if !complete {
+            return json!({"state":"incomplete","gate":0,"lists":lists});
+        }
+    }
+    let state = if occupied {
+        "objects_retained"
+    } else {
+        "empty"
+    };
+    json!({"state":state,"gate":0,"lists":lists})
+}
+
+fn action_facts(memory: &dyn InventoryMemory, actor: u64, owner: u64) -> Value {
+    let mut fields = BTreeMap::new();
+    let mut read = |name: &str, address: Option<u64>, size| {
+        let bytes = address.and_then(|address| memory.read(address, size).ok());
+        fields.insert(
+            name.to_string(),
+            json!({"address":address,"bytes":bytes.as_deref().map(hex)}),
+        );
+        bytes
+            .and_then(|b| <[u8; 8]>::try_from(b).ok())
+            .map(u64::from_le_bytes)
+    };
+    let nonnull = |ptr: Option<u64>| ptr.filter(|p| *p != 0);
+    let descriptor = nonnull(read("descriptor", actor.checked_add(0xe8), 8));
+    read(
+        "agility_descriptor_flags",
+        descriptor.and_then(|p| p.checked_add(0x68)),
+        4,
+    );
+    let control = nonnull(read("control", actor.checked_add(0x3b0), 8));
+    let mask = nonnull(read(
+        "control_mask",
+        control.and_then(|p| p.checked_add(0x40)),
+        8,
+    ));
+    read("cost_modifier_exclusion", mask, 1);
+    for (name, offset, size) in [
+        ("class0_damage", 0x2e3c, 4),
+        ("physical_and_elemental_factors", 0x2e48, 8),
+        ("stance_ki_factors", 0x2e80, 12),
+        ("status_element", 0x2e9c, 4),
+        ("status_element_power", 0x2ea4, 4),
+        ("deferred_status_begin", 0x3120, 8),
+        ("deferred_status_end", 0x3128, 8),
+        ("status_rebuild_flags", 0x32f4, 4),
+        ("status_duration_adjustment", 0x2ddc, 4),
+    ] {
+        read(name, owner.checked_add(offset), size);
+    }
+    json!({"actor":actor,"owner":owner,"fields":fields})
+}
+
+fn effect_observation(memory: &dyn InventoryMemory, actor: u64, owner: u64) -> Value {
+    let owner_link = || {
+        actor
+            .checked_add(0x3a0)
+            .and_then(|p| fixed_bytes(memory, p))
+            .map(u64::from_le_bytes)
+    };
+    let before = owner_link();
+    let lists = if before == Some(owner) {
+        effect_query_inputs(memory, owner)
+    } else {
+        json!({"state":"unobserved"})
+    };
+    let additive = owner
+        .checked_add(0x2df4)
+        .and_then(|p| fixed_bytes::<4>(memory, p))
+        .map(|b| hex(&b));
+    json!({"actor":actor,"owner":owner,"owner_before":before,"owner_after":owner_link(),
+           "conditional_packet_additive":additive,"query":lists})
+}
+
 impl Recorded<'_> {
     fn save(&self, dir: &Path) -> Result<(), HostError> {
         let mut bytes = BTreeMap::new();
@@ -111,6 +236,18 @@ pub fn export_with_reference_target(
     id: &str,
     reference_target: bool,
 ) -> Result<(), HostError> {
+    export_with_controls(data, save_copy, out, fixture, id, reference_target, false)
+}
+
+pub fn export_with_controls(
+    data: &Path,
+    save_copy: &Path,
+    out: &Path,
+    fixture: Option<&Path>,
+    id: &str,
+    reference_target: bool,
+    record_action_facts: bool,
+) -> Result<(), HostError> {
     let bundle = loadout::find_bundle(data, &json!({"bundle":id}))?;
     let dir = bundle.directory(data);
     let saved = fs::read(save_copy).map_err(failed)?;
@@ -133,6 +270,15 @@ pub fn export_with_reference_target(
                 .as_deref()
                 .ok_or_else(|| failed("missing observed role"))?;
             json_file(&out.join("snapshot.json"), snap)?;
+            let facts = || action_facts(&memory, snap.roots.player, snap.roots.owner);
+            let initial_facts = record_action_facts.then(facts);
+            // A running timer can legitimately change during a role export. Keep its
+            // two observations separate from the ordinary immutable action facts.
+            let effects = || effect_observation(memory.inner, snap.roots.player, snap.roots.owner);
+            let initial_effects = record_action_facts.then(effects);
+            if let Some(initial) = &initial_facts {
+                json_file(&out.join("action-facts-first.json"), initial)?;
+            }
             if reference_target {
                 use nioh3_runtime::combat_context::{
                     encounter::observe_target_operands,
@@ -149,7 +295,7 @@ pub fn export_with_reference_target(
                 let opponent = target()?;
                 let actor = source()?;
                 let tables = nioh3_loadout::pipeline::Tables::load(
-                    &fs::read(dir.join("tables.bin")).map_err(failed)?,
+                    &nioh3_loadout::kernel_asset::read(&dir, "tables.bin").map_err(failed)?,
                 )
                 .map_err(failed)?;
                 let offset = snap.inputs.active_bank as usize * 0xf70
@@ -220,7 +366,7 @@ pub fn export_with_reference_target(
             }
             let source = loadout_first_use::read(&memory, snap, &dir)?;
             json_file(&out.join("source-inputs.json"), &source.report())?;
-            let context = source.context(&memory, snap, data, &dir)?;
+            let (context, _) = source.context(&memory, snap, data, &dir, &plain)?;
             let engine = Engine::open_with_context(&dir, &context).map_err(failed)?;
             {
                 use nioh3_loadout::pipeline::{Frame, Scratch};
@@ -275,6 +421,12 @@ pub fn export_with_reference_target(
                     fs::copy(entry.path(), bundle.join(entry.file_name())).map_err(failed)?;
                 }
             }
+            for name in nioh3_loadout::kernel_asset::POOLED_FILES {
+                let path = nioh3_loadout::kernel_asset::resolve(&dir, name).map_err(failed)?;
+                if path.is_file() && !bundle.join(name).exists() {
+                    fs::copy(path, bundle.join(name)).map_err(failed)?;
+                }
+            }
             json_file(&private.join("context.json"), context.manifest())?;
             fs::write(private.join("inventory.bin"), context.inventory()).map_err(failed)?;
             fs::write(private.join("frame.bin"), context.frame()).map_err(failed)?;
@@ -298,6 +450,30 @@ pub fn export_with_reference_target(
                 &out.join("inventory.json"),
                 &json!({"schema":"nioh3-current-whole-backpack/v1","only_reads_save":true,"source_sha256":sha256(&saved),"searchable_items":rows.len(),"records":rows}),
             )?;
+            if let Some(initial) = initial_facts {
+                let final_read = facts();
+                json_file(
+                    &out.join("action-facts.json"),
+                    &json!({
+                        "schema":"nioh3-pc202-action-facts/v1","source":if fixture.is_some() {"fixture"} else {"process"},
+                        "pid":memory.process().pid,"creation_filetime":memory.process().creation_filetime,
+                        "module_base":memory.module_base(),
+                        "unchanged":initial==final_read,"first":initial,"last":final_read,
+                    }),
+                )?;
+            }
+            if let Some(first) = initial_effects {
+                let last = effects();
+                json_file(
+                    &out.join("effect-query-inputs.json"),
+                    &json!({
+                        "schema":"nioh3-pc202-effect-object-inputs/v1",
+                        "source":if fixture.is_some() {"fixture"} else {"process"},
+                        "pid":memory.process().pid,"creation_filetime":memory.process().creation_filetime,
+                        "module_base":memory.module_base(),"unchanged":first==last,"first":first,"last":last
+                    }),
+                )?;
+            }
             verification
         };
         let result = capture_role();
@@ -330,6 +506,67 @@ pub fn export_with_reference_target(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn effect_query_preserves_unknown_and_native_list_order(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let owner = 0x2000u64;
+        let fixture = |buf: &[u8]| {
+            nioh3_runtime::FixtureMemory::from_json(&json!({
+                "pid":1, "creation_filetime":2, "module_base":4096,
+                "regions":[{"address":owner,"bytes":hex(buf)}]
+            }))
+        };
+        let mut buf = vec![0; 0x3370];
+        let word =
+            |buf: &mut [u8], at: usize, v: u64| buf[at..at + 8].copy_from_slice(&v.to_le_bytes());
+        assert_eq!(
+            effect_query_inputs(&fixture(&[0])?, owner)["state"],
+            "unobserved"
+        );
+        buf[0x3368] = 1;
+        assert_eq!(
+            effect_query_inputs(&fixture(&buf)?, owner)["state"],
+            "closed"
+        );
+        buf[0x3368] = 0;
+        assert_eq!(
+            effect_query_inputs(&fixture(&buf)?, owner)["state"],
+            "incomplete"
+        );
+        for (field, head) in [(0x3328, 0x200), (0x3308, 0x280)] {
+            word(&mut buf, field, owner + head);
+            word(&mut buf, head as usize, owner + head);
+        }
+        assert_eq!(
+            effect_query_inputs(&fixture(&buf)?, owner)["state"],
+            "empty"
+        );
+        word(&mut buf, 0x200, owner + 0x400);
+        word(&mut buf, 0x400, owner + 0x200);
+        word(&mut buf, 0x410, owner + 0x500);
+        word(&mut buf, 0x500, owner + 0x700);
+        word(&mut buf, 0x710, 0x1a00);
+        word(&mut buf, 0x5a0, 17);
+        let observation = effect_query_inputs(&fixture(&buf)?, owner);
+        assert_eq!(observation["state"], "objects_retained");
+        assert_eq!(observation["lists"][0]["offset"], 0x3328);
+        assert_eq!(
+            observation["lists"][0]["nodes"][0]["inputs"]["type_getter"],
+            0x1a00
+        );
+        assert_eq!(
+            observation["lists"][0]["nodes"][0]["inputs"]["counter_a0"],
+            17
+        );
+        assert_eq!(observation["lists"][1]["offset"], 0x3308);
+        word(&mut buf, 0x400, owner + 0x400);
+        assert_eq!(
+            effect_query_inputs(&fixture(&buf)?, owner)["state"],
+            "incomplete"
+        );
+        Ok(())
+    }
 
     #[test]
     fn repeated_reads_with_changed_bytes_preserve_both_observations(
