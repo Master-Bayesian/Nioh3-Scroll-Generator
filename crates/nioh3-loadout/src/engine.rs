@@ -231,6 +231,8 @@ pub struct Work {
     character: Character,
     writes: Vec<(u64, u32)>,
     weapon_swaps: Vec<(u32, usize)>,
+    #[cfg(test)]
+    resolved_inventory: Option<Vec<u8>>,
     preparation_stats: PreparationStats,
 }
 
@@ -1376,6 +1378,8 @@ impl Engine {
             character: self.character.clone(),
             writes: Vec::with_capacity(0x900),
             weapon_swaps: Vec::new(),
+            #[cfg(test)]
+            resolved_inventory: None,
             preparation_stats: PreparationStats::default(),
         }
     }
@@ -1427,6 +1431,16 @@ impl Engine {
             w.worker = self.formula.worker();
             w.owner = Arc::clone(&self.work_owner);
             w.weapon_swaps.clear();
+            #[cfg(test)]
+            {
+                w.resolved_inventory = None;
+            }
+        }
+        // The test oracle supplies a simultaneous, identity-resolved layout.
+        #[cfg(test)]
+        if let Some(inventory) = &w.resolved_inventory {
+            w.character.inv.copy_from_slice(inventory);
+            return;
         }
         w.character.inv.copy_from_slice(&self.character.inv);
         if let Some(row) = c.items[position_of(0).expect("the held weapon is a search axis")] {
@@ -2104,6 +2118,10 @@ impl Engine {
         Ok(work.scratch.source.set_state())
     }
 }
+
+#[cfg(test)]
+#[path = "physical_oracle.rs"]
+mod physical_oracle;
 
 #[cfg(test)]
 mod objective_cache_tests {

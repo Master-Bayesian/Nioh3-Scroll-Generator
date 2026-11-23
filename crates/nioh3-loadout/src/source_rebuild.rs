@@ -509,6 +509,8 @@ impl SourceRules<'_> {
             sides: Default::default(),
             set_reduction: [false; 2],
             set_pieces: Default::default(),
+            #[cfg(test)]
+            set_row_activations: Vec::new(),
         };
         for entry in self.prefix {
             tables.aggregate(&mut source, outfit.mode, entry.group, entry.value);

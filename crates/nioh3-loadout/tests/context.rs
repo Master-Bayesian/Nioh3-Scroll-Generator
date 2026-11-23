@@ -646,7 +646,7 @@ fn captured_scene_requires_files_and_never_falls_back_to_recorded_paths() {
     )
     .unwrap_err()
     .to_string()
-    .contains("unknown bytes"));
+    .contains("captured image has an unknown byte at "));
     let attack = root.join("attack-without-library");
     fs::create_dir_all(&attack).unwrap();
     for name in [

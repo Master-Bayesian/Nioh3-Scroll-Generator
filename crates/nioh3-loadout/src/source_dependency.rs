@@ -76,6 +76,8 @@ fn empty_source(c: &Character, attrs: &[i32; 7]) -> Source {
         sides: [Vec::new(), Vec::new()],
         set_reduction: [false; 2],
         set_pieces: [Vec::new(), Vec::new()],
+        #[cfg(test)]
+        set_row_activations: Vec::new(),
     }
 }
 

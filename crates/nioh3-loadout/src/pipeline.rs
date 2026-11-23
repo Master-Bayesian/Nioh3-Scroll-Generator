@@ -343,6 +343,19 @@ pub struct Source {
     // profile operations can change the final source map.
     set_reduction: [bool; 2],
     set_pieces: [Vec<(u32, usize)>; 2],
+    #[cfg(test)]
+    pub(crate) set_row_activations: Vec<SetRowActivation>,
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+pub(crate) struct SetRowActivation {
+    pub(crate) side: u32,
+    pub(crate) bank: usize,
+    pub(crate) row_index: usize,
+    pub(crate) threshold: u32,
+    pub(crate) reward_key: u16,
+    pub(crate) flags: u8,
 }
 
 /// Qualified native set membership, including retained and reserve equipment.
@@ -506,6 +519,8 @@ impl Scratch {
                 sides: [Vec::with_capacity(20), Vec::with_capacity(20)],
                 set_reduction: [false; 2],
                 set_pieces: [Vec::new(), Vec::new()],
+                #[cfg(test)]
+                set_row_activations: Vec::new(),
             },
             writes: Vec::with_capacity(0x800),
             transformed: [0; 7],
@@ -1596,6 +1611,15 @@ impl Tables {
                         return Err("reward coordinate past the side entry");
                     }
                     let value = self.curve(row, u16_at(&raw, offset as usize));
+                    #[cfg(test)]
+                    source.set_row_activations.push(SetRowActivation {
+                        side: u32_at(&raw, 0),
+                        bank,
+                        row_index: reward,
+                        threshold,
+                        reward_key: key,
+                        flags,
+                    });
                     self.aggregate(source, mode, key, value);
                 }
             }
@@ -2105,6 +2129,8 @@ impl Tables {
         s: &mut Scratch,
         program: Option<(&source_rebuild::Program, &[source_rebuild::Submission])>,
     ) -> R<u32> {
+        #[cfg(test)]
+        s.source.set_row_activations.clear();
         s.stat.copy_from_slice(&f.stat);
         // Original818E85..818ED4: Heart row90 u16+4, binary32 scaling,
         // CVTTSS2SI64, then equipment/qualification/source materialization.
@@ -2993,6 +3019,15 @@ impl Character {
 #[cfg(test)]
 pub(crate) fn audit_fixture() -> (Tables, Frame, Character) {
     audit_tests::fixture()
+}
+
+#[cfg(test)]
+impl Tables {
+    pub(crate) fn audit_set_reward_flags(&mut self, side: u32, row: usize, flags: u8) {
+        assert!(row < 7);
+        let index = self.sides.index(side).expect("fixture side must exist") as usize;
+        self.sides.rows[8 + index * self.sides.stride + 0x34 + 24 * row] = flags;
+    }
 }
 
 /// The independent PC202 replay supplies only (group, raw value, previous word)
