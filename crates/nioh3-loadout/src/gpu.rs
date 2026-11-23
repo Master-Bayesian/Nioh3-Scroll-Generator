@@ -732,11 +732,14 @@ impl MainDevice {
         if !context.is_captured_scene() {
             return Err("prepared CUDA MAIN requires a captured scene".into());
         }
-        let path = dir.join(if cfg!(windows) {
-            "main_device.dll"
-        } else {
-            "main_device.so"
-        });
+        let path = crate::kernel_asset::resolve(
+            dir,
+            if cfg!(windows) {
+                "main_device.dll"
+            } else {
+                "main_device.so"
+            },
+        )?;
         let lib = os::Library::open(&path).ok_or("prepared CUDA MAIN library is unavailable")?;
         require_context_abi(&lib, context, false)?;
         let abi = lib
@@ -839,9 +842,22 @@ impl MainDevice {
             ..
         } = self;
         let active_profile = if *profiling_enabled { *profile } else { None };
-        reuse.execute(contacts, |unique| {
-            packing.submit(*handle, *run, unique, active_profile)
-        })
+        // The device ABI bounds actual contact occurrences, not templates or
+        // outfits. A sustained cast can visit the same template many times.
+        const MAX_CONTACTS: usize = 4096;
+        let mut execute = |batch: &[Vec<(u64, u32)>]| {
+            reuse.execute(batch, |unique| {
+                packing.submit(*handle, *run, unique, active_profile)
+            })
+        };
+        if contacts.len() <= MAX_CONTACTS {
+            return execute(contacts);
+        }
+        let mut scores = Vec::with_capacity(contacts.len());
+        for batch in contacts.chunks(MAX_CONTACTS) {
+            scores.extend(execute(batch)?);
+        }
+        Ok(scores)
     }
 }
 
@@ -874,8 +890,10 @@ impl MainCpu {
         // deliberately a different file from the CUDA search library, so a
         // host-only installation cannot advertise a device search capability.
         #[cfg(windows)]
-        let path = if dir.join("main_cpu.dll").is_file() {
-            dir.join("main_cpu.dll")
+        let main_cpu = crate::kernel_asset::resolve(dir, "main_cpu.dll")?;
+        #[cfg(windows)]
+        let path = if main_cpu.is_file() {
+            main_cpu
         } else {
             dir.join("kernel.dll")
         };

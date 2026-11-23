@@ -1,0 +1,12 @@
+[
+  {"name":"stack-same-status","overrides":{"Fault":"AddCompeting"},"expected":"Invariant PeakChannels is violated"},
+  {"name":"apply-next-hit-twice","overrides":{"Fault":"KeepSpent"},"expected":"Invariant PeakChannels is violated"},
+  {"name":"expire-sustained-projection","overrides":{"Fault":"ExpirePersistent"},"expected":"Invariant PeakChannels is violated"},
+  {"name":"combine-full-stack-and-free-phase","overrides":{"Fault":"GrantFreshWaiver"},"expected":"Invariant PeakChannels is violated"},
+  {"name":"consume-on-unsettled-window","overrides":{"Fault":"ConsumeUnsettled"},"expected":"Invariant PeakChannels is violated"},
+  {"name":"use-empty-prepared-spell","overrides":{"Fault":"UseEmptyPrepared"},"expected":"Invariant PeakChannels is violated"},
+  {"name":"merge-caster-and-opponent-grants","overrides":{"Fault":"MergeCasterAndTarget"},"expected":"Invariant PeakChannels is violated"},
+  {"name":"retain-previous-outfit-jutsu-power","overrides":{"Fault":"RetainCasterPower"},"expected":"Invariant PeakChannels is violated"},
+  {"name":"require-held-target-supplies","overrides":{"Fault":"GateTargetOnStock"},"expected":"Invariant PeakChannels is violated"},
+  {"name":"add-undeclared-elemental-ailments","overrides":{"Fault":"AddUndeclaredAilments"},"expected":"Invariant PeakChannels is violated"}
+]

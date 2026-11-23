@@ -1,7 +1,8 @@
 //! Immutable, source-bound event plans consumed by the production Engine.
 //! Catalog definitions are deliberately not a landing/order oracle. A plan
 //! supplies those scenario decisions and binds them to exact dense templates.
-use crate::pipeline::{Frame, HitPacket};
+use crate::pipeline::{Frame, HitPacket, PacketKind};
+use crate::damage_dealt::TriggeredDamage;
 use crate::sequence::inputs::{
     assemble_event_words, EventInput, NextHitPhase, PacketPolicy, Settlement, SingleUseBinding,
     SourceIdentity, Word, WordPatch,
@@ -16,6 +17,7 @@ enum Phase {
     RemovedPendingRebuild,
     Inactive,
 }
+
 impl From<Phase> for NextHitPhase {
     fn from(value: Phase) -> Self {
         match value {
@@ -37,6 +39,13 @@ struct Source {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum Packet {
     PreparedActor,
+    OwnerWeaponProjectile {
+        object: u64,
+        incarnation: u64,
+        owner: u64,
+        descriptor_kind: u8,
+        source_tag: u32,
+    },
     UnimbuedOwnerProjectile {
         object: u64,
         incarnation: u64,
@@ -97,6 +106,13 @@ struct Template {
     #[serde(default = "yes")]
     scored: bool,
     settlement: Option<Settle>,
+    /// Original settlement eligibility for the projected one-hit grant.
+    #[serde(default)]
+    peak_consumes_follow_up: Option<bool>,
+    #[serde(default)]
+    peak_allows_coating: Option<bool>,
+    #[serde(default)]
+    peak_actor_arts: Option<crate::arts_proficiency::PreparedActorRoute>,
     // Resource identity remains a triple; action numbers alone are not keys.
     identity: Option<ResourceIdentity>,
 }
@@ -169,6 +185,12 @@ struct Action {
 enum Mode {
     FixedContacts,
     HeldReaper,
+    HeldWaterSword {
+        #[serde(alias = "current_effect", deserialize_with = "crate::arts_proficiency::read_start")]
+        arts: crate::arts_proficiency::Start,
+        #[serde(default)]
+        objective: crate::water_sword::Objective,
+    },
     FiniteSequence {
         actions: Vec<Action>,
         #[serde(default)]
@@ -200,11 +222,31 @@ struct Document {
     initial_phase: Phase,
     main_address: u64,
     #[serde(default)]
+    actor_skill_key: Option<u16>,
+    #[serde(default)]
+    direct_owner_element: bool,
+    #[serde(default)]
+    actor_damage_kind_from_row: bool,
+    #[serde(default)]
+    initial_projectile: Option<crate::action_rows::InitialProjectile>,
+    #[serde(default)]
     candidate_source_address: Option<u64>,
     #[serde(default)]
     candidate_category_field: Option<u64>,
     #[serde(default)]
     candidate_inventory_record: Option<u64>,
+    #[serde(default)]
+    triggered_damage: Option<TriggeredDamage>,
+    #[serde(default)]
+    triggered_damage_owner: Option<u64>,
+    #[serde(default)]
+    peak_held_supplies: bool,
+    #[serde(default)]
+    peak_saturated_target: bool,
+    #[serde(default)]
+    peak_target_ailments: bool,
+    #[serde(default)]
+    peak_coating: Option<crate::peak_coating::HeldCoating>,
     template_layout_sha256: String,
     hit_values_sha256: String,
     runtime_extensions_closed: bool,
@@ -225,6 +267,8 @@ pub(super) struct ExecutionEvent {
     pub scored: bool,
     pub ki: Option<(u64, u32)>,
     pub debit: Option<(u64, u32)>,
+    pub peak_arts_words: Option<[u32; 3]>,
+    pub coating_power: Option<u32>,
 }
 
 pub(super) struct EventProgram {
@@ -234,9 +278,26 @@ pub(super) struct EventProgram {
     initial_phase: NextHitPhase,
     patches: Vec<Vec<WordPatch>>,
     packets: Vec<PacketPolicy>,
+    actor_damage_rows: Option<Vec<ActorDamageRow>>,
     fixed: Vec<ExecutionEvent>,
     pub gpu_compatible: bool,
     held_templates_reusable: bool,
+    water: Option<(crate::water_sword::Role, [f32; 10])>,
+    peak_arts_packets: Option<(bool, Vec<ArtsPacket>)>,
+    peak_supplies: Option<crate::pipeline::source_rebuild::PeakSupplies>,
+}
+
+#[derive(Clone, Copy)]
+enum ArtsPacket {
+    Basic,
+    Martial,
+    Projectile,
+    PreparedActor(crate::arts_proficiency::PreparedActorRoute),
+}
+
+struct ActorDamageRow {
+    kind: PacketKind,
+    allows_owner_element: bool,
 }
 
 fn hex_bytes(value: &str) -> Result<Vec<u8>, &'static str> {
@@ -367,11 +428,232 @@ fn apply_boundaries(
 }
 
 impl EventProgram {
+    pub(super) fn append_held_effect(
+        &self,
+        stat: &[u8],
+        d: &[u8],
+        writes: &mut Vec<Word>,
+    ) -> Result<(), &'static str> {
+        if let Some((role, _)) = self.water {
+            let [mult, level, scalar] = role.effect_words(stat);
+            let main = self.document.main_address;
+            writes.extend([
+                (main + 0x174, mult),
+                (main + 0x178, level),
+                (main + 0x17c, scalar),
+            ]);
+            if let Some(arts) = role.effect {
+                if f32::from_le_bytes(d[0x898..0x89c].try_into().unwrap()) > 0.0 {
+                    return Err("active effect needs the additional owner resource branch");
+                }
+                if self.document.triggered_damage != Some(TriggeredDamage::TheoreticalPeak) {
+                    writes.push((0x1c6_28b4_a544, arts.owner_additive_bits));
+                }
+            }
+        }
+        Ok(())
+    }
+    pub(super) fn bind_held_action(
+        &mut self,
+        context: Option<&crate::context::EncodedContext>,
+    ) -> Result<(), String> {
+        use crate::water_sword as water;
+        use crate::arts_proficiency::{KiPhase, Start};
+        let Mode::HeldWaterSword { arts, objective } = self.document.mode else {
+            return Ok(());
+        };
+        let ctx = context.ok_or("held action requires the current character")?;
+        let role = water::Role::decode(
+            ctx.read_known(water::ROLE_FACTS)
+                .map_err(|e| e.to_string())?,
+        )?;
+        if arts == Start::Untriggered && role.effect.is_some() {
+            return Err("untriggered scenario contains an active object".into());
+        }
+        if arts == Start::FullGaugeActivation && !role.effect.is_some_and(|effect| effect.ki_phase == KiPhase::Ready && effect.distinct_keys == 0) {
+            return Err("fresh Arts Proficiency requires a new zero-stack object".into());
+        }
+        if arts == Start::TheoreticalPeak && role.effect.is_some_and(|effect| effect != crate::arts_proficiency::ActiveArts::saturated()) {
+            return Err("peak Arts requires its saturated charging phase".into());
+        }
+        objective.validate(role)?;
+        let mut base = [0.0; 10];
+        for (phase, pair) in self
+            .document
+            .templates
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .enumerate()
+        {
+            let hash = water::PARAMETERS[phase];
+            let action = water::FIRST + phase as u16;
+            let state =
+                crate::action_rows::ActionController::resolve(water::RESOURCE, action, hash)?;
+            base[phase] =
+                i16::from_le_bytes(state.parameter[0x16..0x18].try_into().unwrap()) as f32;
+            let skill = u16::from_le_bytes(state.parameter[0xdc..0xde].try_into().unwrap());
+            for (row, template) in pair.iter().enumerate() {
+                if !template.identity.as_ref().is_some_and(|id| {
+                    id.resource == water::RESOURCE
+                        && id.action == action
+                        && id.parameter_sha256 == hash
+                }) || !matches!(template.packet, Packet::PreparedActor)
+                    || template.landed != Some(true)
+                    || template.guard != Some(true)
+                    || !template.scored
+                {
+                    return Err(
+                        "held template differs from its action identity or landing objective"
+                            .into(),
+                    );
+                }
+                let patches = &mut self.patches[2 * phase + row];
+                let state_addr = water::phase_address(phase);
+                let row_addr = water::row_address(phase, row);
+                for (at, value) in [
+                    (water::CONTROLLER_LINK, state_addr as u32),
+                    (water::CONTROLLER_LINK + 4, (state_addr >> 32) as u32),
+                    (self.document.main_address + 0x136, u32::from(skill)),
+                    (self.document.main_address + 0x190, row_addr as u32),
+                    (self.document.main_address + 0x194, (row_addr >> 32) as u32),
+                ] {
+                    patches.push(WordPatch::full(at, value));
+                }
+            }
+        }
+        self.water = Some((role, base));
+        Ok(())
+    }
+    pub(super) fn bind_direct_owner_element(
+        &mut self,
+        context: Option<&crate::context::EncodedContext>,
+    ) -> Result<(), String> {
+        if !self.document.direct_owner_element {
+            return Ok(());
+        }
+        if !matches!(
+            self.document.mode,
+            Mode::FixedContacts | Mode::HeldWaterSword { .. }
+        ) || self
+            .packets
+            .iter()
+            .any(|p| !matches!(p, PacketPolicy::PreparedActor))
+        {
+            return Err("owner elemental override requires fixed direct actor contacts".into());
+        }
+        let ctx = context.ok_or("direct actor status element needs a current role")?;
+        let main = self.document.main_address;
+        let actor = u64::from_le_bytes(ctx.read_known(main + 0x198).map_err(|e| e.to_string())?);
+        let owner = u64::from_le_bytes(
+            ctx.read_known(actor.checked_add(0x3a0).ok_or("actor overflow")?)
+                .map_err(|e| e.to_string())?,
+        );
+        let field = |offset| {
+            owner
+                .checked_add(offset)
+                .ok_or_else(|| "owner overflow".to_string())
+        };
+        let word = |offset| -> Result<u32, String> {
+            Ok(u32::from_le_bytes(
+                ctx.read_known(field(offset)?).map_err(|e| e.to_string())?,
+            ))
+        };
+        if word(0x188)? & 2 != 0 {
+            return Err("alternate direct owner branch needs its actor predicate".into());
+        }
+        let element = word(0x2e9c)?;
+        let active = element != u32::MAX;
+        let power = active.then(|| word(0x2ea4)).transpose()?;
+        for (index, patches) in self.patches.iter_mut().enumerate() {
+            let accepts_element = self
+                .actor_damage_rows
+                .as_ref()
+                .is_none_or(|rows| rows[index].allows_owner_element);
+            let flags = patches
+                .iter_mut()
+                .find(|p| p.address == main + 0x13c && p.mask == u32::MAX)
+                .ok_or("missing per-contact actor flags")?;
+            flags.value =
+                (flags.value & !(1 << 28)) | (u32::from(active && accepts_element) << 28);
+            if let Some(power) = power.filter(|_| accepts_element) {
+                patches.extend([
+                    WordPatch::full(main + 0x14, element),
+                    WordPatch::full(main + 0x18, power),
+                ]);
+            }
+        }
+        // The dense ABI still holds the unbound public templates. Prepared CUDA
+        // consumes these same bound words as CPU and original-MAIN auditing.
+        self.gpu_compatible = false;
+        Ok(())
+    }
+    pub(super) fn damage_owner(&self) -> Option<u64> {
+        self.document.triggered_damage.map(|_| {
+            self.document
+                .triggered_damage_owner
+                .unwrap_or(self.document.source.owner)
+        })
+    }
+    pub(super) fn append_triggered_damage(
+        &self,
+        mode: usize,
+        stat: &[u8],
+        damage: &[u8],
+        frame: &Frame,
+        writes: &mut Vec<Word>,
+    ) -> Result<(), &'static str> {
+        let Some(trigger) = self.document.triggered_damage else {
+            return Ok(());
+        };
+        let owner = self.damage_owner().ok_or("missing damage owner")?;
+        if self.document.peak_saturated_target || self.document.peak_target_ailments {
+            // MAIN reads these gear/skill words only when its target lookup
+            // finds an ailment. Supply real materialized words even for an
+            // unchanged zero that the usual sparse frame writer would omit.
+            let (base, _) = frame.damage_baseline();
+            for offset in [0x308, 0x30c, 0x310, 0x314, 0x318, 0x7cc] {
+                writes.push((base + offset as u64, crate::pipeline::u32_at(damage, offset)));
+            }
+        }
+        let factor = if self.document.peak_held_supplies {
+            let supplies = frame.source_rebuild.as_ref()
+                .and_then(|program| program.peak_supplies)
+                .ok_or("missing projected held supplies")?;
+            trigger.factor_with_supplies(mode, damage, supplies.damage_offer(stat)?)?
+        } else {
+            trigger.first_hit_factor(mode, damage)?
+        };
+        writes.push((owner.checked_add(0x2e3c).ok_or("invalid damage owner")?, factor.to_bits()));
+        if matches!(trigger, TriggeredDamage::StyleShiftThenAbsorption | TriggeredDamage::TheoreticalPeak) {
+            let program = frame.source_rebuild.as_ref().ok_or("missing configured skill sources")?;
+            // The common configured Flexibility skill is the sole producer of 8556.
+            // The action reads its gate before rebuilding the destination outfit.
+            let enabled = program.configured_flexibility.ok_or("missing configured Flexibility skill")?;
+            let follow_up = if enabled { 1.06f32 } else { 1.0 };
+            writes.push((owner + 0x2e34, follow_up.to_bits()));
+            writes.push((owner + 0x2e38, follow_up.to_bits()));
+            if trigger == TriggeredDamage::TheoreticalPeak && mode == 0 {
+                let learned = program.arts_proficiency_learned.ok_or("missing Arts Proficiency skill")?;
+                let additive = if learned && damage[0x72a] != 0 { 0.1f32 } else { 0.0 };
+                writes.push((owner + 0x2df4, additive.to_bits()));
+                if self.water.is_none() && learned
+                    && f32::from_bits(crate::pipeline::u32_at(damage, 0x898)) > 0.0
+                {
+                    return Err("active effect needs the additional owner resource branch");
+                }
+            }
+        }
+        Ok(())
+    }
     pub(super) fn candidate_source_layout(&self) -> Option<(u64, u64, Option<u64>)> {
         self.document
             .candidate_source_address
             .zip(self.document.candidate_category_field)
             .map(|(source, category)| (source, category, self.document.candidate_inventory_record))
+    }
+    pub(super) fn initial_projectile(&self) -> Option<&crate::action_rows::InitialProjectile> {
+        self.document.initial_projectile.as_ref()
     }
     pub fn compile(
         bytes: &[u8],
@@ -379,8 +661,71 @@ impl EventProgram {
         addresses: &[u64],
         rows: &[Vec<u32>],
         declared_hits: &[u8],
+        context: Option<&crate::context::EncodedContext>,
     ) -> Result<Self, String> {
         let mut doc: Document = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+        if (doc.peak_saturated_target || doc.peak_target_ailments) && !doc.peak_held_supplies
+            || doc.peak_saturated_target && doc.peak_target_ailments
+        {
+            return Err("projected target requires one bound peak supply policy".into());
+        }
+        let peak_supplies = frame.source_rebuild.as_ref().and_then(|p| p.peak_supplies);
+        if let Some(coating) = doc.peak_coating {
+            if !doc.peak_held_supplies
+                || !peak_supplies.is_some_and(|stock| stock.can_coat(coating))
+                || doc.templates.iter().any(|template| template.peak_allows_coating.is_none())
+                || !doc.templates.iter().any(|template| template.peak_allows_coating == Some(true))
+            {
+                return Err("held coating requires its supply and verified packet routes".into());
+            }
+        }
+        if doc.peak_held_supplies && doc.triggered_damage != Some(TriggeredDamage::TheoreticalPeak) {
+            return Err("held supplies require the theoretical peak objective".into());
+        }
+        if matches!(doc.mode, Mode::HeldWaterSword { .. })
+            && (doc.templates.len() != 20
+                || doc.single_use.is_some()
+                || !matches!(doc.initial_phase, Phase::Inactive))
+        {
+            return Err("held Water Sword requires ten pairs of direct windows".into());
+        }
+        if doc.triggered_damage.is_some()
+            && (!frame.has_source_rebuild()
+                || doc.candidate_source_address.is_none()
+                || !(matches!(doc.mode, Mode::FixedContacts)
+                    && (doc.templates.len() == 1
+                        || doc.triggered_damage == Some(TriggeredDamage::TheoreticalPeak)
+                            && doc.templates.iter().all(|t| t.peak_consumes_follow_up.is_some()))
+                    || doc.triggered_damage == Some(TriggeredDamage::SamuraiDeflect)
+                    && matches!(doc.mode, Mode::HeldWaterSword {
+                        arts: crate::arts_proficiency::Start::FullGaugeActivation,
+                        objective: crate::water_sword::Objective::OpeningThreeActions,
+                    })
+                    || doc.triggered_damage == Some(TriggeredDamage::TheoreticalPeak)
+                    && matches!(doc.mode, Mode::HeldWaterSword {
+                        arts: crate::arts_proficiency::Start::TheoreticalPeak, ..
+                    }))
+                || doc.single_use.is_some()
+                || !matches!(doc.initial_phase, Phase::Inactive))
+        {
+            return Err(
+                "damage trigger requires a source-bound fixed hit or the verified fresh Arts opening".into(),
+            );
+        }
+        if let Some(spawn) = &doc.initial_projectile {
+            if !matches!(doc.templates.as_slice(), [t] if matches!(t.packet,
+                Packet::OwnerWeaponProjectile {object, descriptor_kind, source_tag, ..} if spawn.matches(object,descriptor_kind,source_tag)))
+            {
+                return Err("initial projectile differs from its event packet".into());
+            }
+        } else if doc.actor_skill_key.is_some()
+            && doc
+                .templates
+                .iter()
+                .any(|t| !matches!(t.packet, Packet::PreparedActor))
+        {
+            return Err("actor skill key requires direct actor contacts".into());
+        }
         if doc.schema != "nioh3-production-event-plan/v1" || !doc.runtime_extensions_closed {
             return Err("unsupported event plan or unresolved runtime extensions".into());
         }
@@ -483,6 +828,27 @@ impl EventProgram {
             let packet = match (&t.packet, expected) {
                 (Packet::PreparedActor, HitPacket::Prepared) => PacketPolicy::PreparedActor,
                 (
+                    Packet::OwnerWeaponProjectile {
+                        object,
+                        incarnation,
+                        owner,
+                        source_tag,
+                        ..
+                    },
+                    HitPacket::Prepared,
+                ) if doc.initial_projectile.is_some()
+                    && *owner == source.owner
+                    && *incarnation != 0
+                    && frame.uses_weapon_element()
+                    && frame.has_source_rebuild() =>
+                {
+                    PacketPolicy::OwnerWeaponProjectile {
+                        projectile: *object,
+                        projectile_incarnation: *incarnation,
+                        source_tag: *source_tag,
+                    }
+                }
+                (
                     Packet::UnimbuedOwnerProjectile {
                         object,
                         incarnation,
@@ -503,24 +869,6 @@ impl EventProgram {
                     && *power == p
                     && *main_flags == f =>
                 {
-                    let word = |a| {
-                        addresses
-                            .iter()
-                            .rposition(|&x| x == a)
-                            .map(|i| rows[index][i])
-                    };
-                    if let (Some(lo), Some(hi)) = (
-                        word(frame.main_address() + 0x198),
-                        word(frame.main_address() + 0x19c),
-                    ) {
-                        if (u64::from(hi) << 32 | u64::from(lo)) != *object {
-                            return Err(
-                                "projectile object differs from the event packet source".into()
-                            );
-                        }
-                    } else {
-                        return Err("projectile source words are not bound by the template".into());
-                    }
                     PacketPolicy::UnimbuedOwnerProjectile {
                         main: frame.main_address(),
                         descriptor_kind: *descriptor_kind,
@@ -533,6 +881,22 @@ impl EventProgram {
                 }
                 _ => return Err("event packet policy differs from its frame/source binding".into()),
             };
+            if let PacketPolicy::UnimbuedOwnerProjectile { projectile, .. }
+            | PacketPolicy::OwnerWeaponProjectile { projectile, .. } = packet
+            {
+                let word = |offset| {
+                    addresses
+                        .iter()
+                        .rposition(|&a| a == frame.main_address() + offset)
+                        .map(|i| rows[index][i])
+                };
+                let (Some(lo), Some(hi)) = (word(0x198), word(0x19c)) else {
+                    return Err("projectile source words are not bound by the template".into());
+                };
+                if u64::from(hi) << 32 | u64::from(lo) != projectile {
+                    return Err("projectile object differs from the event packet source".into());
+                }
+            }
             if let Some(identity) = &t.identity {
                 identity.validate()?;
             }
@@ -563,39 +927,129 @@ impl EventProgram {
                     compile_action(action, rows.len())?;
                 }
             }
-            Mode::FixedContacts | Mode::HeldReaper => {}
+            Mode::FixedContacts | Mode::HeldReaper | Mode::HeldWaterSword { .. } => {}
         }
         if doc.candidate_source_address.is_some() != doc.candidate_category_field.is_some()
             || (doc.candidate_inventory_record.is_some() && doc.candidate_source_address.is_none())
         {
             return Err("incomplete candidate source layout".into());
         }
+        let coating_flags_at = doc.main_address + 0x13c;
+        // A dense hit table can omit flags common to all contacts. Bind the
+        // original known word from the same image in that case.
+        let retained_coating_flags = if doc.peak_coating.is_some()
+            && !addresses.contains(&coating_flags_at)
+        {
+            let bytes = context.ok_or("coating route needs its captured packet")?
+                .read_known::<4>(coating_flags_at).map_err(|e| e.to_string())?;
+            Some(WordPatch::full(coating_flags_at, u32::from_le_bytes(bytes)))
+        } else {
+            None
+        };
         let patches = rows
             .iter()
             .enumerate()
             .map(|(i, row)| {
                 let actor_category = frame.has_source_rebuild()
                     && doc.candidate_source_address.is_some()
-                    && matches!(doc.templates[i].packet, Packet::PreparedActor);
+                    && matches!(
+                        doc.templates[i].packet,
+                        Packet::PreparedActor | Packet::OwnerWeaponProjectile { .. }
+                    );
                 addresses
                     .iter()
                     .copied()
                     .zip(row.iter().copied())
                     .filter(|(address, _)| !actor_category || *address != doc.main_address + 0x144)
                     .map(|(address, value)| WordPatch::full(address, value))
+                    .chain(retained_coating_flags.filter(|_| doc.templates[i].peak_allows_coating == Some(true)))
                     .collect()
             })
             .collect();
+        let peak = doc.triggered_damage == Some(TriggeredDamage::TheoreticalPeak);
+        let peak_arts_packets = match &frame.source_rebuild {
+            Some(program) if peak && matches!(doc.mode, Mode::FixedContacts)
+                && program.binding.form == 0 =>
+            {
+                let learned = program.arts_proficiency_learned
+                    .ok_or("missing Arts Proficiency skill")?;
+                let mut classes = Vec::with_capacity(doc.templates.len());
+                for template in &doc.templates {
+                    if let Some(route) = template.peak_actor_arts {
+                        if !matches!(template.packet, Packet::PreparedActor) {
+                            return Err("actor Arts route needs a prepared actor contact".into());
+                        }
+                        classes.push(ArtsPacket::PreparedActor(route));
+                        continue;
+                    }
+                    if !matches!(template.packet, Packet::PreparedActor) {
+                        classes.push(ArtsPacket::Projectile);
+                        continue;
+                    }
+                    let id = template.identity.as_ref().ok_or("peak attack needs its resource action")?;
+                    let action = crate::action_rows::ActionController::resolve(
+                        &id.resource, id.action, &id.parameter_sha256,
+                    )?;
+                    let skill = i32::from_le_bytes(action.parameter[0xdc..0xe0].try_into().unwrap());
+                    classes.push(if skill >= 0 { ArtsPacket::Martial } else { ArtsPacket::Basic });
+                }
+                Some((learned, classes))
+            }
+            _ => None,
+        };
+        let actor_damage_rows = if doc.actor_damage_kind_from_row {
+            if frame.packet_kind != PacketKind::Weapon
+                || !matches!(doc.mode, Mode::FixedContacts)
+                || packets
+                    .iter()
+                    .any(|p| !matches!(p, PacketPolicy::PreparedActor))
+                || addresses.contains(&(doc.main_address + 0xC))
+            {
+                return Err(
+                    "row damage kind requires fixed actor rows with candidate weapon kind".into(),
+                );
+            }
+            let ctx = context.ok_or("row damage kind needs its installed controller rows")?;
+            let index = |offset| {
+                addresses
+                    .iter()
+                    .position(|&address| address == doc.main_address + offset)
+                    .ok_or("missing per-contact damage row pointer")
+            };
+            let (low, high) = (index(0x190)?, index(0x194)?);
+            let routes = rows
+                .iter()
+                .map(|row| {
+                    let address = (u64::from(row[high]) << 32) | u64::from(row[low]);
+                    let raw = ctx.read_known::<0x95>(address).map_err(|e| e.to_string())?;
+                    Ok::<_, String>(ActorDamageRow {
+                        kind: PacketKind::DamageRow(raw[0x94] as i8),
+                        // PC202 35A220 skips the temporary owner element when
+                        // either damage-row flag 38 or 39 is present.
+                        allows_owner_element: raw[4] & 0xC0 == 0,
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Some(routes)
+        } else {
+            None
+        };
+        let can_use_dense_packets = !peak && actor_damage_rows.is_none();
+        let initial_phase = if peak { NextHitPhase::Active } else { initial_phase };
         let mut result = Self {
+            peak_arts_packets,
+            peak_supplies,
             document: doc,
             source,
             status,
             initial_phase,
             patches,
             packets,
+            actor_damage_rows,
             fixed: Vec::new(),
             gpu_compatible: false,
             held_templates_reusable: false,
+            water: None,
         };
         let mut epoch = result.document.initial_epoch;
         let mut phase = result.initial_phase;
@@ -634,9 +1088,9 @@ impl EventProgram {
         }
         // GPU templates already contain the same state snapshots in the old
         // native hit ABI. Refuse only an actual semantic/layout mismatch.
-        result.gpu_compatible =
-            matches!(result.document.mode, Mode::FixedContacts | Mode::HeldReaper);
-        for event in &result.fixed {
+        result.gpu_compatible = can_use_dense_packets
+            && matches!(result.document.mode, Mode::FixedContacts | Mode::HeldReaper);
+        for event in result.fixed.iter().filter(|_| can_use_dense_packets) {
             let mut built = Vec::new();
             let admitted = result.assemble(*event, &[], &mut built)?;
             let mut expected: Vec<_> = addresses
@@ -676,6 +1130,12 @@ impl EventProgram {
         debit: Option<Word>,
     ) -> Result<ExecutionEvent, &'static str> {
         let t = &self.document.templates[template];
+        let peak = self.document.triggered_damage == Some(TriggeredDamage::TheoreticalPeak);
+        // The ideal full-hit objective settles each scored window before the next.
+        // Captured status plans retain their observed rebuild boundaries.
+        if peak {
+            *phase = phase.after_rebuild();
+        }
         if t.rebuild_before {
             *epoch = epoch.checked_add(1).ok_or("event rebuild epoch overflow")?;
             *phase = phase.after_rebuild();
@@ -688,28 +1148,34 @@ impl EventProgram {
             scored: t.scored,
             ki,
             debit,
+            peak_arts_words: None,
+            coating_power: None,
         };
         if *phase == NextHitPhase::Active && t.landed == Some(true) {
-            let s = t
-                .settlement
-                .as_ref()
-                .ok_or("active status requires explicit settlement facts")?;
-            *phase = phase.after_settlement(Settlement {
-                landed: t.landed == Some(true),
-                source_present: s.source_present,
-                hp_owner_present: s.hp_owner_present,
-                packet_flags_296_298: s.packet_flags_296_298,
-                actor_event_241: s.actor_event_241,
-                physical_motion: s.physical_motion,
-                elemental_motion: s.elemental_motion,
-            });
+            if peak {
+                if t.peak_consumes_follow_up.unwrap_or(true) {
+                    *phase = NextHitPhase::RemovedPendingRebuild;
+                }
+            } else {
+                let s = t.settlement.as_ref().ok_or("active status requires explicit settlement facts")?;
+                *phase = phase.after_settlement(Settlement {
+                    landed: true,
+                    source_present: s.source_present,
+                    hp_owner_present: s.hp_owner_present,
+                    packet_flags_296_298: s.packet_flags_296_298,
+                    actor_event_241: s.actor_event_241,
+                    physical_motion: s.physical_motion,
+                    elemental_motion: s.elemental_motion,
+                });
+            }
         }
         Ok(event)
     }
 
     pub fn all_fixed_events_scored(&self) -> bool {
-        matches!(self.document.mode, Mode::FixedContacts)
-            && self.fixed.iter().all(|event| event.scored)
+        matches!(self.document.mode, Mode::HeldWaterSword { .. })
+            || matches!(self.document.mode, Mode::FixedContacts)
+                && self.fixed.iter().all(|event| event.scored)
     }
 
     pub fn is_single_fixed_contact(&self) -> bool {
@@ -720,8 +1186,9 @@ impl EventProgram {
     pub fn requires_occurrence_execution(&self) -> bool {
         matches!(
             self.document.mode,
-            Mode::FiniteSequence { .. } | Mode::CyclicSequence { .. }
-        ) || matches!(self.document.mode, Mode::HeldReaper) && !self.held_templates_reusable
+            Mode::FiniteSequence { .. } | Mode::CyclicSequence { .. } | Mode::HeldWaterSword { .. }
+        ) || self.document.triggered_damage == Some(TriggeredDamage::TheoreticalPeak)
+            || matches!(self.document.mode, Mode::HeldReaper) && !self.held_templates_reusable
     }
 
     pub fn reuses_held_templates(&self) -> bool {
@@ -746,10 +1213,47 @@ impl EventProgram {
             "rebuild_scope":"explicit single-use membership and aggregate snapshots; ordinary source production remains separately bound",
             "mode":match self.document.mode {
                 Mode::FixedContacts=>"fixed_contacts",Mode::HeldReaper=>"held_reaper",Mode::FiniteSequence{..}=>"finite_sequence",
-                Mode::CyclicSequence{..}=>"cyclic_sequence"}})
+                Mode::CyclicSequence{..}=>"cyclic_sequence",Mode::HeldWaterSword{..}=>"held_water_sword"}})
     }
 
     pub fn events(&self, stat: &[u8], d: &[u8]) -> Result<Vec<ExecutionEvent>, &'static str> {
+        let mut events = self.build_events(stat, d)?;
+        if let Some(coating) = self.document.peak_coating {
+            let caster = crate::peak_prepared::jutsu_power(stat)
+                .ok_or("prepared coating requires the candidate's caster stat")?;
+            let power = self.peak_supplies.and_then(|stock| stock.coating_power(coating, caster))
+                .ok_or("selected coating has no prepared provider")?;
+            for event in &mut events {
+                event.coating_power = Some(power);
+            }
+        }
+        Ok(events)
+    }
+
+    fn build_events(&self, stat: &[u8], d: &[u8]) -> Result<Vec<ExecutionEvent>, &'static str> {
+        if let Mode::HeldWaterSword { objective, .. } = self.document.mode {
+            let (role, base) = self.water.ok_or("held action has no bound character")?;
+            let mut events = Vec::new();
+            let mut phase = self.initial_phase;
+            let mut epoch = self.document.initial_epoch;
+            crate::water_sword::walk_to(objective, stat, d, role, &base, |action, ki| {
+                events
+                    .try_reserve(2)
+                    .map_err(|_| "held sequence exceeds available memory")?;
+                for template in [action * 2, action * 2 + 1] {
+                    events.push(self.advance(
+                        template,
+                        events.len() as u64,
+                        &mut epoch,
+                        &mut phase,
+                        Some((crate::water_sword::CURRENT_KI, ki.to_bits())),
+                        None,
+                    )?);
+                }
+                Ok(())
+            })?;
+            return Ok(events);
+        }
         if matches!(self.document.mode, Mode::HeldReaper) {
             let count = crate::sustained::reaper_steps(stat, d)?;
             let remaining = u64::from(count.saturating_sub(1));
@@ -818,7 +1322,23 @@ impl EventProgram {
                     *ki_address,
                     *debit_address,
                 ),
-                Mode::FixedContacts | Mode::HeldReaper => return Ok(self.fixed.clone()),
+                Mode::FixedContacts | Mode::HeldReaper | Mode::HeldWaterSword { .. } => {
+                    let mut events = self.fixed.clone();
+                    if let Some((learned, classes)) = &self.peak_arts_packets {
+                        let arts = crate::arts_proficiency::ActiveArts::saturated();
+                        let basic = if *learned { arts.packet_words(stat, false) } else { [0; 3] };
+                        let martial = if *learned { arts.packet_words(stat, true) } else { [0; 3] };
+                        for event in &mut events {
+                            event.peak_arts_words = Some(match classes[event.template] {
+                                ArtsPacket::Basic => basic,
+                                ArtsPacket::Martial => martial,
+                                ArtsPacket::Projectile => [0; 3],
+                                ArtsPacket::PreparedActor(route) => route.words(martial),
+                            });
+                        }
+                    }
+                    return Ok(events);
+                }
             };
         let maximum = u32::from_le_bytes(
             stat.get(0x1c..0x20)
@@ -948,6 +1468,40 @@ impl EventProgram {
             |_| Err("event template requires unknown baseline bytes"),
         )?;
         if admitted {
+            if let Some(rows) = &self.actor_damage_rows {
+                // The ordinary constructor promotes row kind 1 when the selected
+                // candidate weapon chooses kind 2. Each contact owns this choice.
+                let address = self.document.main_address + 0xC;
+                let &(_, weapon_kind) = candidate
+                    .iter()
+                    .rfind(|(at, _)| *at == address)
+                    .ok_or("missing candidate weapon damage kind")?;
+                output.push((address, rows[event.template].kind.resolve(weapon_kind)));
+            }
+            if self.document.triggered_damage == Some(TriggeredDamage::TheoreticalPeak)
+                && event.phase == NextHitPhase::Inactive
+            {
+                // The first landed hit consumes the follow-up. The general
+                // damage-dealt contribution survives the ordinary rebuild.
+                let owner = self.damage_owner().ok_or("missing follow-up owner")?;
+                output.extend([(owner + 0x2e34, 1f32.to_bits()), (owner + 0x2e38, 1f32.to_bits())]);
+            }
+            if let Some([mult, level, scalar]) = event.peak_arts_words {
+                let main = self.document.main_address;
+                output.extend([(main + 0x174, mult), (main + 0x178, level), (main + 0x17c, scalar)]);
+                if let Some(route) = t.peak_actor_arts {
+                    let flags = output.iter().rfind(|(address, _)| *address == main + 0x13c)
+                        .map(|&(_, flags)| flags).ok_or("actor Arts route is missing prepared flags")?;
+                    output.push((main + 0x13c, route.flags(flags, mult)));
+                }
+            }
+            if let Some(coating) = self.document.peak_coating.filter(|_| t.peak_allows_coating == Some(true)) {
+                let main = self.document.main_address;
+                let (_, value) = output.iter().rfind(|(address, _)| *address == main + 0x13c)
+                    .copied().ok_or("coating route is missing the prepared packet flags")?;
+                let power = event.coating_power.ok_or("coating route is missing the selected power")?;
+                output.extend(coating.packet_words(main, value, power));
+            }
             output.extend(event.ki);
             output.extend(event.debit);
         }

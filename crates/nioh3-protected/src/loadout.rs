@@ -74,6 +74,30 @@ pub(crate) enum BuffScene {
     Deflect,
     Arts,
     DeflectArts,
+    NinjaEvadeDamage,
+    SamuraiDeflectDamage,
+    AmritaAbsorptionDamage,
+    StyleShiftAbsorptionDamage,
+    AbsorptionThenDefenseDamage,
+    DeflectArtsOpening,
+    TheoreticalPeak,
+    TheoreticalPeakFire,
+    TheoreticalPeakWater,
+    TheoreticalPeakLightning,
+    TheoreticalPeakWind,
+}
+
+impl BuffScene {
+    pub(crate) fn projected_damage(self) -> bool {
+        self.theoretical_peak() || matches!(self, Self::NinjaEvadeDamage | Self::SamuraiDeflectDamage
+            | Self::AmritaAbsorptionDamage | Self::StyleShiftAbsorptionDamage
+            | Self::AbsorptionThenDefenseDamage | Self::DeflectArtsOpening)
+    }
+
+    pub(crate) fn theoretical_peak(self) -> bool {
+        matches!(self, Self::TheoreticalPeak | Self::TheoreticalPeakFire | Self::TheoreticalPeakWater
+            | Self::TheoreticalPeakLightning | Self::TheoreticalPeakWind)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -101,6 +125,8 @@ pub(crate) struct Bundle {
     scene: Option<AttackScene>,
     /// Retained engineering scenarios remain inspectable but are not ordinary attack choices.
     diagnostic: bool,
+    #[serde(skip_serializing)]
+    pub(crate) current_action_read: bool,
     /// Alternative buff scenes can share the attack's read-only evaluator files.
     #[serde(skip_serializing)]
     assets: Option<String>,
@@ -198,6 +224,7 @@ fn bundles(data_root: &Path) -> Vec<Bundle> {
             continue;
         }
         out.push(Bundle {
+            current_action_read: meta["current_action_read"] == true,
             id: id.to_string(),
             name: name.to_string(),
             weapon: meta["weapon"].as_str().unwrap_or(name).to_string(),

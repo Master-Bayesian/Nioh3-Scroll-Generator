@@ -1,0 +1,6 @@
+[
+  {"name":"add-temp-elements","overrides":{"Fault":"StackSameElement"},"expected":"Invariant PeakCoating is violated"},
+  {"name":"use-empty-charge","overrides":{"Fault":"SpendEmptySlot"},"expected":"Invariant PeakCoating is violated"},
+  {"name":"reuse-previous-outfit","overrides":{"Fault":"StaleOutfitPower"},"expected":"Invariant PeakCoating is violated"},
+  {"name":"lose-temp-element-mid-cast","overrides":{"Fault":"DropCoating"},"expected":"Invariant PeakCoating is violated"}
+]

@@ -873,6 +873,44 @@ pub fn item_quantity(record: &[u8]) -> Option<u32> {
     }
 }
 
+/// Quantity in the PC202 prepared-item charge bank of a decoded character save.
+/// None means the tagged bank was unavailable. A missing key in a known bank
+/// has zero charges.
+pub fn prepared_item_quantity(plain: &[u8], key: u16) -> Option<u32> {
+    const OFFSET: usize = 0x132D1E;
+    const PAYLOAD: usize = 200 * ITEM_RECORD_BYTES;
+    let bank = plain.get(OFFSET..OFFSET + 12 + PAYLOAD)?;
+    if u32_at(bank, 0) != 0xBBFB81A6
+        || u32_at(bank, 4) as usize != PAYLOAD + 4
+        || u32_at(bank, 8) as usize != PAYLOAD
+    {
+        return None;
+    }
+    Some(bank[12..].as_chunks::<ITEM_RECORD_BYTES>().0.iter()
+        .find(|row| u16_at(*row, 0) == key)
+        .map_or(0, |row| item_quantity(row).unwrap_or(1)))
+}
+
+#[cfg(test)]
+#[test]
+fn prepared_quantity_obeys_the_bank_tag_and_native_record_shape() {
+    const OFFSET: usize = 0x132D1E;
+    const PAYLOAD: usize = 200 * ITEM_RECORD_BYTES;
+    let mut save = vec![0; OFFSET + 12 + PAYLOAD];
+    assert_eq!(prepared_item_quantity(&save, 0xCBC3), None);
+    save[OFFSET..OFFSET + 4].copy_from_slice(&0xBBFB81A6_u32.to_le_bytes());
+    save[OFFSET + 4..OFFSET + 8].copy_from_slice(&((PAYLOAD + 4) as u32).to_le_bytes());
+    save[OFFSET + 8..OFFSET + 12].copy_from_slice(&(PAYLOAD as u32).to_le_bytes());
+    assert_eq!(prepared_item_quantity(&save, 0xCBC3), Some(0));
+    let row = &mut save[OFFSET + 12..OFFSET + 12 + ITEM_RECORD_BYTES];
+    row[..2].copy_from_slice(&0xCBC3_u16.to_le_bytes());
+    row[4..8].copy_from_slice(&0x10005_u32.to_le_bytes());
+    row[0x18..0x1c].copy_from_slice(&ITEM_WIDE_COUNT_FLAG.to_le_bytes());
+    assert_eq!(prepared_item_quantity(&save, 0xCBC3), Some(0x10005));
+    save[OFFSET + 8] = 0;
+    assert_eq!(prepared_item_quantity(&save, 0xCBC3), None);
+}
+
 /// The largest count one record can hold.
 pub fn item_quantity_limit(record: &[u8]) -> u32 {
     if u32_at(record, 0x18) & ITEM_WIDE_COUNT_FLAG != 0 {

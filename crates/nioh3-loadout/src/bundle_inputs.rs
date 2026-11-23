@@ -39,9 +39,8 @@ impl BundleInputs {
             if name == "characters.bin" && !sample_character {
                 continue;
             }
-            let file = dir.join(name);
-            let bytes = std::fs::read(&file).map_err(|e| LoadError {
-                file,
+            let bytes = crate::kernel_asset::read(dir, name).map_err(|e| LoadError {
+                file: dir.join(name),
                 reason: e.to_string(),
             })?;
             files.insert(name, Arc::from(bytes));
@@ -55,15 +54,14 @@ impl BundleInputs {
             if name == "image.bin" && !legacy_image {
                 continue;
             }
-            let file = dir.join(name);
-            match std::fs::read(&file) {
+            match crate::kernel_asset::read(dir, name) {
                 Ok(bytes) => {
                     files.insert(name, Arc::from(bytes));
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
                 Err(e) => {
                     return Err(LoadError {
-                        file,
+                        file: dir.join(name),
                         reason: e.to_string(),
                     })
                 }
@@ -134,5 +132,44 @@ mod tests {
         assert_eq!(new.required("hits.txt"), b"new");
         assert_ne!(owner.digest(), new.digest());
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn pooled_asset_bytes_are_owned_and_missing_sealed_inputs_fail() {
+        let root = std::env::var_os("NIOH3_BUILD_ROOT")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(std::env::temp_dir)
+            .join(format!("pooled-input-test-{}", std::process::id()));
+        let scene = root.join("loadout/attached");
+        std::fs::create_dir_all(&scene).unwrap();
+        for name in [
+            "programs.txt",
+            "arena.bin",
+            "frame.bin",
+            "gpu_setup.txt",
+            "hits.txt",
+            "live_groups.txt",
+            "survival_groups.txt",
+        ] {
+            std::fs::write(scene.join(name), b"local").unwrap();
+        }
+        let hash = crate::context::sha256(b"good");
+        let pool = root.join("loadout-kernels").join(&hash);
+        std::fs::create_dir_all(&pool).unwrap();
+        let descriptor = serde_json::json!({"files": {
+            "tables.bin": {"sha256": hash, "bytes": 4},
+            "source_numeric.bin": {"sha256": hash, "bytes": 4}
+        }});
+        std::fs::write(scene.join("runtime-contract.json"), descriptor.to_string()).unwrap();
+        for name in ["tables.bin", "source_numeric.bin"] {
+            std::fs::write(pool.join(name), b"good").unwrap();
+        }
+        let inputs = BundleInputs::load_for_context(&scene, false).unwrap();
+        std::fs::write(pool.join("source_numeric.bin"), b"bad!").unwrap();
+        assert!(BundleInputs::load_for_context(&scene, false).is_err());
+        assert_eq!(inputs.required("source_numeric.bin"), b"good");
+        std::fs::remove_file(pool.join("source_numeric.bin")).unwrap();
+        assert!(BundleInputs::load_for_context(&scene, false).is_err());
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

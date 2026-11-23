@@ -232,11 +232,11 @@ fn known_bytes<const N: usize>(scene: &SceneBytes, address: u64) -> Result<[u8; 
             .0
             .iter()
             .position(|chunk| u64::from_le_bytes(chunk[..8].try_into().unwrap()) == chunk_base)
-            .ok_or_else(|| invalid("MAIN flags are absent from captured image"))?;
+            .ok_or_else(|| invalid(format!("captured image has no page for {at:#x}")))?;
         let offset = (at - chunk_base) as usize;
         let bitmap = &known[index * KNOWN_RECORD_BYTES + 8..(index + 1) * KNOWN_RECORD_BYTES];
         if bitmap[offset >> 3] & (1 << (offset & 7)) == 0 {
-            return Err(invalid("MAIN flags baseline contains unknown bytes"));
+            return Err(invalid(format!("captured image has an unknown byte at {at:#x} (read {address:#x}, width {N})")));
         }
         *value = image[index * IMAGE_RECORD_BYTES + 8 + offset];
     }
@@ -413,7 +413,14 @@ impl LoadoutContext {
             // address. Resource ownership follows the actual MAIN entity
             // chain, independently of those normalized producer pointers.
             let mut actor_agility = [0u8; 4];
-            if let Ok(player) = pointer(parsed_frame.main_address() + 0x198) {
+            let actor = pointer(parsed_frame.main_address() + 0x198).and_then(|source| {
+                if matches!(known_bytes::<1>(&scene,source), Ok([tag]) if tag & 15 == 4) {
+                    pointer(source.checked_add(0x260).ok_or_else(|| invalid("projectile owner field overflows"))?)
+                } else {
+                    Ok(source)
+                }
+            });
+            if let Ok(player) = actor {
                 for (index, offset) in [0u64, 0x886, 0x88A].into_iter().enumerate() {
                     if let Some(address) = player.checked_add(offset) {
                         if let Ok([value]) = known_bytes::<1>(&scene, address) {

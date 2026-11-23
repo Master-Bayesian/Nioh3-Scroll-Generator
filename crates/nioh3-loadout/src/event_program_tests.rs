@@ -35,6 +35,7 @@ fn compile(engine: &Engine, document: &Value, raw: &[u8]) -> Result<EventProgram
         &engine.hits.addresses,
         &engine.hits.rows,
         raw,
+        engine.context.as_ref(),
     )
 }
 

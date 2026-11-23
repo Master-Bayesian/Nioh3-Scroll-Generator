@@ -12,11 +12,12 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 
 # Both the command-line packager and imported tests resolve the same project module.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from tools.verify_tauri_native_dependencies import verify_runtime_native_dependencies
-from tools.verify_loadout_release import verify_scene_directory
+from tools.verify_loadout_release import CONTRACT, POOLED_FILES, POOL_ROOT, identity, verify_scene_directory
 
 
 def cargo_target_dir(root: Path, workspace: str) -> Path:
@@ -81,6 +82,87 @@ def collect_rust_licenses(root: Path, output: Path, packages: dict) -> list:
     return dependencies
 
 
+def stage_absorption_variants(scenes: Path, *, followed_by_defense: bool = False) -> list[dict]:
+    """The same sealed single contact can score any supported immediate 312 grant."""
+    variants = []
+    ending, condition, event = (
+        ("-absorb-defense", "absorption_then_defense_damage", "absorption_then_defense")
+        if followed_by_defense else ("-absorb", "amrita_absorption_damage", "amrita_absorption")
+    )
+    for source in sorted(scenes.glob("*/bundle.json")):
+        descriptor = json.loads(source.read_bytes())
+        old_condition = (descriptor.get("scene") or {}).get("buff")
+        suffix = {"ninja_evade_damage": "-evade", "samurai_deflect_damage": "-deflect-damage"}.get(old_condition)
+        if suffix is None or descriptor.get("diagnostic") or not descriptor.get("resource_action"):
+            continue
+        original = source.parent
+        verify_scene_directory(original)
+        plan = json.loads((original / "event_plan.json").read_bytes())
+        stem = descriptor["id"].removesuffix(suffix)
+        if len(stem) + len(ending) > 64:
+            stem = stem[:min(42, 64 - len(ending) - 13)] + "-" + hashlib.sha256(stem.encode("ascii")).hexdigest()[:12]
+        scene_id = stem + ending
+        destination = scenes / scene_id
+        descriptor["id"] = scene_id
+        descriptor["scene"]["buff"] = condition
+        plan["triggered_damage"] = event
+        contract = json.loads((original / CONTRACT).read_bytes())
+        contract["scene_id"] = scene_id
+        changed = {}
+        for name, content in (("bundle.json", descriptor), ("event_plan.json", plan)):
+            changed[name] = (json.dumps(content, ensure_ascii=False, indent=2) + "\n").encode()
+            contract["files"][name] = identity(changed[name])
+        if destination.exists():
+            verify_scene_directory(destination)
+            if json.loads((destination / CONTRACT).read_bytes()) != contract:
+                raise ValueError(f"Conflicting staged absorption scene: {scene_id}")
+        else:
+            # The original check binds the kernel and immutable layout. Recheck the
+            # derivative under that same layout before making it visible to the picker.
+            with tempfile.TemporaryDirectory(dir=scenes) as temporary:
+                stage = Path(temporary)
+                shutil.copytree(original, stage, dirs_exist_ok=True)
+                for name, raw in changed.items():
+                    (stage / name).write_bytes(raw)
+                (stage / CONTRACT).write_text(json.dumps(contract, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+                verify_scene_directory(stage, scene_id=scene_id)
+                stage.rename(destination)
+        variants.append(descriptor)
+    return variants
+
+
+def bind_installed_actions(catalog_path: Path, descriptors: list[dict]) -> None:
+    """Expose supplied scenes under their installed owner action, including charge variants."""
+    catalog = json.loads(catalog_path.read_bytes())
+    by_action = {(row["resource"], row["action"], row["parameter_sha256"]): row
+                 for row in catalog["selections"]}
+    if len(by_action) != len(catalog["selections"]):
+        raise ValueError("Duplicate action identity in the packaged catalog")
+    changed = False
+    for scene in descriptors:
+        action = scene.get("resource_action")
+        if action is None or scene.get("diagnostic"):
+            continue
+        row = by_action.get((action["resource"], action["action"], action["parameter_sha256"]))
+        if row is None or row["school"] != scene["school"]:
+            raise ValueError(f"Scene {scene['id']} has no matching catalog action")
+        if scene["id"] in row["scene_ids"]:
+            continue
+        selected_class = (scene["selection_weapon_class"] if "selection_weapon_class" in scene
+                          else scene["weapon_class"])
+        if row["weapon_class"] not in (None, selected_class):
+            raise ValueError(f"Scene {scene['id']} disagrees with the catalog weapon type")
+        row["scene_ids"].append(scene["id"])
+        row["plan_ready"] = True
+        row["weapon_class"] = selected_class
+        row["stance"] = scene["scene"]["stance"]
+        if row["attack_id"] is None:
+            row["attack_id"] = scene["scene"]["attack_id"]
+        changed = True
+    if changed:
+        catalog_path.write_bytes(json.dumps(catalog, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
 def stage_rust_runtime(root: Path, output: Path, loadout_runtime: Path | None = None) -> dict:
     """Stage the assets a Rust worker resolves from its application root.
 
@@ -109,11 +191,13 @@ def stage_rust_runtime(root: Path, output: Path, loadout_runtime: Path | None = 
     shutil.copytree(data_source, data_destination)
     if loadout_runtime is not None:
         supplied = loadout_runtime.resolve(strict=True)
-        sources = [supplied] if (supplied / 'bundle.json').is_file() else sorted(supplied.iterdir())
+        sources = ([supplied] if (supplied / 'bundle.json').is_file() else
+                   sorted(path for path in supplied.iterdir() if path.name != 'catalog.json'))
         if not sources:
             raise ValueError("Loadout runtime contains no scenes")
     else:
         sources = []
+    descriptors = []
     for source in sources:
         descriptor = json.loads((source / "bundle.json").read_bytes())
         scene_id = descriptor["id"]
@@ -127,15 +211,45 @@ def stage_rust_runtime(root: Path, output: Path, loadout_runtime: Path | None = 
         # A descriptor only identifies the menu entry. It does not bind address
         # spaces, source programs or the two native binaries. Validate the whole
         # immutable bundle, then replace the scene rather than merge leftovers.
-        verify_scene_directory(source, scene_id=target.name)
+        verified = verify_scene_directory(source, scene_id=target.name)
         staged_scene = target.with_name(target.name + ".staging")
         shutil.copytree(source, staged_scene)
+        # An installed scene can resolve sealed assets from its runtime's shared pool.
+        # Carry those same bytes into the destination pool when repackaging it.
+        for name in POOLED_FILES:
+            if not (staged_scene / name).is_file():
+                key = Path(POOL_ROOT) / verified["files"][name]["sha256"] / name
+                destination = data_destination / key
+                if not destination.is_file():
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source.parent.parent / key, destination)
         verify_scene_directory(staged_scene, scene_id=target.name)
         if target.exists():
             shutil.rmtree(target)
         staged_scene.rename(target)
+        if descriptor.get("resource_action") and not descriptor.get("diagnostic"):
+            descriptors.append(descriptor)
     scenes = data_destination / "loadout"
+    descriptors.extend(stage_absorption_variants(scenes))
+    descriptors.extend(stage_absorption_variants(scenes, followed_by_defense=True))
+    if descriptors:
+        bind_installed_actions(scenes / "catalog.json", descriptors)
     if scenes.is_dir():
+        duplicates = {}
+        for scene in sorted(scenes.iterdir()):
+            if scene.is_dir():
+                for name in POOLED_FILES:
+                    source = scene / name
+                    if source.is_file():
+                        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+                        duplicates.setdefault((digest, name), []).append(source)
+        for (digest, name), paths in duplicates.items():
+            if len(paths) > 1:
+                pool = data_destination / POOL_ROOT / digest
+                pool.mkdir(parents=True, exist_ok=True)
+                paths[0].replace(pool / name)
+                for duplicate in paths[1:]:
+                    duplicate.unlink()
         for scene in sorted(scenes.iterdir()):
             if scene.is_dir():
                 verify_scene_directory(scene)

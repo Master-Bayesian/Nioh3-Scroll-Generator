@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 from uuid import uuid4
 
 UNKNOWN_BUNDLE_TOKEN = b'__TAURI_BUNDLE_TYPE_VAR_UNK'
@@ -42,16 +43,16 @@ def refresh_main_manifest(portable: Path, manifest: dict) -> None:
         json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
 
 
-def resource_map(portable: Path) -> dict[str, str]:
+def resource_map(portable: Path, project: Path) -> dict[str, str]:
     files = {}
     for source in sorted(portable.rglob('*')):
         if not source.is_file() or source.name == 'Nioh3Studio.exe' and source.parent == portable:
             continue
-        files[str(source.resolve())] = source.relative_to(portable).as_posix()
+        files[Path(os.path.relpath(source, project)).as_posix()] = source.relative_to(portable).as_posix()
     return files
 
 
-def bundle_config(portable: Path) -> dict:
+def bundle_config(portable: Path, project: Path) -> dict:
     return {
         'mainBinaryName': 'Nioh3Studio',
         'bundle': {
@@ -61,7 +62,7 @@ def bundle_config(portable: Path) -> dict:
             'homepage': 'https://github.com/Master-Bayesian/Nioh3-Scroll-Generator',
             'shortDescription': 'Nioh 3 scroll search and editing studio',
             'longDescription': 'Search, inspect, add, edit and back up Nioh 3 scrolls.',
-            'resources': resource_map(portable),
+            'resources': resource_map(portable, project),
             'windows': {
                 'webviewInstallMode': {'type': 'downloadBootstrapper'},
                 'nsis': {
@@ -100,19 +101,27 @@ def main() -> None:
     patch_nsis_binary(main_binary)
     refresh_main_manifest(portable, manifest)
 
-    cargo_binary = root / 'apps/tauri/src-tauri/target/release/Nioh3Studio.exe'
+    project = root / 'apps/tauri/src-tauri'
+    cargo_target = Path(os.environ.get('CARGO_TARGET_DIR') or project / 'target').resolve()
+    cargo_binary = cargo_target / 'release/Nioh3Studio.exe'
+    cargo_binary.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(main_binary, cargo_binary)
     temporary = root / '.codex_tmp' / f'tauri-installer-{uuid4().hex}.json'
     temporary.parent.mkdir(parents=True, exist_ok=True)
-    temporary.write_text(json.dumps(bundle_config(portable), indent=2) + '\n', encoding='utf-8')
-    bundle_directory = root / 'apps/tauri/src-tauri/target/release/bundle/nsis'
+    bundle_directory = cargo_target / 'release/bundle/nsis'
     before = {path.resolve() for path in bundle_directory.glob('*.exe')} if bundle_directory.exists() else set()
     npm = 'npm.cmd' if os.name == 'nt' else 'npm'
     try:
-        subprocess.run(
-            [npm, 'exec', '--', 'tauri', 'bundle', '--ci', '--bundles', 'nsis', '--config', str(temporary)],
-            cwd=root / 'apps/tauri', check=True,
-        )
+        with tempfile.TemporaryDirectory(dir=temporary.parent) as scratch:
+            resources = portable
+            if portable.drive.casefold() != project.drive.casefold():
+                resources = Path(scratch) / 'portable'
+                shutil.copytree(portable, resources)
+            temporary.write_text(json.dumps(bundle_config(resources, project), indent=2) + '\n', encoding='utf-8')
+            subprocess.run(
+                [npm, 'exec', '--', 'tauri', 'bundle', '--ci', '--bundles', 'nsis', '--config', str(temporary)],
+                cwd=root / 'apps/tauri', check=True,
+            )
     finally:
         temporary.unlink(missing_ok=True)
     candidates = [path for path in bundle_directory.glob('*.exe') if path.resolve() not in before]

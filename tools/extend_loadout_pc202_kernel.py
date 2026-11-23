@@ -10,7 +10,8 @@ from capstone import CS_ARCH_X86, CS_MODE_64, Cs
 from capstone.x86 import X86_OP_IMM
 
 
-def extend(listing, image, scene, text, record, output, include_listing=None):
+def extend(listing, image, scene, text, record, output, include_listing=None, keep_scene=False,
+           opponent_branches=False):
     code = text.read_bytes()
     if (
         hashlib.sha256(code).hexdigest()
@@ -61,9 +62,13 @@ def extend(listing, image, scene, text, record, output, include_listing=None):
                 continue  # Caller-local adapters belong to the destination ABI.
             install_bytes(rva, body)
             rows[rva] = dict(entry, executed=0)
-    # Full basic blocks and both returns of the item flag helper. The curve evaluator
-    # and float accumulation callees are already in the canonical listing.
-    blocks = [(0x552644, 0x552654), (0x2081C50, 0x2081C8A), (0x791A6D, 0x791AA0)]
+    if opponent_branches:
+        # A non-singleton status tree can take the right-subtree successor.
+        # Preserve the full original iterator and its original leaf.
+        blocks = [(0x136AC4, 0x136B26), (0x3F262C, 0x3F264A)]
+    else:
+        # Full basic blocks and both returns of the item flag helper.
+        blocks = [(0x552644, 0x552654), (0x2081C50, 0x2081C8A), (0x791A6D, 0x791AA0)]
     if include_listing is not None:
         # 792055 looks up the cap for the current owner's counter. Preserve
         # both the missing-row return and the two numeric representations.
@@ -103,7 +108,8 @@ def extend(listing, image, scene, text, record, output, include_listing=None):
         if end != hi:
             raise ValueError("Incomplete decode")
     doc["instructions"] = [rows[k] for k in sorted(rows)]
-    bails = set(doc["bails"]) - {0x791A70, 0x791A79}
+    bails = set(doc["bails"])
+    bails.difference_update({0x136B19} if opponent_branches else {0x791A70, 0x791A79})
     if include_listing is not None:
         for rva, row in rows.items():
             if row["mnemonic"] != "call":
@@ -126,8 +132,9 @@ def extend(listing, image, scene, text, record, output, include_listing=None):
     )
     (output / "edges.txt").write_bytes(listing.with_name("edges.txt").read_bytes())
     lines = scene.read_text().splitlines()
-    for offset in (0, 0x14, 0x18):
-        lines.append(f"domain {record + offset:x} {record + offset + 4:x}")
+    if not keep_scene:
+        for offset in (0, 0x14, 0x18):
+            lines.append(f"domain {record + offset:x} {record + offset + 4:x}")
     (output / "scene.txt").write_text("\n".join(lines) + "\n", encoding="utf8")
     (output / "inputs.json").write_text(
         json.dumps(
@@ -147,4 +154,6 @@ if __name__ == "__main__":
         type=Path,
         help="Merge compatible PC202 instructions from another form by RVA",
     )
+    parser.add_argument("--keep-scene", action="store_true", help="Preserve a scene with an existing item domain")
+    parser.add_argument("--opponent-branches", action="store_true", help="Translate the original multi-node opponent status lookup")
     extend(**vars(parser.parse_args()))

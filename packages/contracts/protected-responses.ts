@@ -1264,7 +1264,23 @@ export interface LoadoutBundles {
       stance: "high" | "mid" | "low" | "none";
       kind: "quick" | "strong" | "martial";
       attack_id: string;
-      buff: "current" | "untriggered" | "deflect" | "arts" | "deflect_arts";
+      buff:
+        | "current"
+        | "untriggered"
+        | "deflect"
+        | "arts"
+        | "deflect_arts"
+        | "ninja_evade_damage"
+        | "samurai_deflect_damage"
+        | "amrita_absorption_damage"
+        | "style_shift_absorption_damage"
+        | "deflect_arts_opening"
+        | "absorption_then_defense_damage"
+        | "theoretical_peak"
+        | "theoretical_peak_fire"
+        | "theoretical_peak_water"
+        | "theoretical_peak_lightning"
+        | "theoretical_peak_wind";
     };
     diagnostic?: boolean;
     selection_weapon_class?: number;

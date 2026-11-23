@@ -7,10 +7,7 @@ host runner and cannot be replaced by these tests.
 from __future__ import annotations
 
 import copy
-import hashlib
-import io
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -96,7 +93,8 @@ def portable(path: Path, scenes: dict[str, bytes]):
     manifest = {"schema": "nioh3-tauri-manifest/v1", "version": "0.8.13", "git": {"commit": COMMIT, "dirty": False},
                 "files": [{"path": name, "size": len(body), "sha256": gate.digest(body)} for name, body in files.items()]}
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
-        for name, body in files.items(): archive.writestr(name, body)
+        for name, body in files.items():
+            archive.writestr(name, body)
         archive.writestr("build-manifest.json", json.dumps(manifest))
 
 
@@ -129,6 +127,19 @@ class LoadoutReleaseTests(unittest.TestCase):
         self.assertEqual((self.root / "captured/frame.bin").read_bytes(), files["frame.bin"])
         self.assertNotIn(b"348", (self.root / "export/gpu_setup.txt").read_bytes())
 
+    def test_per_contact_actor_plan_removes_the_legacy_global_row_kind(self):
+        frame = scene_files()["frame.bin"]
+        selector = b"aad_packet_kind"
+        frame += struct.pack("<I", len(selector)) + selector + struct.pack("<IB", 1, 1)
+        plan = {
+            "mode": {"kind": "fixed_contacts"},
+            "templates": [{"packet": {"kind": "prepared_actor"}}] * 3,
+        }
+        legacy = gate.sections(gate.public_frame(frame, plan))
+        current = gate.sections(gate.public_frame(frame, dict(plan, actor_damage_kind_from_row=True)))
+        self.assertEqual(legacy.pop("aad_packet_kind"), b"\x01")
+        self.assertEqual(current, legacy)
+
     def test_static_identity_is_not_numerical_acceptance(self):
         report = gate.verify_scene(bound_scene(), "kusarigama-strong", COMMIT)
         self.assertTrue(report["host_e2e_required"])
@@ -143,8 +154,10 @@ class LoadoutReleaseTests(unittest.TestCase):
         self.assertIn("at least one shipped scene", json.loads(result.stdout)["error"])
 
     def test_old_cpu_only_package_is_rejected_before_wrapping(self):
-        files = bound_scene(); del files["main_device.dll"]
-        target = self.root / "candidate.zip"; portable(target, files)
+        files = bound_scene()
+        del files["main_device.dll"]
+        target = self.root / "candidate.zip"
+        portable(target, files)
         with self.assertRaisesRegex(ValueError, "missing runtime files: main_device.dll"):
             build_tauri_onefile.build_onefile(target, self.root / "candidate.exe")
         self.assertFalse((self.root / "candidate.exe").exists())
@@ -162,11 +175,43 @@ class LoadoutReleaseTests(unittest.TestCase):
             self.assertEqual((self.root / "output" / destination).read_bytes(), bound_scene()[name])
 
     def test_full_final_exe_is_reopened_after_build(self):
-        archive = self.root / "candidate.zip"; portable(archive, bound_scene())
+        archive = self.root / "candidate.zip"
+        portable(archive, bound_scene())
         exe = self.root / "candidate.exe"
         result = build_tauri_onefile.build_onefile(archive, exe)
         self.assertEqual(result["loadout"]["artifact_sha256"], gate.digest(exe.read_bytes()))
         self.assertTrue(gate.artifact_report(exe)["scenes"][0]["host_e2e_required"])
+
+    def test_two_scenes_share_byte_identical_sealed_kernel_assets(self):
+        root = self.root / "source"
+        write_files(root / "bin", {n: b"helper" for n in (
+            "nioh3_seed_accelerator.dll", "nioh3_effect_preimage_accelerator.dll",
+            "nioh3_seed_accelerator.build.json", "nioh3_effect_preimage_accelerator.build.json")})
+        (root / "data").mkdir()
+        runtime = self.root / "supplied"
+        for scene_id in ("one", "two"):
+            files = bound_scene()
+            files["bundle.json"] = json.dumps({"id": scene_id}).encode()
+            contract = json.loads(files[gate.CONTRACT])
+            contract.update(scene_id=scene_id, files=gate.inventory(files))
+            files[gate.CONTRACT] = json.dumps(contract).encode()
+            write_files(runtime / scene_id, files)
+        output = self.root / "output"
+        package_tauri.stage_rust_runtime(root, output, runtime)
+        scenes = output / gate.SCENE_ROOT
+        for name in ("one", "two"):
+            self.assertTrue(all(not (scenes / name / asset).exists() for asset in gate.POOLED_FILES))
+            self.assertEqual(gate.verify_scene_directory(scenes / name)["scene_id"], name)
+        table, = (scenes.parent / gate.POOL_ROOT).glob("*/tables.bin")
+        self.assertEqual(table.read_bytes(), bound_scene()["tables.bin"])
+        repack = self.root / "repack"
+        package_tauri.stage_rust_runtime(root, repack, scenes)
+        for scene_id in ("one", "two"):
+            self.assertEqual(gate.verify_scene_directory(repack / gate.SCENE_ROOT / scene_id),
+                             gate.verify_scene_directory(scenes / scene_id))
+        table.write_bytes(b"corrupt")
+        with self.assertRaisesRegex(ValueError, "file set/bytes"):
+            gate.verify_scene_directory(scenes / "one")
 
     def test_shared_wrong_scene_still_fails_if_both_dll_hashes_are_correct(self):
         files = bound_scene()
@@ -174,7 +219,8 @@ class LoadoutReleaseTests(unittest.TestCase):
         files["frame.bin"] = frame.replace(struct.pack("<Q", 0x30000), struct.pack("<Q", 0x90000))
         # Deliberately re-sign the scene inventory: identity is internally
         # consistent, but compiled MAIN and scene address spaces still differ.
-        contract = json.loads(files[gate.CONTRACT]); contract["files"] = gate.inventory(files)
+        contract = json.loads(files[gate.CONTRACT])
+        contract["files"] = gate.inventory(files)
         files[gate.CONTRACT] = json.dumps(contract).encode()
         with self.assertRaisesRegex(ValueError, "MAIN address differs"):
             gate.verify_scene(files, "kusarigama-strong", COMMIT)
@@ -183,21 +229,26 @@ class LoadoutReleaseTests(unittest.TestCase):
         original = bound_scene()
         for name in sorted(gate.REQUIRED):
             with self.subTest(file=name):
-                files = original.copy(); files[name] += b"changed"
+                files = original.copy()
+                files[name] += b"changed"
                 with self.assertRaisesRegex(ValueError, "differ from bound"):
                     gate.verify_scene(files, "kusarigama-strong", COMMIT)
 
     def test_private_context_is_never_copied_into_public_runtime(self):
         files = bound_scene()
         files["context/image.bin"] = b"private captured memory"
-        contract = json.loads(files[gate.CONTRACT]); contract["files"] = gate.inventory(files)
+        contract = json.loads(files[gate.CONTRACT])
+        contract["files"] = gate.inventory(files)
         files[gate.CONTRACT] = json.dumps(contract).encode()
         with self.assertRaisesRegex(ValueError, "non-deployable or stale files"):
             gate.verify_scene(files, "kusarigama-strong", COMMIT)
 
     def test_missing_component_export_and_cross_commit_rejected(self):
-        files = bound_scene(); files["main_device.dll"] = pe_fixture({"nk_context_abi"})
-        contract = json.loads(files[gate.CONTRACT]); contract["files"] = gate.inventory(files); files[gate.CONTRACT] = json.dumps(contract).encode()
+        files = bound_scene()
+        files["main_device.dll"] = pe_fixture({"nk_context_abi"})
+        contract = json.loads(files[gate.CONTRACT])
+        contract["files"] = gate.inventory(files)
+        files[gate.CONTRACT] = json.dumps(contract).encode()
         with self.assertRaisesRegex(ValueError, "missing required ABI exports"):
             gate.verify_scene(files, "kusarigama-strong", COMMIT)
         with self.assertRaisesRegex(ValueError, "another app source commit"):
@@ -206,9 +257,13 @@ class LoadoutReleaseTests(unittest.TestCase):
     def test_event_plan_hash_and_domains_are_not_only_file_hash_checks(self):
         for mutation, message in ((lambda f: f.update({"hits.txt": b"1\n99999\n0\n"}), "hit address outside"),
                                   (lambda f: f.update({"event_plan.json": b'{"main_address":196608,"hit_values_sha256":"bad"}'}), "hit values are stale")):
-            files = bound_scene(); mutation(files)
-            contract = json.loads(files[gate.CONTRACT]); contract["files"] = gate.inventory(files); files[gate.CONTRACT] = json.dumps(contract).encode()
-            with self.assertRaisesRegex(ValueError, message): gate.verify_scene(files, "kusarigama-strong", COMMIT)
+            files = bound_scene()
+            mutation(files)
+            contract = json.loads(files[gate.CONTRACT])
+            contract["files"] = gate.inventory(files)
+            files[gate.CONTRACT] = json.dumps(contract).encode()
+            with self.assertRaisesRegex(ValueError, message):
+                gate.verify_scene(files, "kusarigama-strong", COMMIT)
 
     def test_external_host_receipt_cannot_be_reused_for_another_exe(self):
         artifact = {"artifact_kind": "onefile", "artifact_sha256": "a"*64, "source_commit": COMMIT}
@@ -255,6 +310,26 @@ class LoadoutReleaseTests(unittest.TestCase):
         gate.verify_host_receipt(multi, paired, "kusarigama-strong")
         with self.assertRaises(ValueError):
             gate.verify_host_receipt(multi, paired)
+
+        second = copy.deepcopy(receipt)
+        second.update(release_ready=False, scene_player_verified=True)
+        second["scenes"][0]["scene_id"] = "another-action"
+        first_bytes = json.dumps(paired).encode()
+        second_bytes = json.dumps(second).encode()
+        combined = gate.merge_host_receipts(multi, [first_bytes, second_bytes])
+        self.assertEqual(combined, gate.merge_host_receipts(multi, [second_bytes, first_bytes]))
+        self.assertEqual(combined["scene_receipts"]["another-action"]["receipt_sha256"], gate.digest(second_bytes))
+        gate.verify_host_receipt(multi, combined)
+
+        for inputs, error in (
+            ([first_bytes], "does not cover every shipped scene"),
+            ([first_bytes, first_bytes], "duplicate player receipt"),
+            ([first_bytes, json.dumps(dict(second, outer_sha256="b" * 64)).encode()], "another EXE"),
+            ([first_bytes, json.dumps(dict(second, mode="engineering-fixture")).encode()], "cannot authorize"),
+        ):
+            with self.subTest(merge_error=error), self.assertRaisesRegex(ValueError, error):
+                gate.merge_host_receipts(multi, inputs)
+
         captured = copy.deepcopy(artifact)
         captured["scenes"][0]["layout"]["frame_sections"].append("source_rebuild")
         with self.assertRaisesRegex(ValueError, "character-bound source program"):
@@ -277,9 +352,12 @@ class LoadoutReleaseTests(unittest.TestCase):
         ]
         for label, mutate in mutations:
             with self.subTest(control=label):
-                broken = copy.deepcopy(receipt); mutate(broken)
-                with self.assertRaises(ValueError): gate.verify_host_receipt(artifact, broken)
-        empty = {**artifact, "scenes": []}; no_scene = {**receipt, "scenes": []}
+                broken = copy.deepcopy(receipt)
+                mutate(broken)
+                with self.assertRaises(ValueError):
+                    gate.verify_host_receipt(artifact, broken)
+        empty = {**artifact, "scenes": []}
+        no_scene = {**receipt, "scenes": []}
         with self.assertRaisesRegex(ValueError, "at least one shipped scene"):
             gate.verify_host_receipt(empty, no_scene)
 

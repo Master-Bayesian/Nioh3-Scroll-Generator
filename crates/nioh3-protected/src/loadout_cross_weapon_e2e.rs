@@ -70,8 +70,9 @@ fn cross_weapon_source_rebuild_from_one_observation() -> Result<(), Box<dyn std:
             let data = PathBuf::from(std::env::var("NIOH3_CROSS_WEAPON_DATA")?);
             let target_scene = data.join("loadout").join(&to.scene);
             let projected = read(&memory, &snapshot, &target_scene).map_err(|e| e.to_string())?;
-            let context = projected
-                .context(&memory, &snapshot, &data, &target_scene)
+            // The retained ordinary route has no projected consumable stock.
+            let (context, _) = projected
+                .context(&memory, &snapshot, &data, &target_scene, &[])
                 .map_err(|e| e.to_string())?;
             let engine = Engine::open_with_context(&target_scene, &context)?;
             let pack = Backpack::from_slots(&[(0, record.as_slice().try_into()?)])?;
@@ -197,8 +198,8 @@ fn ninja_training_weapons_share_the_stat_producer() -> Result<(), Box<dyn std::e
             .collect();
         source.projected_weapon_class = source.tables.item_type_class(key);
         source.category_prefixes.insert(category, prefix.clone());
-        let ctx = source
-            .context(&memory, &snapshot, &data, &scene)
+        let (ctx, _) = source
+            .context(&memory, &snapshot, &data, &scene, &[])
             .map_err(|e| e.to_string())?;
         let engine = Engine::open_with_context(&scene, &ctx)?;
         let pack = Backpack::from_slots(&selected)?;

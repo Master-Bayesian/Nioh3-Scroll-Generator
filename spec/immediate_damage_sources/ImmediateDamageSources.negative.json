@@ -1,0 +1,5 @@
+[
+  {"name":"reuse-old-outfit","overrides":{"Fault":"StaleBank"},"expected":"Invariant CandidateBank is violated"},
+  {"name":"substitute-other-status","overrides":{"Fault":"WrongChannel"},"expected":"Invariant DamageChannel is violated"},
+  {"name":"stack-competing-sources","overrides":{"Fault":"StackSameKey"},"expected":"Invariant DamageChannel is violated"}
+]

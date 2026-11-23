@@ -189,8 +189,16 @@ impl WordPatch {
 #[derive(Clone, Copy, Debug)]
 pub enum PacketPolicy {
     PreparedActor,
-    /// Native2B55F1..2B562C ->2B5752, only descriptor type0. The source
-    /// tag/owner are explicit bindings; no actor Hell/imbue inheritance.
+    /// PC202 2B4A3C uses the owner's selected weapon on this descriptor branch.
+    OwnerWeaponProjectile {
+        projectile: u64,
+        projectile_incarnation: u64,
+        source_tag: u32,
+    },
+    /// PC202 2B55F1..2B562C -> 2B5752, descriptor type 0. Override only the
+    /// packet imbue selector, power and flags (+14, +18, +298). The owner's
+    /// candidate attack at +8 and source stats still feed MAIN. Water Tsubame's
+    /// damage row supplies water even when the owner's weapon has a wind imbue.
     UnimbuedOwnerProjectile {
         main: u64,
         descriptor_kind: u8,
@@ -251,7 +259,12 @@ pub fn assemble_event_inputs(
     }
     let (projectile, projectile_incarnation, source_tag) = match event.packet {
         PacketPolicy::PreparedActor => (None, None, None),
-        PacketPolicy::UnimbuedOwnerProjectile {
+        PacketPolicy::OwnerWeaponProjectile {
+            projectile,
+            projectile_incarnation,
+            source_tag,
+        }
+        | PacketPolicy::UnimbuedOwnerProjectile {
             projectile,
             projectile_incarnation,
             source_tag,
@@ -317,7 +330,7 @@ pub fn assemble_event_words(
         return Ok(false);
     }
     let packet = match event.packet {
-        PacketPolicy::PreparedActor => Vec::new(),
+        PacketPolicy::PreparedActor | PacketPolicy::OwnerWeaponProjectile { .. } => Vec::new(),
         PacketPolicy::UnimbuedOwnerProjectile {
             main,
             descriptor_kind,

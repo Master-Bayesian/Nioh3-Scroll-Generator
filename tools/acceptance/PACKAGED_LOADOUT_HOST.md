@@ -59,7 +59,7 @@ only the approved save into isolated appdata; it never issues `save.commit`.
 The source and isolated save must retain their original hashes.
 
 A reference must be a previously independently checked `SEARCH_RESULT.json`
-from the same save, required set and one-contact objective. It must contain
+from the same save, required set, target and fixed-contact objective. It must contain
 `top_case.components`, all ranked assignments and planned/answered counters.
 Native MAIN winner validation remains a separate check: CPU/CUDA agreement is
 not an independent source-producer oracle.
@@ -142,11 +142,12 @@ A fresh Python subprocess queries the exact scorer ABI values. IPC execution
 receipts prove native CUDA calls and submitted/completed contacts, or real CPU
 executions plus certified repeats. A loaded-but-unused GPU DLL cannot pass.
 
-Current runner scope is one flat deployed scene, one required set, fixed
-attributes and one scored contact. It refuses unsupported runner scopes rather
-than synthesizing success. Multi-contact/elemental objectives, source-family
-counterexamples, cancellation, wear-preview recovery and actual original MAIN
-remain in the consolidated host checklist/independent numerical checks.
+Each run covers one deployed scene, one required set and fixed attributes.
+Fixed-contact scenes compare each winning contact and damage lane. A held
+Water Sword run also requires its independent `contact_schedule` file, with
+the scene and save identities, the domain digest and one positive occurrence
+count per candidate. Source-family counterexamples, cancellation, wear-preview
+recovery and original MAIN use the separate host and numerical checks.
 
 Receipt files are `packaged-loadout-e2e.json`, per-leg `run.json` and
 `modules.jsonl`, plus `release-gate.json` for successful player mode. Failure
@@ -159,6 +160,19 @@ checked in the Linux review and remain unexecuted on Windows.
 A separate external host receipt avoids a circular artifact hash. It must bind
 the final delivered EXE SHA-256 and source commit. Never replace it with a nearby
 source-directory test or a handwritten success summary.
+
+For a multi-scene EXE, run player mode for each shipped scene and combine the
+resulting JSON files. Each file must cover one scene from the same final EXE.
+The merge verifies each input and requires exactly one per shipped scene.
+It records each input hash and emits the receipt used by the existing release
+check.
+
+```powershell
+python tools/verify_loadout_release.py merge-host-receipts C:/release/Nioh3Studio-0.8.13-win-x64.exe `
+  --host-receipt C:/evidence/first-scene/packaged-loadout-e2e.json `
+  --host-receipt C:/evidence/second-scene/packaged-loadout-e2e.json `
+  --output C:/evidence/player-run/packaged-loadout-e2e.json
+```
 
 ```powershell
 python tools/verify_loadout_release.py check C:/release/Nioh3Studio-0.8.13-win-x64.exe `

@@ -115,6 +115,14 @@ pub struct Program {
     pub category_prefixes: std::collections::BTreeMap<u32, Vec<Submission>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub projected_weapon_class: Option<u32>,
+    /// Eligibility of the common configured skill before a form-change rebuild.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub configured_flexibility: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arts_proficiency_learned: Option<bool>,
+    /// Ready finite supplies in the save bound to this projected objective.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub peak_supplies: Option<PeakSupplies>,
     pub active_guardian: u8,
     pub guardian_requirement: u16,
     pub guardians: Vec<GuardianSubmission>,
@@ -132,6 +140,48 @@ pub struct Program {
     pub post_record_present: [[bool; 4]; 2],
     /// None permits source-oracle evaluation only. It cannot score an attack.
     pub baseline: Option<BaselineBinding>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PeakSupplies {
+    pub held_power_pill: bool,
+    #[serde(default)]
+    pub held_coatings: [bool; 4],
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prepared_water_scale: Option<u16>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub prepared_carnage: bool,
+    /// Read compatibility for archived PC202 contexts. Target layers are in the frame.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub prepared_weakness: bool,
+}
+
+impl PeakSupplies {
+    pub(crate) fn damage_offer(self, stat: &[u8]) -> R<Option<crate::damage_dealt::DamageOffer>> {
+        use crate::{damage_dealt::DamageOffer, peak_prepared};
+        let pill = self.held_power_pill.then_some(DamageOffer::HELD_POWER_PILL);
+        let carnage = if self.prepared_carnage {
+            let power = peak_prepared::jutsu_power(stat).ok_or("prepared Carnage requires candidate jutsu power")?;
+            Some(peak_prepared::carnage_damage(power))
+        } else {
+            None
+        };
+        Ok(pill.into_iter().chain(carnage).reduce(DamageOffer::choose))
+    }
+
+    pub fn can_coat(self, coating: crate::peak_coating::HeldCoating) -> bool {
+        self.held_coatings[coating.stock_index()]
+            || (coating == crate::peak_coating::HeldCoating::Water && self.prepared_water_scale.is_some())
+    }
+
+    pub(crate) fn coating_power(self, coating: crate::peak_coating::HeldCoating, caster: u32) -> Option<u32> {
+        let held = self.held_coatings[coating.stock_index()].then_some(coating.power());
+        let prepared = self.prepared_water_scale
+            .filter(|_| coating == crate::peak_coating::HeldCoating::Water)
+            .map(|scale| crate::peak_prepared::summon_water_power(scale, caster));
+        held.max(prepared)
+    }
 }
 
 fn digest(value: &str) -> bool {

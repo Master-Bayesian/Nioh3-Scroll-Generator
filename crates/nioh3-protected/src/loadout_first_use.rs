@@ -1,21 +1,27 @@
 //! Build the current outfit's ordered source rules from ordinary process reads.
 //! This step has no dependency on a private generation or a damage template.
 use crate::error::HostError;
-use nioh3_loadout::action_rows::ActionRow;
+use nioh3_loadout::action_rows::{
+    ActionController, ActionRow, InitialProjectile, ResolvedActionRow, ScheduledProjectile,
+};
 use nioh3_loadout::context::{
     sha256, CharacterInputs, ContextManifest, CoreEntry, LoadoutContext, NonGearSources,
     Provenance, Scenario, SceneBytes,
 };
 use nioh3_loadout::pipeline::Frame;
+use nioh3_loadout::peak_coating::HeldCoating;
 use nioh3_loadout::pipeline::{
     source_numeric::{Inputs, Parameters},
     source_rebuild::{
         BaselineBinding, Binding, CharacterBinding, CoreInput, EvidenceScope, GuardianSubmission,
-        Program, SourceOutfit, SourceRules, Submission,
+        PeakSupplies, Program, SourceOutfit, SourceRules, Submission,
     },
     Tables,
 };
-use nioh3_runtime::combat_context::encounter::{direct_encounter_with_controller, ControllerInput};
+use nioh3_runtime::combat_context::encounter::{
+    direct_encounter_with_controller, ActorElementCondition, ControllerInput, PacketRow,
+    TargetCondition,
+};
 use nioh3_runtime::combat_context::progression::{unarmed_levels, ActorBaseline};
 use nioh3_runtime::{
     combat_context::{progression::read_progression_for_categories, CombatSnapshot},
@@ -24,12 +30,95 @@ use nioh3_runtime::{
 use serde_json::{json, Value};
 use std::{fs, path::Path};
 
+#[path = "water_role.rs"]
+mod water_role;
+#[path = "peak_prepared_inputs.rs"]
+mod peak_prepared_inputs;
+
 #[derive(serde::Deserialize)]
 struct AttackDescriptor {
-    resource_action: Option<ActionRow>,
+    resource_action: Option<FirstContact>,
     weapon_class: Option<u32>,
     selection_weapon_class: Option<u32>,
     benchmark_target_sha256: Option<String>,
+}
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+enum FirstContact {
+    Projectile(ScheduledProjectile),
+    Actor(ActionRow),
+}
+
+struct BoundContact {
+    row: ResolvedActionRow,
+    owner: ActionController,
+    packet_row: PacketRow,
+}
+impl FirstContact {
+    fn bind(&self, layout: &SceneLayout) -> Result<BoundContact, HostError> {
+        let invalid = |why: &str| HostError::rejected(why.to_owned());
+        match (self, &layout.spawn) {
+            (Self::Actor(actor), None) => Ok(BoundContact {
+                row: actor.resolve().map_err(invalid)?,
+                owner: actor.controller().map_err(invalid)?,
+                packet_row: PacketRow::Actor(actor.row as usize),
+            }),
+            (Self::Projectile(slot), Some(spawn)) => {
+                let hit = slot.resolve().map_err(invalid)?;
+                if hit.carrier == 0
+                    || hit.carrier != spawn.descriptor_head[0]
+                    || hit.descriptor_fields != spawn.descriptor_head[1..]
+                {
+                    return Err(invalid(
+                        "Projectile occurrence and constructor carrier differ",
+                    ));
+                }
+                if (hit.imbue.selector, hit.imbue.flags)
+                    != (spawn.descriptor_5f8, spawn.descriptor_5fc)
+                    || !hit.imbue.checks_owner()
+                {
+                    return Err(invalid(
+                        "Owner-weapon packet differs from the installed spawn's imbue branch",
+                    ));
+                }
+                if (hit.damage.bytes[5] & 0x20 != 0) != spawn.secondary_element_selector {
+                    return Err(invalid(
+                        "Projectile element selector differs from its damage row",
+                    ));
+                }
+                Ok(BoundContact {
+                    owner: ActionController::resolve(
+                        &slot.resource,
+                        slot.action,
+                        &slot.parameter_sha256,
+                    )
+                    .map_err(invalid)?,
+                    row: hit.damage,
+                    packet_row: PacketRow::OwnedProjectile {
+                        object: spawn.object,
+                        descriptor_head: spawn.descriptor_head,
+                        action: hit.target_action,
+                        selector: hit.selector,
+                        global_key: hit.global_key,
+                        descriptor_5f8: spawn.descriptor_5f8,
+                        descriptor_5fc: spawn.descriptor_5fc,
+                        packet_flags: spawn.packet_flags,
+                    },
+                })
+            }
+            _ => Err(invalid("Selected contact differs from its packet layout")),
+        }
+    }
+
+    fn description(&self) -> String {
+        match self {
+            Self::Actor(a) => format!("resource {} action {} row {}", a.resource, a.action, a.row),
+            Self::Projectile(a) => format!(
+                "resource {} action {} projectile slot {}",
+                a.resource, a.action, a.projectile_slot
+            ),
+        }
+    }
 }
 impl AttackDescriptor {
     fn load(scene: &Path) -> Result<Self, HostError> {
@@ -37,7 +126,7 @@ impl AttackDescriptor {
             fs::read(scene.join("bundle.json")).map_err(|e| HostError::rejected(e.to_string()))?;
         serde_json::from_slice(&raw).map_err(|e| HostError::rejected(e.to_string()))
     }
-    fn attack(&self) -> Result<&ActionRow, HostError> {
+    fn attack(&self) -> Result<&FirstContact, HostError> {
         self.resource_action
             .as_ref()
             .ok_or_else(|| HostError::rejected("Missing selected resource action"))
@@ -59,7 +148,14 @@ impl AttackDescriptor {
 
 struct SceneLayout {
     packet: nioh3_runtime::combat_context::encounter::PacketLayout,
+    actor_skill_key: Option<u16>,
+    water_effect: Option<(nioh3_loadout::arts_proficiency::Start, nioh3_loadout::water_sword::Objective)>,
     binds_candidate_sources: bool,
+    spawn: Option<InitialProjectile>,
+    peak_held_supplies: bool,
+    peak_saturated_target: bool,
+    peak_target_ailments: bool,
+    coating: Option<HeldCoating>,
 }
 
 impl SceneLayout {
@@ -67,6 +163,9 @@ impl SceneLayout {
         #[derive(serde::Deserialize)]
         struct Packet {
             kind: String,
+            object: Option<u64>,
+            source_tag: Option<u32>,
+            descriptor_kind: Option<u8>,
         }
         #[derive(serde::Deserialize)]
         struct Template {
@@ -75,17 +174,72 @@ impl SceneLayout {
         #[derive(serde::Deserialize)]
         struct Plan {
             main_address: u64,
+            mode: serde_json::Value,
+            actor_skill_key: Option<u16>,
+            #[serde(default)]
+            direct_owner_element: bool,
+            #[serde(default)]
+            actor_damage_kind_from_row: bool,
+            initial_projectile: Option<InitialProjectile>,
             templates: Vec<Template>,
             candidate_category_field: Option<u64>,
             candidate_source_address: Option<u64>,
+            #[serde(default)]
+            peak_held_supplies: bool,
+            #[serde(default)]
+            peak_saturated_target: bool,
+            #[serde(default)]
+            peak_target_ailments: bool,
+            #[serde(default)]
+            peak_coating: Option<HeldCoating>,
         }
         let raw = fs::read(scene.join("event_plan.json"))
             .map_err(|e| HostError::rejected(e.to_string()))?;
         let plan: Plan =
             serde_json::from_slice(&raw).map_err(|e| HostError::rejected(e.to_string()))?;
+        if let Some(spawn) = &plan.initial_projectile {
+            let [first] = &plan.templates[..] else {
+                return Err(HostError::rejected(
+                    "Expected a single initial projectile contact",
+                ));
+            };
+            let p = &first.packet;
+            if p.kind != "owner_weapon_projectile"
+                || !matches!((p.object,p.descriptor_kind,p.source_tag),
+                (Some(object),Some(kind),Some(tag)) if spawn.matches(object,kind,tag))
+            {
+                return Err(HostError::rejected(
+                    "Initial projectile and event packet differ",
+                ));
+            }
+        }
         Ok(Self {
+            peak_held_supplies: plan.peak_held_supplies,
+            peak_saturated_target: plan.peak_saturated_target,
+            peak_target_ailments: plan.peak_target_ailments,
+            coating: plan.peak_coating,
+            water_effect: if plan.mode["kind"] == "held_water_sword" {
+                #[derive(serde::Deserialize)]
+                struct Condition {
+                    #[serde(alias = "current_effect", deserialize_with = "nioh3_loadout::arts_proficiency::read_start")]
+                    arts: nioh3_loadout::arts_proficiency::Start,
+                }
+                let condition: Condition = serde_json::from_value(plan.mode.clone())
+                    .map_err(|e| HostError::rejected(e.to_string()))?;
+                let objective = plan.mode.get("objective")
+                    .map(|raw| serde_json::from_value(raw.clone()))
+                    .transpose().map_err(|e| HostError::rejected(e.to_string()))?
+                    .unwrap_or_default();
+                Some((condition.arts, objective))
+            } else {
+                None
+            },
+            spawn: plan.initial_projectile,
+            actor_skill_key: plan.actor_skill_key,
             packet: nioh3_runtime::combat_context::encounter::PacketLayout {
                 address: plan.main_address,
+                direct_owner_element: plan.direct_owner_element,
+                actor_damage_kind_from_row: plan.actor_damage_kind_from_row,
                 direct_only: !plan.templates.is_empty()
                     && plan
                         .templates
@@ -100,7 +254,7 @@ impl SceneLayout {
 
 pub(crate) fn supports_direct_type_projection(scene: &Path) -> Result<bool, HostError> {
     let layout = SceneLayout::read(scene)?;
-    Ok(layout.binds_candidate_sources && layout.packet.direct_only)
+    Ok(layout.binds_candidate_sources && (layout.packet.direct_only || layout.spawn.is_some()))
 }
 
 /// Preserve independently readable inputs when the source producer stops
@@ -116,22 +270,30 @@ pub(crate) fn sample_encounter(
     let stat = memory
         .read(snap.roots.stat, 0x900)
         .map_err(HostError::from_runtime)?;
-    let table_bytes = fs::read(scene.join("tables.bin")).map_err(|e| invalid(&e.to_string()))?;
+    let table_bytes = nioh3_loadout::kernel_asset::read(scene, "tables.bin")
+        .map_err(|e| invalid(&e.to_string()))?;
     let tables = Tables::load(&table_bytes).map_err(invalid)?;
     let at =
         snap.inputs.active_bank as usize * 0xf70 + snap.inputs.held_weapon_slot as usize * 0xe8;
     let key = u16::from_le_bytes([snap.inputs.inventory[at], snap.inputs.inventory[at + 1]]);
     let descriptor = AttackDescriptor::load(scene)?;
     let attack = descriptor.attack()?;
-    let row = attack.resolve().map_err(invalid)?;
-    let state = attack.controller().map_err(invalid)?;
     let fixed_target = descriptor.target(scene)?;
+    let layout = SceneLayout::read(scene)?;
+    let BoundContact {
+        row,
+        owner: state,
+        packet_row,
+    } = attack.bind(&layout)?;
     let controller = ControllerInput {
+        actor_skill_key: layout.actor_skill_key,
         reference_target: fixed_target.as_deref(),
-        layout: Some(SceneLayout::read(scene)?.packet),
+        target_condition: TargetCondition::Benchmark,
+        actor_element_condition: ActorElementCondition::Current,
+        layout: Some(layout.packet),
         parameter: state.parameter,
         first_index: state.first_index,
-        packet_row: attack.row as usize,
+        packet_row,
         rows: &state.rows,
     };
     direct_encounter_with_controller(
@@ -149,6 +311,10 @@ pub(crate) fn sample_encounter(
 
 pub(crate) struct SourceRead {
     prefix: Vec<Submission>,
+    configured_flexibility: bool,
+    arts_proficiency_learned: bool,
+    prepared_water_scale: Option<u16>,
+    prepared_carnage: bool,
     scene_layout: SceneLayout,
     descriptor: AttackDescriptor,
     reference_target: Option<Vec<u8>>,
@@ -177,7 +343,7 @@ pub(crate) fn read(
 ) -> Result<SourceRead, HostError> {
     let invalid =
         |error: &str| HostError::rejected(format!("LOADOUT_SOURCE_INPUT_INVALID: {error}"));
-    let load = |name: &str| fs::read(scene.join(name)).map_err(|e| invalid(&e.to_string()));
+    let load = |name: &str| nioh3_loadout::kernel_asset::read(scene, name).map_err(|e| invalid(&e.to_string()));
     let tables = Tables::load(&load("tables.bin")?).map_err(invalid)?;
     let parameters = Parameters::load(&load("source_numeric.bin")?).map_err(invalid)?;
     let input = &snapshot.inputs;
@@ -190,6 +356,12 @@ pub(crate) fn read(
     let key = u16::from_le_bytes([id[0], id[1]]);
     let category = tables.category(key).unwrap_or(0x3c2e);
     let scene_layout = SceneLayout::read(scene)?;
+    let prepared_water_scale = scene_layout.peak_held_supplies
+        .then(|| peak_prepared_inputs::summon_water(memory, snapshot)).flatten();
+    let prepared_keys = scene_layout.peak_held_supplies
+        .then(|| peak_prepared_inputs::configured_keys(memory, snapshot))
+        .flatten();
+    let prepared_carnage = prepared_keys.is_some_and(|keys| keys.contains(&peak_prepared_inputs::CARNAGE));
     let descriptor = AttackDescriptor::load(scene)?;
     let fixed_target = descriptor.target(scene)?;
     let projected_weapon_class = if scene_layout.binds_candidate_sources {
@@ -240,6 +412,13 @@ pub(crate) fn read(
         })
         .collect();
     let late = progress.late_clan.each_ref().map(submission);
+    // PC202 E8F6 is common to both forms. Its configured source precedes
+    // weapon equipment and slotted skills in the source compiler.
+    let configured_flexibility = input.configured_skills.iter()
+        .any(|s| s.key == 0xe8f6 && s.enabled != 0 && s.rank != 0)
+        && progress.configured_progress.iter().any(|s| s.group == 0x8556);
+    let arts_proficiency_learned = input.configured_skills.iter()
+        .any(|s| s.key == 0x6842 && s.enabled != 0 && s.rank != 0);
     let active_guardian = source[0x70];
     let guardian_requirement = u16::from_le_bytes([source[0x72], source[0x73]]);
     let rules = SourceRules {
@@ -300,11 +479,23 @@ pub(crate) fn read(
         projected_weapon_class,
         &descriptor.benchmark_target_sha256,
         &category_prefixes,
+        configured_flexibility,
+        arts_proficiency_learned,
     ))
     .map_err(|e| invalid(&e.to_string()))?;
     identity.extend(sha256(&basis.stat).bytes());
     identity.extend(sha256(&basis.materialized).bytes());
+    if let Some(scale) = prepared_water_scale {
+        identity.extend(scale.to_le_bytes());
+    }
+    if prepared_carnage {
+        identity.extend(b"prepared-carnage");
+    }
     Ok(SourceRead {
+        configured_flexibility,
+        arts_proficiency_learned,
+        prepared_water_scale,
+        prepared_carnage,
         scene_layout,
         descriptor,
         reference_target: fixed_target,
@@ -365,6 +556,12 @@ impl SourceRead {
     pub fn matched(&self) -> bool {
         self.core_matches && self.selected_matches
     }
+
+    pub fn starts_new_arts(&self) -> bool {
+        self.scene_layout.water_effect.is_some_and(|(start, _)| {
+            start == nioh3_loadout::arts_proficiency::Start::FullGaugeActivation
+        })
+    }
     pub fn summary(
         &self,
         save: &str,
@@ -386,13 +583,55 @@ impl SourceRead {
              "health_seed":self.basis.health_seed,"primary_plus_bonus":self.basis.primary_plus_bonus}})
     }
 
+    pub(crate) fn peak_supplies(&self, plain: &[u8]) -> Result<Option<PeakSupplies>, HostError> {
+        if !self.scene_layout.peak_held_supplies {
+            return Ok(None);
+        }
+        use nioh3_save::character::{item_quantity, item_region, ItemContainer, ITEM_RECORD_BYTES};
+        let stock = item_region(plain, ItemContainer::Held)
+            .map_err(|error| HostError::rejected(error.to_string()))?;
+        let mut supplies = PeakSupplies::default();
+        for record in stock.as_chunks::<ITEM_RECORD_BYTES>().0 {
+            if item_quantity(record).unwrap_or(1) == 0 {
+                continue;
+            }
+            let id = u16::from_le_bytes([record[0], record[1]]);
+            if id == 0xcc42 {
+                supplies.held_power_pill = true;
+            } else if let Some(coating) = HeldCoating::ALL.into_iter().find(|coating| coating.item_id() == id) {
+                supplies.held_coatings[coating.stock_index()] = true;
+            }
+        }
+        let charges = nioh3_save::character::prepared_item_quantity(plain, peak_prepared_inputs::SUMMON_WATER);
+        supplies.prepared_water_scale = self.prepared_water_scale.filter(|_| charges.is_some_and(|quantity| quantity > 0));
+        supplies.prepared_carnage = self.prepared_carnage
+            && nioh3_save::character::prepared_item_quantity(plain, peak_prepared_inputs::CARNAGE)
+                .is_some_and(|quantity| quantity > 0);
+        Ok(Some(supplies))
+    }
+
+    pub(crate) fn peak_target_condition(&self) -> TargetCondition {
+        if self.scene_layout.peak_target_ailments {
+            TargetCondition::TheoreticalPeak
+        } else if self.scene_layout.peak_saturated_target {
+            TargetCondition::Saturated
+        } else {
+            TargetCondition::Benchmark
+        }
+    }
+
+    pub(crate) fn peak_coating(&self) -> Option<HeldCoating> {
+        self.scene_layout.coating
+    }
+
     pub(crate) fn context(
         &self,
         memory: &dyn InventoryMemory,
         snap: &CombatSnapshot,
         data_root: &Path,
         scene: &Path,
-    ) -> Result<LoadoutContext, HostError> {
+        plain: &[u8],
+    ) -> Result<(LoadoutContext, Option<nioh3_loadout::water_sword::Role>), HostError> {
         let invalid = |e: &str| HostError::rejected(format!("LOADOUT_FIRST_USE_SCENE: {e}"));
         let input = &snap.inputs;
         if !self.matched()
@@ -481,6 +720,12 @@ impl SourceRead {
             level: input.level,
         };
         let stat_hash = Frame::private_stat_digest(&frame).map_err(invalid)?;
+        let peak_supplies = self.peak_supplies(plain)?;
+        if self.peak_coating().is_some_and(|coating| {
+            !peak_supplies.is_some_and(|supplies| supplies.can_coat(coating))
+        }) {
+            return Err(invalid("LOADOUT_CONTEXT_PEAK_COATING_UNAVAILABLE"));
+        }
         let program = Program {
             schema: nioh3_loadout::pipeline::source_rebuild::SCHEMA.into(),
             binding: Binding {
@@ -505,6 +750,9 @@ impl SourceRead {
             },
             prefix: self.prefix.clone(),
             projected_weapon_class: self.projected_weapon_class,
+            configured_flexibility: Some(self.configured_flexibility),
+            arts_proficiency_learned: Some(self.arts_proficiency_learned),
+            peak_supplies,
             category_prefixes: self.category_prefixes.clone(),
             active_guardian: self.active_guardian,
             guardian_requirement: self.guardian_requirement,
@@ -525,17 +773,38 @@ impl SourceRead {
         };
         frame = Frame::with_source_rebuild(&frame, &program).map_err(invalid)?;
         let attack = self.descriptor.attack()?;
-        let row = attack.resolve().map_err(invalid)?;
-        let state = attack.controller().map_err(invalid)?;
+        let BoundContact {
+            row,
+            owner: state,
+            packet_row,
+        } = attack.bind(&self.scene_layout)?;
         let controller = ControllerInput {
+            actor_skill_key: self.scene_layout.actor_skill_key,
             layout: Some(self.scene_layout.packet),
             reference_target: self.reference_target.as_deref(),
+            actor_element_condition: if peak_supplies.is_some() {
+                ActorElementCondition::ProjectedUncoated
+            } else {
+                ActorElementCondition::Current
+            },
+            target_condition: self.peak_target_condition(),
             parameter: state.parameter,
             first_index: state.first_index,
-            packet_row: attack.row as usize,
+            packet_row,
             rows: &state.rows,
         };
-        let encounter = direct_encounter_with_controller(
+        let held_role = || {
+            self.scene_layout
+                .water_effect
+                .map(|(current, objective)| {
+                    let role = water_role::read(memory, snap, current)?;
+                    objective.validate(role).map_err(HostError::rejected)?;
+                    Ok::<_, HostError>(role)
+                })
+                .transpose()
+        };
+        let initial_role = held_role()?;
+        let mut encounter = direct_encounter_with_controller(
             memory,
             snap,
             &self.basis.stat,
@@ -555,11 +824,20 @@ impl SourceRead {
             Some(&controller),
         )
         .map_err(HostError::from_runtime)?;
-        if encounter != confirmed
+        if initial_role != held_role()?
+            || encounter != confirmed
             || !matches!(nioh3_runtime::combat_context::read_combat_snapshot(memory).map_err(HostError::from_runtime)?,
             nioh3_runtime::combat_context::SnapshotOutcome::Ready(current) if current.roots==snap.roots && current.inputs==snap.inputs && current.status_tree_raw==snap.status_tree_raw)
         {
             return Err(invalid("role or encounter changed during preparation"));
+        }
+        if let Some(role) = initial_role {
+            nioh3_loadout::water_sword::install_controllers(
+                &mut encounter.image,
+                &mut encounter.known,
+                role,
+            )
+            .map_err(invalid)?;
         }
         let character = CharacterInputs {
             mode: input.mode,
@@ -584,8 +862,7 @@ impl SourceRead {
             capture_id: format!("first-use-{}", self.digest),
             source_sha256: self.digest.clone(),
             game_version: [2, 0, 2, 0],
-            description: format!("Current PC202 normal progress and equipped inventory, frontal training opponent, resource {} action {} row {}",
-                attack.resource, attack.action, attack.row),
+            description: format!("Current PC202 normal progress and equipped inventory, frontal training opponent, {}", attack.description()),
         };
         let manifest = ContextManifest {
             schema: nioh3_loadout::context::CONTEXT_SCHEMA.into(),
@@ -618,6 +895,7 @@ impl SourceRead {
                 scene_entry: encounter.entry.into(),
             },
         )
+        .map(|context| (context, initial_role))
         .map_err(|e| invalid(&e.to_string()))
     }
 }

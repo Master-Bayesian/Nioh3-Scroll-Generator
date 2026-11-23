@@ -3,7 +3,7 @@
   "name": "锁镰 · 力攻击",
   "school": "ninja",
   "weapon": "锁镰",
-  "weapon_class": null,
+  "weapon_class": 12,
   "damage": "力攻击（首个接触；声明命中）",
   "scene": {
     "stance": "none",
@@ -18,5 +18,6 @@
     "parameter_sha256": "902be6cbe77a26a6ae35ed6ec42fcdc06dc8041738e19118566e039d1a2dd093",
     "row": 0,
     "row_sha256": "3085022ae7b7d17871e893fe8b1b63c9ef7f615b00b1ff8c9151aae4136bf388"
-  }
+  },
+  "benchmark_target_sha256": "31551c9c24a45d2e21e10a9b0fcd7d284d9b607886febac6294d1c9004bdab67"
 }

@@ -2793,7 +2793,6 @@ mod tests {
     use super::*;
     use crate::engine::ITEM;
     use std::collections::{BTreeMap, BTreeSet};
-    use std::path::Path;
 
     /// A record the item table cannot describe, so dominance never drops it.
     fn unknown(id: u16) -> [u8; ITEM] {
@@ -2880,12 +2879,7 @@ mod tests {
 
     #[test]
     fn complete_search_checks_both_accessory_orientations_without_duplicate_items() {
-        let dir = std::env::var_os("NIOH3_LOADOUT_TEST_BUNDLE")
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/loadout/katana-light")
-            });
-        let engine = Engine::open(&dir).expect("katana bundle");
+        let engine = Engine::audit_fixture();
         // Two head items, three accessories the renderer put in slot 9 and two in slot 10.
         let items: Vec<(u32, [u8; ITEM])> = [
             (4, 0xFFF0),
