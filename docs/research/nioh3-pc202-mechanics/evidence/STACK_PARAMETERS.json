@@ -1,0 +1,442 @@
+[
+  {
+    "stack": 1,
+    "status_key": "0x265",
+    "time_cap_2083d68": {
+      "key": "0xaf7a",
+      "hash_slot": 3691,
+      "row_index": 1599,
+      "integer": 720,
+      "scale": 1.0,
+      "value": 720.0,
+      "value_bits_le": "00003444",
+      "row_hex": "47bd0000000000006e04020000000000d00200007aaf00000000803f00000000"
+    },
+    "time_set_2083cec": {
+      "key": "0x9c77",
+      "hash_slot": 4148,
+      "row_index": 1598,
+      "integer": 720,
+      "scale": 1.0,
+      "value": 720.0,
+      "value_bits_le": "00003444",
+      "row_hex": "2dbd0000000000004804020000000000d0020000779c00000000803f00000000"
+    },
+    "time_extension_2083de4": {
+      "key": "0x2db4",
+      "hash_slot": 175,
+      "row_index": 1600,
+      "integer": 240,
+      "scale": 1.0,
+      "value": 240.0,
+      "value_bits_le": "00007043",
+      "row_hex": "65bd0000000000009a04020000000000f0000000b42d00000000803f00000000"
+    },
+    "extra_time_extension_20840d8": {
+      "key": "0xf813",
+      "hash_slot": 1862,
+      "row_index": 2591,
+      "integer": 240,
+      "scale": 1.0,
+      "value": 240.0,
+      "value_bits_le": "00007043",
+      "row_hex": "472600000000000075a4000000000000f000000013f800000000803f00000000"
+    }
+  },
+  {
+    "stack": 2,
+    "status_key": "0x1f",
+    "time_cap_2083d68": {
+      "key": "0xa49f",
+      "hash_slot": 2233,
+      "row_index": 1602,
+      "integer": 673,
+      "scale": 1.0,
+      "value": 673.0,
+      "value_bits_le": "00402844",
+      "row_hex": "a9bd000000000000f504020000000000a10200009fa400000000803f00000000"
+    },
+    "time_set_2083cec": {
+      "key": "0x9d31",
+      "hash_slot": 5408,
+      "row_index": 1601,
+      "integer": 673,
+      "scale": 1.0,
+      "value": 673.0,
+      "value_bits_le": "00402844",
+      "row_hex": "8fbd000000000000cf04020000000000a1020000319d00000000803f00000000"
+    },
+    "time_extension_2083de4": {
+      "key": "0x3a3",
+      "hash_slot": 4935,
+      "row_index": 1603,
+      "integer": 224,
+      "scale": 1.0,
+      "value": 224.0,
+      "value_bits_le": "00006043",
+      "row_hex": "c7bd0000000000002105020000000000e0000000a30300000000803f00000000"
+    },
+    "extra_time_extension_20840d8": {
+      "key": "0x2c02",
+      "hash_slot": 4685,
+      "row_index": 2592,
+      "integer": 224,
+      "scale": 1.0,
+      "value": 224.0,
+      "value_bits_le": "00006043",
+      "row_hex": "6c26000000000000a8a4000000000000e0000000022c00000000803f00000000"
+    }
+  },
+  {
+    "stack": 3,
+    "status_key": "0x230",
+    "time_cap_2083d68": {
+      "key": "0x7a49",
+      "hash_slot": 4816,
+      "row_index": 1605,
+      "integer": 627,
+      "scale": 1.0,
+      "value": 627.0,
+      "value_bits_le": "00c01c44",
+      "row_hex": "0bbe0000000000007c0502000000000073020000497a00000000803f00000000"
+    },
+    "time_set_2083cec": {
+      "key": "0xa70e",
+      "hash_slot": 3730,
+      "row_index": 1604,
+      "integer": 627,
+      "scale": 1.0,
+      "value": 627.0,
+      "value_bits_le": "00c01c44",
+      "row_hex": "f1bd0000000000005605020000000000730200000ea700000000803f00000000"
+    },
+    "time_extension_2083de4": {
+      "key": "0x61ed",
+      "hash_slot": 4865,
+      "row_index": 1606,
+      "integer": 209,
+      "scale": 1.0,
+      "value": 209.0,
+      "value_bits_le": "00005143",
+      "row_hex": "29be000000000000a805020000000000d1000000ed6100000000803f00000000"
+    },
+    "extra_time_extension_20840d8": {
+      "key": "0x22a9",
+      "hash_slot": 3328,
+      "row_index": 2593,
+      "integer": 209,
+      "scale": 1.0,
+      "value": 209.0,
+      "value_bits_le": "00005143",
+      "row_hex": "9126000000000000dba4000000000000d1000000a92200000000803f00000000"
+    }
+  },
+  {
+    "stack": 4,
+    "status_key": "0x19c",
+    "time_cap_2083d68": {
+      "key": "0xab3",
+      "hash_slot": 3605,
+      "row_index": 1608,
+      "integer": 580,
+      "scale": 1.0,
+      "value": 580.0,
+      "value_bits_le": "00001144",
+      "row_hex": "6dbe000000000000030602000000000044020000b30a00000000803f00000000"
+    },
+    "time_set_2083cec": {
+      "key": "0x8d59",
+      "hash_slot": 3633,
+      "row_index": 1607,
+      "integer": 580,
+      "scale": 1.0,
+      "value": 580.0,
+      "value_bits_le": "00001144",
+      "row_hex": "53be000000000000dd0502000000000044020000598d00000000803f00000000"
+    },
+    "time_extension_2083de4": {
+      "key": "0x677f",
+      "hash_slot": 335,
+      "row_index": 1609,
+      "integer": 193,
+      "scale": 1.0,
+      "value": 193.0,
+      "value_bits_le": "00004143",
+      "row_hex": "8bbe0000000000002f06020000000000c10000007f6700000000803f00000000"
+    },
+    "extra_time_extension_20840d8": {
+      "key": "0x20f1",
+      "hash_slot": 1872,
+      "row_index": 2594,
+      "integer": 193,
+      "scale": 1.0,
+      "value": 193.0,
+      "value_bits_le": "00004143",
+      "row_hex": "b6260000000000000ea5000000000000c1000000f12000000000803f00000000"
+    }
+  },
+  {
+    "stack": 5,
+    "status_key": "0x28f",
+    "time_cap_2083d68": {
+      "key": "0xc126",
+      "hash_slot": 407,
+      "row_index": 1611,
+      "integer": 533,
+      "scale": 1.0,
+      "value": 533.0,
+      "value_bits_le": "00400544",
+      "row_hex": "cfbe0000000000008a060200000000001502000026c100000000803f00000000"
+    },
+    "time_set_2083cec": {
+      "key": "0xc286",
+      "hash_slot": 480,
+      "row_index": 1610,
+      "integer": 533,
+      "scale": 1.0,
+      "value": 533.0,
+      "value_bits_le": "00400544",
+      "row_hex": "b5be00000000000064060200000000001502000086c200000000803f00000000"
+    },
+    "time_extension_2083de4": {
+      "key": "0xf11",
+      "hash_slot": 5758,
+      "row_index": 1612,
+      "integer": 178,
+      "scale": 1.0,
+      "value": 178.0,
+      "value_bits_le": "00003243",
+      "row_hex": "edbe000000000000b606020000000000b2000000110f00000000803f00000000"
+    },
+    "extra_time_extension_20840d8": {
+      "key": "0x51f3",
+      "hash_slot": 3138,
+      "row_index": 2595,
+      "integer": 178,
+      "scale": 1.0,
+      "value": 178.0,
+      "value_bits_le": "00003243",
+      "row_hex": "db2600000000000041a5000000000000b2000000f35100000000803f00000000"
+    }
+  },
+  {
+    "stack": 6,
+    "status_key": "0x1a4",
+    "time_cap_2083d68": {
+      "key": "0xbbcf",
+      "hash_slot": 2134,
+      "row_index": 1614,
+      "integer": 487,
+      "scale": 1.0,
+      "value": 487.0,
+      "value_bits_le": "0080f343",
+      "row_hex": "31bf0000000000001107020000000000e7010000cfbb00000000803f00000000"
+    },
+    "time_set_2083cec": {
+      "key": "0x605e",
+      "hash_slot": 4269,
+      "row_index": 1613,
+      "integer": 487,
+      "scale": 1.0,
+      "value": 487.0,
+      "value_bits_le": "0080f343",
+      "row_hex": "17bf000000000000eb06020000000000e70100005e6000000000803f00000000"
+    },
+    "time_extension_2083de4": {
+      "key": "0x7415",
+      "hash_slot": 1491,
+      "row_index": 1615,
+      "integer": 162,
+      "scale": 1.0,
+      "value": 162.0,
+      "value_bits_le": "00002243",
+      "row_hex": "4fbf0000000000003d07020000000000a2000000157400000000803f00000000"
+    },
+    "extra_time_extension_20840d8": {
+      "key": "0x2a75",
+      "hash_slot": 3047,
+      "row_index": 2596,
+      "integer": 162,
+      "scale": 1.0,
+      "value": 162.0,
+      "value_bits_le": "00002243",
+      "row_hex": "002700000000000074a5000000000000a2000000752a00000000803f00000000"
+    }
+  },
+  {
+    "stack": 7,
+    "status_key": "0x54",
+    "time_cap_2083d68": {
+      "key": "0x2584",
+      "hash_slot": 1790,
+      "row_index": 1617,
+      "integer": 440,
+      "scale": 1.0,
+      "value": 440.0,
+      "value_bits_le": "0000dc43",
+      "row_hex": "93bf0000000000009807020000000000b8010000842500000000803f00000000"
+    },
+    "time_set_2083cec": {
+      "key": "0x91d8",
+      "hash_slot": 4817,
+      "row_index": 1616,
+      "integer": 440,
+      "scale": 1.0,
+      "value": 440.0,
+      "value_bits_le": "0000dc43",
+      "row_hex": "79bf0000000000007207020000000000b8010000d89100000000803f00000000"
+    },
+    "time_extension_2083de4": {
+      "key": "0x6347",
+      "hash_slot": 2783,
+      "row_index": 1618,
+      "integer": 147,
+      "scale": 1.0,
+      "value": 147.0,
+      "value_bits_le": "00001343",
+      "row_hex": "b1bf000000000000c40702000000000093000000476300000000803f00000000"
+    },
+    "extra_time_extension_20840d8": {
+      "key": "0x2474",
+      "hash_slot": 159,
+      "row_index": 2597,
+      "integer": 147,
+      "scale": 1.0,
+      "value": 147.0,
+      "value_bits_le": "00001343",
+      "row_hex": "2527000000000000a7a500000000000093000000742400000000803f00000000"
+    }
+  },
+  {
+    "stack": 8,
+    "status_key": "0x18b",
+    "time_cap_2083d68": {
+      "key": "0x6ddb",
+      "hash_slot": 349,
+      "row_index": 1620,
+      "integer": 393,
+      "scale": 1.0,
+      "value": 393.0,
+      "value_bits_le": "0080c443",
+      "row_hex": "f5bf0000000000001f0802000000000089010000db6d00000000803f00000000"
+    },
+    "time_set_2083cec": {
+      "key": "0xdc2c",
+      "hash_slot": 2733,
+      "row_index": 1619,
+      "integer": 393,
+      "scale": 1.0,
+      "value": 393.0,
+      "value_bits_le": "0080c443",
+      "row_hex": "dbbf000000000000f907020000000000890100002cdc00000000803f00000000"
+    },
+    "time_extension_2083de4": {
+      "key": "0xe1e0",
+      "hash_slot": 1089,
+      "row_index": 1621,
+      "integer": 131,
+      "scale": 1.0,
+      "value": 131.0,
+      "value_bits_le": "00000343",
+      "row_hex": "13c00000000000004b0802000000000083000000e0e100000000803f00000000"
+    },
+    "extra_time_extension_20840d8": {
+      "key": "0xbff0",
+      "hash_slot": 4313,
+      "row_index": 2598,
+      "integer": 131,
+      "scale": 1.0,
+      "value": 131.0,
+      "value_bits_le": "00000343",
+      "row_hex": "4a27000000000000daa500000000000083000000f0bf00000000803f00000000"
+    }
+  },
+  {
+    "stack": 9,
+    "status_key": "0x231",
+    "time_cap_2083d68": {
+      "key": "0x443d",
+      "hash_slot": 2346,
+      "row_index": 1623,
+      "integer": 347,
+      "scale": 1.0,
+      "value": 347.0,
+      "value_bits_le": "0080ad43",
+      "row_hex": "57c0000000000000a6080200000000005b0100003d4400000000803f00000000"
+    },
+    "time_set_2083cec": {
+      "key": "0x1685",
+      "hash_slot": 4201,
+      "row_index": 1622,
+      "integer": 347,
+      "scale": 1.0,
+      "value": 347.0,
+      "value_bits_le": "0080ad43",
+      "row_hex": "3dc000000000000080080200000000005b010000851600000000803f00000000"
+    },
+    "time_extension_2083de4": {
+      "key": "0xd36b",
+      "hash_slot": 393,
+      "row_index": 1624,
+      "integer": 116,
+      "scale": 1.0,
+      "value": 116.0,
+      "value_bits_le": "0000e842",
+      "row_hex": "75c0000000000000d208020000000000740000006bd300000000803f00000000"
+    },
+    "extra_time_extension_20840d8": {
+      "key": "0xfe44",
+      "hash_slot": 867,
+      "row_index": 2599,
+      "integer": 116,
+      "scale": 1.0,
+      "value": 116.0,
+      "value_bits_le": "0000e842",
+      "row_hex": "6f270000000000000da60000000000007400000044fe00000000803f00000000"
+    }
+  },
+  {
+    "stack": 10,
+    "status_key": "0x64",
+    "time_cap_2083d68": {
+      "key": "0x2efc",
+      "hash_slot": 5001,
+      "row_index": 1626,
+      "integer": 300,
+      "scale": 1.0,
+      "value": 300.0,
+      "value_bits_le": "00009643",
+      "row_hex": "bac00000000000002e090200000000002c010000fc2e00000000803f00000000"
+    },
+    "time_set_2083cec": {
+      "key": "0x88ce",
+      "hash_slot": 2128,
+      "row_index": 1625,
+      "integer": 300,
+      "scale": 1.0,
+      "value": 300.0,
+      "value_bits_le": "00009643",
+      "row_hex": "9fc000000000000007090200000000002c010000ce8800000000803f00000000"
+    },
+    "time_extension_2083de4": {
+      "key": "0xb36d",
+      "hash_slot": 3136,
+      "row_index": 1627,
+      "integer": 100,
+      "scale": 1.0,
+      "value": 100.0,
+      "value_bits_le": "0000c842",
+      "row_hex": "d9c00000000000005b09020000000000640000006db300000000803f00000000"
+    },
+    "extra_time_extension_20840d8": {
+      "key": "0x2d13",
+      "hash_slot": 1510,
+      "row_index": 2600,
+      "integer": 100,
+      "scale": 1.0,
+      "value": 100.0,
+      "value_bits_le": "0000c842",
+      "row_hex": "942700000000000040a600000000000064000000132d00000000803f00000000"
+    }
+  }
+]

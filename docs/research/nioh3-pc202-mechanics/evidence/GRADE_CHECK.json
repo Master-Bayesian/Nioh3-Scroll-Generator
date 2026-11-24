@@ -1,0 +1,196 @@
+{
+  "carrier_sha256": "cda860c622303af8ed20d903830ad9a2beb935cb98233c995b4a4d2fd297046f",
+  "ui_evidence": "Original conversion replay and PC202 .rdata pointers. Inventory samples have raw values only.",
+  "grades": [
+    {
+      "effective_value": 0,
+      "curve_column": 0,
+      "ui_table_index": 17,
+      "pointer_rva": "0x3bdd368",
+      "string_rva": "0x3bf9328",
+      "ui_letter": "D-"
+    },
+    {
+      "effective_value": 1,
+      "curve_column": 1,
+      "ui_table_index": 16,
+      "pointer_rva": "0x3bdd360",
+      "string_rva": "0x3bf9348",
+      "ui_letter": "D"
+    },
+    {
+      "effective_value": 2,
+      "curve_column": 2,
+      "ui_table_index": 15,
+      "pointer_rva": "0x3bdd358",
+      "string_rva": "0x3bf9340",
+      "ui_letter": "D+"
+    },
+    {
+      "effective_value": 3,
+      "curve_column": 3,
+      "ui_table_index": 14,
+      "pointer_rva": "0x3bdd350",
+      "string_rva": "0x3bf9338",
+      "ui_letter": "C-"
+    },
+    {
+      "effective_value": 4,
+      "curve_column": 4,
+      "ui_table_index": 13,
+      "pointer_rva": "0x3bdd348",
+      "string_rva": "0x3bf9354",
+      "ui_letter": "C"
+    },
+    {
+      "effective_value": 5,
+      "curve_column": 5,
+      "ui_table_index": 12,
+      "pointer_rva": "0x3bdd340",
+      "string_rva": "0x3bf9330",
+      "ui_letter": "C+"
+    },
+    {
+      "effective_value": 6,
+      "curve_column": 6,
+      "ui_table_index": 11,
+      "pointer_rva": "0x3bdd338",
+      "string_rva": "0x3bf92f8",
+      "ui_letter": "B-"
+    },
+    {
+      "effective_value": 7,
+      "curve_column": 7,
+      "ui_table_index": 10,
+      "pointer_rva": "0x3bdd330",
+      "string_rva": "0x3bf9350",
+      "ui_letter": "B"
+    },
+    {
+      "effective_value": 8,
+      "curve_column": 8,
+      "ui_table_index": 9,
+      "pointer_rva": "0x3bdd328",
+      "string_rva": "0x3bf92f0",
+      "ui_letter": "B+"
+    },
+    {
+      "effective_value": 9,
+      "curve_column": 9,
+      "ui_table_index": 8,
+      "pointer_rva": "0x3bdd320",
+      "string_rva": "0x3bf92e8",
+      "ui_letter": "A-"
+    },
+    {
+      "effective_value": 10,
+      "curve_column": 10,
+      "ui_table_index": 7,
+      "pointer_rva": "0x3bdd318",
+      "string_rva": "0x3bf934c",
+      "ui_letter": "A"
+    },
+    {
+      "effective_value": 11,
+      "curve_column": 11,
+      "ui_table_index": 6,
+      "pointer_rva": "0x3bdd310",
+      "string_rva": "0x3bf92e0",
+      "ui_letter": "A+"
+    },
+    {
+      "effective_value": 12,
+      "curve_column": 12,
+      "ui_table_index": 5,
+      "pointer_rva": "0x3bdd308",
+      "string_rva": "0x3bf9320",
+      "ui_letter": "AA-"
+    },
+    {
+      "effective_value": 13,
+      "curve_column": 13,
+      "ui_table_index": 4,
+      "pointer_rva": "0x3bdd300",
+      "string_rva": "0x3bf9364",
+      "ui_letter": "AA"
+    },
+    {
+      "effective_value": 14,
+      "curve_column": 14,
+      "ui_table_index": 3,
+      "pointer_rva": "0x3bdd2f8",
+      "string_rva": "0x3bf9318",
+      "ui_letter": "AA+"
+    },
+    {
+      "effective_value": 15,
+      "curve_column": 15,
+      "ui_table_index": 2,
+      "pointer_rva": "0x3bdd2f0",
+      "string_rva": "0x3bf9308",
+      "ui_letter": "AAA-"
+    },
+    {
+      "effective_value": 16,
+      "curve_column": 16,
+      "ui_table_index": 1,
+      "pointer_rva": "0x3bdd2e8",
+      "string_rva": "0x3bf9300",
+      "ui_letter": "AAA"
+    },
+    {
+      "effective_value": 17,
+      "curve_column": 17,
+      "ui_table_index": 0,
+      "pointer_rva": "0x3bdd2e0",
+      "string_rva": "0x3bf9358",
+      "ui_letter": "AAA+"
+    }
+  ],
+  "owned_inventory": [
+    {
+      "page": "r16-real-gear-live-20261020/inventory-02/page-00.json",
+      "page_sha256": "114f92f839cd408995b469eb6b82cec1df323210f69c939279126204ea414b87",
+      "inventory_slot": 33,
+      "item": "0xbf96",
+      "effect_slot": 0,
+      "effect_id": "0x582f",
+      "raw_value": 2,
+      "name": "伤害反映（装备重量）",
+      "letter_if_no_runtime_adjustment": "D+"
+    },
+    {
+      "page": "r16-real-gear-live-20261020/inventory-02/page-02.json",
+      "page_sha256": "b5bdc5f64cc88a47a748eaf881be1da3e4f9c1668f82413943dd18a801155a72",
+      "inventory_slot": 179,
+      "item": "0x652d",
+      "effect_slot": 0,
+      "effect_id": "0x2e93",
+      "raw_value": 3,
+      "name": "伤害反映（爱用度）",
+      "letter_if_no_runtime_adjustment": "C-"
+    },
+    {
+      "page": "r16-real-gear-live-20261020/inventory-02/page-09.json",
+      "page_sha256": "ed3a4b6b90bd3d44c9c07ac02563883e7204d421d1468b5ffb03d3f40e9019c6",
+      "inventory_slot": 600,
+      "item": "0x67a2",
+      "effect_slot": 0,
+      "effect_id": "0x2e93",
+      "raw_value": 3,
+      "name": "伤害反映（爱用度）",
+      "letter_if_no_runtime_adjustment": "C-"
+    },
+    {
+      "page": "r16-real-gear-live-20261020/inventory-02/page-21.json",
+      "page_sha256": "d9779a3d390df7d46dde01150bb3f83f2c0915b4ef8a9a5e45338831bd78cd13",
+      "inventory_slot": 1347,
+      "item": "0xcbcc",
+      "effect_slot": 0,
+      "effect_id": "0x707e",
+      "raw_value": 4,
+      "name": "伤害反映（阴阳术术力）",
+      "letter_if_no_runtime_adjustment": "C"
+    }
+  ]
+}
